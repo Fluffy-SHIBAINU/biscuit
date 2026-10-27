@@ -4,7 +4,8 @@ import type { MiddlewareHandler } from "hono";
 import type { AuthVars } from "../auth.js";
 import { getDb } from "../db.js";
 import type { Events } from "../events.js";
-import { EVENT_KINDS, event, letter, type EventKind } from "../schema.js";
+import { EVENT_KINDS, event, household, letter, type EventKind } from "../schema.js";
+import { isNull } from "drizzle-orm";
 import { startUrl } from "../waive.js";
 import { HELP_PAYLOAD, MAIL_PAYLOAD, sendPush, type PushPayload, type Sender } from "../push.js";
 
@@ -55,12 +56,19 @@ export function docketRoutes(deps: { auth: MiddlewareHandler<AuthVars>; events: 
       const data = b?.data && typeof b.data === "object" ? b.data : {};
       const id = await deps.events.record(c.var.household.id, c.var.device.id, kind, data);
       const h = c.var.household;
+      if (kind === "consent") await getDb().update(household).set({ consentedAt: new Date() }).where(and(eq(household.id, h.id), isNull(household.consentedAt)));
       const tell = (kinds: ("rosa" | "ana")[], payload: PushPayload) => sendPush(getDb(), h.id, kinds, payload, { send: deps.send }).catch(() => ({ sent: 0 }));
       if (kind === "mail_seen") await tell(["rosa"], MAIL_PAYLOAD(h.called, id));
       if (kind === "help") await tell(["ana"], HELP_PAYLOAD(h.called, id, false));
       if (kind === "help_cancel") await tell(["ana"], { title: "Biscuit · Help", body: `${h.called} cancelled the call.`, url: "/ana", eventId: id, kind });
       if (kind === "help_ok") await tell(["ana"], { title: "Biscuit · Help", body: `${h.called} says she's OK.`, url: "/ana", eventId: id, kind });
       return c.json({ id });
+    })
+    .patch("/household", deps.auth, async (c) => {
+      const b = await c.req.json().catch(() => ({}));
+      if (typeof b?.shareLetters !== "boolean") return c.json({ error: "nothing_to_change" }, 400);
+      await getDb().update(household).set({ shareLetters: b.shareLetters }).where(eq(household.id, c.var.household.id));
+      return c.json({ ok: true });
     })
     .get("/docket", deps.auth, async (c) => {
       const db = getDb();

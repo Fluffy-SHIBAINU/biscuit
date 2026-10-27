@@ -85,3 +85,4 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .center { text-align: center; }
 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 10px; }
 .dot.ok { background: #34D399; }
+.toggle { gap: 12px; } .toggle input { width: 28px; height: 28px; }
