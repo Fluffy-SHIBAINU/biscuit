@@ -66,3 +66,11 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .said { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
 .quote.small { font-size: 14px; line-height: 1.5; }
 .lead.signal { color: var(--signal); }
+.frame { position: relative; }
+.frame.tappable { cursor: crosshair; }
+.region { position: absolute; border: 3px solid var(--night-signal); border-radius: 8px; box-shadow: 0 0 0 2px rgba(34,211,238,.25); background: rgba(34,211,238,.18); pointer-events: none; }
+.tapmark { position: absolute; width: 40px; height: 40px; margin: -20px 0 0 -20px; border: 3px solid var(--night-signal); border-radius: 50%; box-shadow: 0 0 14px rgba(34,211,238,.6); pointer-events: none; }
+.scanline { position: absolute; left: 0; right: 0; top: 40%; height: 2px; background: var(--night-signal); box-shadow: 0 0 12px 2px rgba(34,211,238,.6); animation: scan 1.6s ease-in-out infinite alternate; }
+@keyframes scan { from { top: 10%; } to { top: 85%; } }
+.screen.night { background: var(--night); color: var(--night-ink); }
+.btn.secondary.night { background: var(--night-card); color: var(--night-ink); border-color: #2E3C52; }

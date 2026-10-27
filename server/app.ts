@@ -9,6 +9,7 @@ import { sheetRoutes, type SheetFn } from "./routes/sheet.js";
 import { docketRoutes } from "./routes/docket.js";
 import { anaRoutes } from "./routes/ana.js";
 import { pushRoutes } from "./routes/push.js";
+import { camRoutes } from "./routes/cam.js";
 import { anaAuth } from "./auth.js";
 import type { Chooser } from "./questions.js";
 
@@ -27,6 +28,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   app.route("/api/biscuit", docketRoutes({ auth, events }));
   app.route("/api/biscuit", anaRoutes({ env: opts.anaEnv }));
   app.route("/api/biscuit", pushRoutes({ auth, anaAuth: anaAuth({ env: opts.anaEnv }), events }));
+  app.route("/api/biscuit", camRoutes({ auth, sam: opts.sam }));
   app.route("/api/biscuit", questionRoutes({ auth, chooser: opts.chooser }));
   app.route("/api/biscuit", sheetRoutes({ auth, sheet: opts.sheet }));
   return app;

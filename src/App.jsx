@@ -10,6 +10,8 @@ import Question from "./rosa/Question.jsx";
 import Offer from "./rosa/Offer.jsx";
 import Docket from "./rosa/Docket.jsx";
 import Mail from "./rosa/Mail.jsx";
+import CamSetup from "./cam/Setup.jsx";
+import CamRest from "./cam/Rest.jsx";
 import { listenToWorker } from "./lib/push.js";
 import Family from "./ana/Family.jsx";
 import WhoFor from "./ana/WhoFor.jsx";
@@ -31,11 +33,13 @@ export default function App() {
   const path = usePath();
   if (!workerListening) { workerListening = true; listenToWorker(); }
   const s = useStore();
-  if (path === "/cam" || path.startsWith("/cam/")) return <Placeholder surface="Mailbox phone" />;
   if (path === "/ana/new") return <WhoFor />;
   if (path === "/ana/link") return <LinkCode />;
   if (path === "/ana" || path.startsWith("/ana/")) return <Family />;
   if (path === "/link" || !s.deviceToken) return <EnterCode />;
+  if (path === "/cam" || path === "/cam/setup") return s.cam?.region && path === "/cam" ? <Placeholder surface="Watching (next step)" /> : <CamSetup />;
+  if (path === "/cam/rest") return <CamRest />;
+  if (path.startsWith("/cam/")) return <Placeholder surface={path.slice(5)} />;
   if (path === "/talk") return <Talk />;
   if (path === "/letter") return <Letter />;
   if (path === "/reading") return <Reading />;
