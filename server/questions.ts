@@ -13,3 +13,27 @@ export const QUESTIONS: Record<"Q1" | "Q2" | "Q3" | "Q4" | "Q5" | "Q6", Question
 };
 
 export type QuestionId = keyof typeof QUESTIONS;
+
+export type Chooser = (kind: LetterKind, known: string[]) => Promise<string[]>;
+
+/** The ids a letter of this kind may still be asked, in catalogue order. */
+export function allowedQuestions(kind: LetterKind, hasSheet: boolean, known: string[]): QuestionId[] {
+  return (Object.keys(QUESTIONS) as QuestionId[]).filter((id) => {
+    const q = QUESTIONS[id];
+    return q.kinds.includes(kind) && (!q.needsSheet || hasSheet) && !known.includes(id);
+  });
+}
+
+/** At most two ids from the allowed set; the chooser proposes, the set decides, the first two allowed are the fallback. */
+export async function pickQuestions(kind: LetterKind, hasSheet: boolean, known: string[], chooser: Chooser): Promise<QuestionId[]> {
+  const allowed = allowedQuestions(kind, hasSheet, known);
+  if (allowed.length === 0) return [];
+  let proposed: string[] = [];
+  try {
+    proposed = await chooser(kind, known);
+  } catch {
+    proposed = [];
+  }
+  const picked = proposed.filter((id, i) => allowed.includes(id as QuestionId) && proposed.indexOf(id) === i).slice(0, 2) as QuestionId[];
+  return picked.length ? picked : allowed.slice(0, 2);
+}

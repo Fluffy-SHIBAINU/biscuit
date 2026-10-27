@@ -40,3 +40,6 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .fact strong { font-size: 18px; }
 .fact .quote { font-size: 15px; line-height: 1.5; }
 .fact.unverified strong { color: var(--muted); text-decoration: line-through; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.grid3 .btn { height: 76px; }
+.lead.muted { color: var(--muted); }

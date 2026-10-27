@@ -6,6 +6,7 @@ import Talk from "./rosa/Talk.jsx";
 import EnterCode from "./rosa/EnterCode.jsx";
 import Letter from "./rosa/Letter.jsx";
 import Reading from "./rosa/Reading.jsx";
+import Question from "./rosa/Question.jsx";
 
 function Placeholder({ surface }) {
   return (
@@ -26,6 +27,7 @@ export default function App() {
   if (path === "/talk") return <Talk />;
   if (path === "/letter") return <Letter />;
   if (path === "/reading") return <Reading />;
+  if (path === "/question") return <Question />;
   if (path === "/") return <Home />;
   return <Placeholder surface={path.slice(1)} />;
 }
