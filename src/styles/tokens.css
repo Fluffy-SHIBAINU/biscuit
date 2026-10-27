@@ -1,0 +1,9 @@
+:root {
+  --paper: #F2F4F6; --sheet: #FFFFFF; --ink: #0B1220; --ink-2: #364152; --muted: #5A6577;
+  --rule: #D6DCE4; --rule-strong: #B6C0CD; --signal: #0E7490; --brand: #06B6D4; --mark: rgba(6, 182, 212, .22);
+  --btn: #0B1220; --btn-ink: #F4F7FA; --ok: #047857; --bad: #B42318; --warn: #B45309;
+  --night: #080D18; --night-card: #0D1421; --night-border: #1E2838; --night-ink: #E7EDF6; --night-muted: #97A3B6; --night-signal: #22D3EE;
+  --display: "Libre Caslon Display", Georgia, serif; --quote: "Libre Caslon Text", Georgia, serif;
+  --ui: Geist, "Helvetica Neue", Arial, sans-serif; --mono: "Geist Mono", ui-monospace, Menlo, monospace;
+  --r-sheet: 6px; --r-btn: 8px; --r-night: 12px;
+}
