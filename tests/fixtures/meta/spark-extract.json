@@ -1,0 +1,29 @@
+{
+ "id": "chatcmpl-01a17bb4-68c1-7369-87ea-91a35dfb2794",
+ "choices": [
+  {
+   "finish_reason": "stop",
+   "index": 0,
+   "message": {
+    "content": "{\"account_last4\": {\"quote\": \"4471-55820\", \"value\": \"5820\"}, \"amount_due\": {\"quote\": \"$1,850.00\", \"value\": \"$1,850.00\"}, \"due_date\": {\"quote\": \"11/02/2026\", \"value\": \"11/02/2026\"}, \"financial_assistance\": {\"quote\": \"Financial assistance may be available: if you have trouble paying this bill, call 617-555-0100 or visit the Patient Financial Services office to apply.\", \"value\": true}, \"hospital_name\": {\"quote\": \"Massachusetts General Hospital\", \"value\": \"Massachusetts General Hospital\"}, \"kind\": \"bill\", \"phone_numbers\": [{\"quote\": \"617-555-0100\", \"value\": \"617-555-0100\"}], \"sender\": {\"quote\": \"Patient Financial Services\", \"value\": \"Patient Financial Services\"}, \"statement_date\": {\"quote\": \"10/03/2026\", \"value\": \"10/03/2026\"}}",
+    "refusal": null,
+    "role": "assistant"
+   },
+   "logprobs": null
+  }
+ ],
+ "created": 1793076783,
+ "model": "muse-spark-1.3",
+ "object": "chat.completion",
+ "usage": {
+  "completion_tokens": 2794,
+  "prompt_tokens": 726,
+  "total_tokens": 3520,
+  "completion_tokens_details": {
+   "reasoning_tokens": 2567
+  },
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  }
+ }
+}

@@ -1,0 +1,29 @@
+{
+ "id": "chatcmpl-01a17bb4-454b-7771-a26f-b5f7ea444c26",
+ "choices": [
+  {
+   "finish_reason": "stop",
+   "index": 0,
+   "message": {
+    "content": "Massachusetts General Hospital\nPatient Financial Services\n55 Fruit Street, Boston, MA 02114\nQuestions: 617-555-0100, Monday to Friday, 8 AM to 5 PM\nStatement Date: 10/03/2026\nAccount Number: 4471-55820\nGuarantor: Rosa Alvarez\n14 Linden Street, Apt 2A\nSomerville, MA 02143\nPrevious balance $0.00\nNew charges $6,420.00\nInsurance payments and adjustments -$4,570.00\nAmount Due: $1,850.00 Due Date: 11/02/2026\nDATE OF SERVICE DESCRIPTION CHARGES INSURANCE YOUR SHARE\n09/14/2026 Emergency department visit, level 4 $2,980.00 -$2,110.00 $870.00\n09/14/2026 CT scan, abdomen and pelvis $2,640.00 -$1,980.00 $660.00\n09/14/2026 Laboratory panel $800.00 -$480.00 $320.00\nThis is your first statement for this visit. Payment is due within 30 days of the statement date. Financial assistance may be available: if you have trouble paying this bill, call 617-555-0100 or visit the Patient Financial Services office to apply. No collection action will be taken while an application is\nunder review.\nSample statement for a product demonstration. Not a real bill. The patient, account, charges and phone number are fictional.",
+    "refusal": null,
+    "role": "assistant"
+   },
+   "logprobs": null
+  }
+ ],
+ "created": 1793076774,
+ "model": "muse-spark-1.3",
+ "object": "chat.completion",
+ "usage": {
+  "completion_tokens": 2718,
+  "prompt_tokens": 3944,
+  "total_tokens": 6662,
+  "completion_tokens_details": {
+   "reasoning_tokens": 2392
+  },
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  }
+ }
+}
