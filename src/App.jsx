@@ -1,5 +1,9 @@
 import React from "react";
 import { usePath } from "./lib/navigate.js";
+import { useStore } from "./lib/store.js";
+import Home from "./rosa/Home.jsx";
+import Talk from "./rosa/Talk.jsx";
+import EnterCode from "./rosa/EnterCode.jsx";
 
 function Placeholder({ surface }) {
   return (
@@ -13,7 +17,11 @@ function Placeholder({ surface }) {
 
 export default function App() {
   const path = usePath();
+  const s = useStore();
   if (path === "/cam" || path.startsWith("/cam/")) return <Placeholder surface="Mailbox phone" />;
   if (path === "/ana" || path.startsWith("/ana/")) return <Placeholder surface="Ana's page" />;
-  return <Placeholder surface="Rosa's phone" />;
+  if (path === "/link" || !s.deviceToken) return <EnterCode />;
+  if (path === "/talk") return <Talk />;
+  if (path === "/") return <Home />;
+  return <Placeholder surface={path.slice(1)} />;
 }

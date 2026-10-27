@@ -12,3 +12,19 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .quote { font-family: var(--quote); }
 .mark { background: var(--mark); padding: 1px 2px; }
 .spacer { flex: 1 1 auto; }
+.row { display: flex; align-items: center; gap: 16px; }
+.row.between { justify-content: space-between; }
+.label.plain { letter-spacing: 0; text-transform: none; }
+.lead { margin: 0; font-size: 21px; line-height: 1.4; }
+.lead.small { font-size: 18px; }
+.lead.bad { color: var(--bad); }
+.link { font-size: 16px; color: var(--signal); text-decoration: none; }
+.foot { margin: 0; font-size: 14px; line-height: 1.45; color: var(--muted); }
+.foot strong { color: var(--ink); }
+.hint { font: 400 13px/1 var(--mono); color: var(--muted); margin-left: 6px; }
+.btn:disabled { opacity: .45; cursor: default; }
+.code { height: 84px; border: 2px solid var(--rule-strong); border-radius: var(--r-btn); background: var(--sheet); font: 500 40px/1 var(--mono); letter-spacing: .3em; text-align: center; width: 100%; color: var(--ink); }
+.bars { display: flex; gap: 6px; align-items: flex-end; height: 32px; }
+.bars span { width: 6px; height: 8px; background: var(--rule-strong); border-radius: 3px; transition: height .15s; }
+.bars span.on { background: var(--signal); height: 28px; }
+.bars span.on:nth-child(2) { height: 20px; } .bars span.on:nth-child(4) { height: 16px; }
