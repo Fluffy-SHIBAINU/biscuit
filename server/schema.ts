@@ -87,3 +87,9 @@ export const rate = pgTable("biscuit_rate", {
   windowStart: ts("window_start").notNull(),
   count: integer("count").notNull().default(0),
 });
+
+/** Deletions are counted by day and nothing else survives a delete. */
+export const deleteCount = pgTable("biscuit_delete_count", {
+  day: date("day").primaryKey(),
+  count: integer("count").notNull().default(0),
+});

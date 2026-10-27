@@ -21,6 +21,7 @@ import VoiceCheck from "./rosa/VoiceCheck.jsx";
 import Consent from "./rosa/Consent.jsx";
 import Siri from "./rosa/Siri.jsx";
 import Done from "./rosa/Done.jsx";
+import Settings from "./rosa/Settings.jsx";
 import { listenToWorker } from "./lib/push.js";
 import Family from "./ana/Family.jsx";
 import WhoFor from "./ana/WhoFor.jsx";
@@ -62,6 +63,7 @@ export default function App() {
   if (path === "/setup/help") return <SetupHelp onDone={() => navigate("/setup/siri")} />;
   if (path === "/setup/siri") return <Siri />;
   if (path === "/setup/done") return <Done />;
+  if (path === "/settings") return <Settings />;
   if (path === "/offer") return <Offer />;
   if (path === "/docket") return <Docket />;
   if (path === "/") return <Home />;

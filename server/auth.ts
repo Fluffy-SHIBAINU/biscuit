@@ -26,12 +26,13 @@ export function bearer(header: string | undefined): string | null {
 }
 
 /** Device routes: a Bearer device token, or 401 {"error":"unlinked"}. */
-export function deviceAuth(o: { lookup?: Lookup } = {}): MiddlewareHandler<AuthVars> {
+export function deviceAuth(o: { lookup?: Lookup; limiter?: (key: string) => Promise<boolean> } = {}): MiddlewareHandler<AuthVars> {
   const lookup = o.lookup ?? lookupDevice;
   return async (c, next) => {
     const token = bearer(c.req.header("authorization"));
     const found = token ? await lookup(hashToken(token)) : null;
     if (!found) return c.json({ error: "unlinked" }, 401);
+    if (o.limiter && !(await o.limiter(`device:${found.device.id}`))) return c.json({ error: "rate" }, 429);
     c.set("device", found.device);
     c.set("household", found.household);
     await next();

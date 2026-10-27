@@ -66,7 +66,7 @@ export default function Home() {
           <p className="lead small">{waiting.waitingLine || `${waiting.sender}'s answer.`}</p>
         </section>
       )}
-      <p className="foot">Biscuit is a computer helper from Kindred. Say <strong>stop</strong> and he stops.</p>
+      <p className="foot">Biscuit is a computer helper from Kindred. Say <strong>stop</strong> and he stops. <a href="/settings" className="link" onClick={(e) => { e.preventDefault(); navigate("/settings"); }}>Settings</a></p>
     </main>
   );
 }

@@ -12,16 +12,20 @@ import { pushRoutes } from "./routes/push.js";
 import { camRoutes } from "./routes/cam.js";
 import { helpRoutes } from "./routes/help.js";
 import type { Sender } from "./push.js";
+import { dbLimiter, type Limiter } from "./limits.js";
+import { getDb } from "./db.js";
+import { householdRoutes } from "./routes/household.js";
 import { anaAuth } from "./auth.js";
 import type { Chooser } from "./questions.js";
 
 export const VERSION = "0.1.0";
 
-export type AppOptions = { lookup?: Lookup; asr?: AsrFn; spark?: SparkDeps; sam?: SamDeps; events?: Events; chooser?: Chooser; sheet?: SheetFn; anaEnv?: Record<string, string | undefined>; pushSend?: Sender };
+export type AppOptions = { lookup?: Lookup; asr?: AsrFn; spark?: SparkDeps; sam?: SamDeps; events?: Events; chooser?: Chooser; sheet?: SheetFn; anaEnv?: Record<string, string | undefined>; pushSend?: Sender; limiter?: Limiter | null };
 
 export function createApp(opts: AppOptions = {}): Hono {
   const app = new Hono();
-  const auth = deviceAuth({ lookup: opts.lookup });
+  const limiter = opts.limiter === null ? undefined : opts.limiter ?? (opts.lookup ? undefined : dbLimiter(getDb));
+  const auth = deviceAuth({ lookup: opts.lookup, limiter });
   const events = opts.events ?? dbEvents;
   app.get("/api/biscuit/health", (c) => c.json({ ok: true, version: VERSION }));
   app.route("/api/biscuit", linkRoutes);
@@ -31,6 +35,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   app.route("/api/biscuit", anaRoutes({ env: opts.anaEnv }));
   app.route("/api/biscuit", pushRoutes({ auth, anaAuth: anaAuth({ env: opts.anaEnv }), events }));
   app.route("/api/biscuit", camRoutes({ auth, sam: opts.sam, events }));
+  app.route("/api/biscuit", householdRoutes({ auth, anaAuth: anaAuth({ env: opts.anaEnv }) }));
   app.route("/api/biscuit", helpRoutes({ auth, anaAuth: anaAuth({ env: opts.anaEnv }), events, send: opts.pushSend }));
   app.route("/api/biscuit", questionRoutes({ auth, chooser: opts.chooser }));
   app.route("/api/biscuit", sheetRoutes({ auth, sheet: opts.sheet }));
