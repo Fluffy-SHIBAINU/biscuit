@@ -7,11 +7,12 @@ import { rosaRoutes, type AsrFn } from "./routes/rosa.js";
 import { questionRoutes } from "./routes/question.js";
 import { sheetRoutes, type SheetFn } from "./routes/sheet.js";
 import { docketRoutes } from "./routes/docket.js";
+import { anaRoutes } from "./routes/ana.js";
 import type { Chooser } from "./questions.js";
 
 export const VERSION = "0.1.0";
 
-export type AppOptions = { lookup?: Lookup; asr?: AsrFn; spark?: SparkDeps; sam?: SamDeps; events?: Events; chooser?: Chooser; sheet?: SheetFn };
+export type AppOptions = { lookup?: Lookup; asr?: AsrFn; spark?: SparkDeps; sam?: SamDeps; events?: Events; chooser?: Chooser; sheet?: SheetFn; anaEnv?: Record<string, string | undefined> };
 
 export function createApp(opts: AppOptions = {}): Hono {
   const app = new Hono();
@@ -22,6 +23,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   app.route("/api/biscuit", rosaRoutes({ auth, asr: opts.asr }));
   app.route("/api/biscuit", letterRoutes({ auth, spark: opts.spark, sam: opts.sam, events, sheet: opts.sheet }));
   app.route("/api/biscuit", docketRoutes({ auth, events }));
+  app.route("/api/biscuit", anaRoutes({ env: opts.anaEnv }));
   app.route("/api/biscuit", questionRoutes({ auth, chooser: opts.chooser }));
   app.route("/api/biscuit", sheetRoutes({ auth, sheet: opts.sheet }));
   return app;

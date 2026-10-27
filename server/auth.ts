@@ -37,3 +37,23 @@ export function deviceAuth(o: { lookup?: Lookup } = {}): MiddlewareHandler<AuthV
     await next();
   };
 }
+
+import { requireKindredUser } from "./kindred/hono.js";
+import type { KindredUser } from "./kindred/kindred-auth.js";
+
+export type AnaVars = { Variables: { kindredUser: KindredUser; household: HouseholdRow } };
+
+/** Ana's routes: a Kindred session (or the local bypass), then her household; 404 when she has none, except where `allowNone`. */
+export function anaAuth(o: { env?: Record<string, string | undefined>; allowNone?: boolean } = {}): MiddlewareHandler<AnaVars> {
+  const wall = requireKindredUser({ env: o.env ?? process.env });
+  return async (c, next) => {
+    let passed = false;
+    const res = await wall(c as any, async () => { passed = true; });
+    if (!passed) return res as Response;
+    const email = c.var.kindredUser.email.toLowerCase();
+    const [home] = await getDb().select().from(household).where(eq(household.ownerEmail, email)).limit(1);
+    if (!home && !o.allowNone) return c.json({ error: "no_household" }, 404);
+    if (home) c.set("household", home);
+    await next();
+  };
+}

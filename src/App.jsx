@@ -9,6 +9,9 @@ import Reading from "./rosa/Reading.jsx";
 import Question from "./rosa/Question.jsx";
 import Offer from "./rosa/Offer.jsx";
 import Docket from "./rosa/Docket.jsx";
+import Family from "./ana/Family.jsx";
+import WhoFor from "./ana/WhoFor.jsx";
+import LinkCode from "./ana/LinkCode.jsx";
 
 function Placeholder({ surface }) {
   return (
@@ -24,7 +27,9 @@ export default function App() {
   const path = usePath();
   const s = useStore();
   if (path === "/cam" || path.startsWith("/cam/")) return <Placeholder surface="Mailbox phone" />;
-  if (path === "/ana" || path.startsWith("/ana/")) return <Placeholder surface="Ana's page" />;
+  if (path === "/ana/new") return <WhoFor />;
+  if (path === "/ana/link") return <LinkCode />;
+  if (path === "/ana" || path.startsWith("/ana/")) return <Family />;
   if (path === "/link" || !s.deviceToken) return <EnterCode />;
   if (path === "/talk") return <Talk />;
   if (path === "/letter") return <Letter />;
