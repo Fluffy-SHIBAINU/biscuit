@@ -83,6 +83,7 @@ export default function Family() {
             <div className="row"><span className={`pill ${help.acked ? "ok" : "warn"}`}>{help.acked ? "Tested" : "Untested"}</span><span className="lead small">{h.called}'s phone calls 911 · this page is told at once{help.lastTestAt ? ` · last test ${when(help.lastTestAt)}` : ""}</span></div>
             {help.openHelpAt && <p className="lead small bad">{h.called} pressed Help at {clock(help.openHelpAt)}. Her phone called 911.</p>}
             <div className="row wrap">
+              <button type="button" className="btn ana small" onClick={act("/help/test/self", "Test sent. If this device buzzes, Help will reach you.")}>Send a test to this page</button>
               {pushSupported() && <button type="button" className="btn ana small" onClick={() => subscribePush({ ana: true }).then(() => setNote("This device will buzz when Rosa presses Help.")).catch(() => setNote("Notifications were not allowed."))}>Get notified on this device</button>}
               <button type="button" className="btn ana small" onClick={() => navigate("/ana/link")}>{rosaPhone ? "Link another phone" : "Link Rosa's phone"}</button>
             </div>

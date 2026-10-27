@@ -4,7 +4,9 @@ import { navigate } from "../lib/navigate.js";
 import { store, useStore } from "../lib/store.js";
 import { pushSupported, subscribePush } from "../lib/push.js";
 import { getDocket } from "../lib/api.js";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { holdToHelp } from "../lib/hold.js";
+import { postEvent } from "../lib/api.js";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const clock = (d) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -18,6 +20,17 @@ export function greeting(now = new Date(), name = "Rosa") {
 export default function Home() {
   const s = useStore();
   const [chimeError, setChimeError] = useState("");
+  const [holding, setHolding] = useState(0);
+  const helpRef = useRef(null);
+  useEffect(() => {
+    if (!helpRef.current) return;
+    return holdToHelp(helpRef.current, () => {
+      store.set({ helpOpenAt: new Date().toISOString() });
+      postEvent("help").catch(() => {});
+      window.location.assign("tel:911");
+      navigate("/help");
+    }, 2000, setHolding);
+  }, [s.consentedAt]);
   useEffect(() => {
     if (!s.deviceToken) return;
     getDocket().then((d) => { if (d.lastMailSeen) store.set({ lastMailSeen: d.lastMailSeen }); }).catch(() => {});
@@ -45,7 +58,7 @@ export default function Home() {
       {chimeError && <p className="foot bad">{chimeError}</p>}
       <button type="button" className="btn big" onClick={() => navigate("/talk")}>Talk to Biscuit</button>
       <button type="button" className="btn secondary" onClick={() => navigate("/letter")}>Show me a letter</button>
-      {s.consentedAt && <button type="button" className="btn danger" onClick={() => navigate("/help")}>Help <span className="hint">hold 2 s · calls 911, tells Ana</span></button>}
+      {s.consentedAt && <button type="button" ref={helpRef} className="btn danger hold" style={{ "--hold": holding }}>Help <span className="hint">hold 2 s · calls 911, tells Ana</span></button>}
       <div className="spacer" />
       {waiting && (
         <section className="card">

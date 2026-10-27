@@ -1,5 +1,5 @@
 import React from "react";
-import { usePath } from "./lib/navigate.js";
+import { navigate, usePath } from "./lib/navigate.js";
 import { useStore } from "./lib/store.js";
 import Home from "./rosa/Home.jsx";
 import Talk from "./rosa/Talk.jsx";
@@ -14,6 +14,9 @@ import CamSetup from "./cam/Setup.jsx";
 import CamRest from "./cam/Rest.jsx";
 import CamTest from "./cam/Test.jsx";
 import CamWatching from "./cam/Watching.jsx";
+import Help from "./rosa/Help.jsx";
+import AfterHelp from "./rosa/AfterHelp.jsx";
+import SetupHelp from "./rosa/SetupHelp.jsx";
 import { listenToWorker } from "./lib/push.js";
 import Family from "./ana/Family.jsx";
 import WhoFor from "./ana/WhoFor.jsx";
@@ -48,6 +51,9 @@ export default function App() {
   if (path === "/reading") return <Reading />;
   if (path === "/question") return <Question />;
   if (path === "/mail") return <Mail />;
+  if (path === "/help") return <Help />;
+  if (path === "/help/after") return <AfterHelp />;
+  if (path === "/setup/help") return <SetupHelp onDone={() => navigate("/")} />;
   if (path === "/offer") return <Offer />;
   if (path === "/docket") return <Docket />;
   if (path === "/") return <Home />;

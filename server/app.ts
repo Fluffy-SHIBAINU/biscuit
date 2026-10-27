@@ -10,12 +10,14 @@ import { docketRoutes } from "./routes/docket.js";
 import { anaRoutes } from "./routes/ana.js";
 import { pushRoutes } from "./routes/push.js";
 import { camRoutes } from "./routes/cam.js";
+import { helpRoutes } from "./routes/help.js";
+import type { Sender } from "./push.js";
 import { anaAuth } from "./auth.js";
 import type { Chooser } from "./questions.js";
 
 export const VERSION = "0.1.0";
 
-export type AppOptions = { lookup?: Lookup; asr?: AsrFn; spark?: SparkDeps; sam?: SamDeps; events?: Events; chooser?: Chooser; sheet?: SheetFn; anaEnv?: Record<string, string | undefined> };
+export type AppOptions = { lookup?: Lookup; asr?: AsrFn; spark?: SparkDeps; sam?: SamDeps; events?: Events; chooser?: Chooser; sheet?: SheetFn; anaEnv?: Record<string, string | undefined>; pushSend?: Sender };
 
 export function createApp(opts: AppOptions = {}): Hono {
   const app = new Hono();
@@ -25,10 +27,11 @@ export function createApp(opts: AppOptions = {}): Hono {
   app.route("/api/biscuit", linkRoutes);
   app.route("/api/biscuit", rosaRoutes({ auth, asr: opts.asr }));
   app.route("/api/biscuit", letterRoutes({ auth, spark: opts.spark, sam: opts.sam, events, sheet: opts.sheet }));
-  app.route("/api/biscuit", docketRoutes({ auth, events }));
+  app.route("/api/biscuit", docketRoutes({ auth, events, send: opts.pushSend }));
   app.route("/api/biscuit", anaRoutes({ env: opts.anaEnv }));
   app.route("/api/biscuit", pushRoutes({ auth, anaAuth: anaAuth({ env: opts.anaEnv }), events }));
   app.route("/api/biscuit", camRoutes({ auth, sam: opts.sam, events }));
+  app.route("/api/biscuit", helpRoutes({ auth, anaAuth: anaAuth({ env: opts.anaEnv }), events, send: opts.pushSend }));
   app.route("/api/biscuit", questionRoutes({ auth, chooser: opts.chooser }));
   app.route("/api/biscuit", sheetRoutes({ auth, sheet: opts.sheet }));
   return app;

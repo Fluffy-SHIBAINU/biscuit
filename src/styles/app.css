@@ -77,3 +77,11 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .screen.night.dim .frame { opacity: .45; }
 .card.night .row { font-size: 16px; color: #B3BECD; padding: 6px 0; border-top: 1px solid var(--night-border); }
 .card.night .row:first-child { border-top: 0; }
+.btn.danger.hold { position: relative; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+.btn.danger.hold::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--hold, 0) * 100%); background: rgba(180,35,24,.15); pointer-events: none; }
+.btn.danger.big { height: 112px; font-size: 26px; text-decoration: none; display: flex; align-items: center; justify-content: center; background: var(--bad); color: #fff; border: 0; }
+.btn.big.light { background: #E8EDF5; color: var(--ink); text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.btn.secondary.night.tall { height: 84px; }
+.center { text-align: center; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 10px; }
+.dot.ok { background: #34D399; }
