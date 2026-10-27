@@ -6,6 +6,7 @@ import { getDb } from "../db.js";
 import type { Events } from "../events.js";
 import { EVENT_KINDS, event, letter, type EventKind } from "../schema.js";
 import { startUrl } from "../waive.js";
+import { MAIL_PAYLOAD, sendPush } from "../push.js";
 
 const DEVICE_EVENTS: EventKind[] = ["mail_seen", "mail_tapped", "help", "help_cancel", "help_ok", "consent", "said", "cam_online", "cam_offline", "cam_battery", "cam_paused"];
 const STATUSES = ["read", "handoff", "waiting_hospital", "tossed", "unknown_number", "hidden"];
@@ -53,6 +54,7 @@ export function docketRoutes(deps: { auth: MiddlewareHandler<AuthVars>; events: 
       if (!DEVICE_EVENTS.includes(kind) || !EVENT_KINDS.includes(kind)) return c.json({ error: "bad_kind" }, 400);
       const data = b?.data && typeof b.data === "object" ? b.data : {};
       const id = await deps.events.record(c.var.household.id, c.var.device.id, kind, data);
+      if (kind === "mail_seen") await sendPush(getDb(), c.var.household.id, ["rosa"], MAIL_PAYLOAD(c.var.household.called, id)).catch(() => ({ sent: 0 }));
       return c.json({ id });
     })
     .get("/docket", deps.auth, async (c) => {

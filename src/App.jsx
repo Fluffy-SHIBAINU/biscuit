@@ -9,6 +9,8 @@ import Reading from "./rosa/Reading.jsx";
 import Question from "./rosa/Question.jsx";
 import Offer from "./rosa/Offer.jsx";
 import Docket from "./rosa/Docket.jsx";
+import Mail from "./rosa/Mail.jsx";
+import { listenToWorker } from "./lib/push.js";
 import Family from "./ana/Family.jsx";
 import WhoFor from "./ana/WhoFor.jsx";
 import LinkCode from "./ana/LinkCode.jsx";
@@ -23,8 +25,11 @@ function Placeholder({ surface }) {
   );
 }
 
+let workerListening = false;
+
 export default function App() {
   const path = usePath();
+  if (!workerListening) { workerListening = true; listenToWorker(); }
   const s = useStore();
   if (path === "/cam" || path.startsWith("/cam/")) return <Placeholder surface="Mailbox phone" />;
   if (path === "/ana/new") return <WhoFor />;
@@ -35,6 +40,7 @@ export default function App() {
   if (path === "/letter") return <Letter />;
   if (path === "/reading") return <Reading />;
   if (path === "/question") return <Question />;
+  if (path === "/mail") return <Mail />;
   if (path === "/offer") return <Offer />;
   if (path === "/docket") return <Docket />;
   if (path === "/") return <Home />;

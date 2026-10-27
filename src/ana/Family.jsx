@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { navigate } from "../lib/navigate.js";
 import SignIn from "./SignIn.jsx";
+import { pushSupported, subscribePush } from "../lib/push.js";
 
 export default function Family() {
   const [fam, setFam] = useState(null);
@@ -22,6 +23,7 @@ export default function Family() {
       <h1 className="display small">{fam.household.called}</h1>
       <section className="card"><span className="label">Phones</span>{fam.devices.length ? fam.devices.map((d) => <p key={d.id} className="lead small">{d.label}{d.hasPush ? " · can chime" : ""}</p>) : <p className="lead small">No phone linked yet.</p>}<button type="button" className="btn ana" onClick={() => navigate("/ana/link")}>Link a phone</button></section>
       <section className="card"><span className="label">Letters Biscuit read</span>{fam.letters.length ? fam.letters.map((l) => <p key={l.id} className="lead small">{l.sender || "A letter"} · {l.status}</p>) : <p className="lead small">None yet.</p>}</section>
+      {pushSupported() && <button type="button" className="btn ana" onClick={() => subscribePush({ ana: true }).catch(() => {})}>Get notified on this device</button>}
       <p className="foot">The full page arrives with the next build step.</p>
     </main>
   );
