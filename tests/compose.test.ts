@@ -44,8 +44,26 @@ test("composeOffer without a sheet", () => expect(composeOffer(null, {})).toEqua
 
 test("unknownNumber flags a number nobody publishes", () => {
   const sheet = { phone: "617-555-0100" } as any;
-  expect(unknownNumber([f("phone_numbers", "617-555-0100", "call 617-555-0100")], sheet)).toBe(false);
-  expect(unknownNumber([f("phone_numbers", "1-800-633-4227", "call 1-800-MEDICARE (1-800-633-4227)")], null)).toBe(false);
-  expect(unknownNumber([f("phone_numbers", "888-555-0199", "call 888-555-0199 now")], sheet)).toBe(true);
-  expect(unknownNumber([f("phone_numbers", "888-555-0199", "call 888-555-0199 now", false)], sheet)).toBe(false);
+  expect(unknownNumber([f("phone_numbers", "617-555-0100", "call 617-555-0100")], sheet, "notice")).toBe(false);
+  expect(unknownNumber([f("phone_numbers", "1-800-633-4227", "call 1-800-MEDICARE (1-800-633-4227)")], null, "notice")).toBe(false);
+  expect(unknownNumber([f("phone_numbers", "888-555-0199", "call 888-555-0199 now")], sheet, "notice")).toBe(true);
+  expect(unknownNumber([f("phone_numbers", "888-555-0199", "call 888-555-0199 now", false)], sheet, "notice")).toBe(false);
+});
+
+test("a date is spoken only in the form the quote prints", () => {
+  expect(composeReading([f("due_date", "2026-11-02", "Due Date: 11/02/2026")], "bill").join(" ")).not.toContain("2026-11-02");
+  expect(composeReading([f("due_date", "11/02/2026", "Due Date: 11/02/2026")], "bill").join(" ")).toContain("It is due 11/02/2026.");
+});
+
+test("an amount is spoken only as the quote's own money token with the same digits", () => {
+  expect(composeReading([f("amount_due", "1850", "Statement 10/03/2026 Amount Due: $1,850.00")], "bill").join(" ")).toContain("The amount due is $1,850.00.");
+  expect(composeReading([f("amount_due", "1850", "Previous balance $2,000.00 Amount Due: $1,850.00")], "bill").join(" ")).toContain("$1,850.00");
+  expect(composeReading([f("amount_due", "1850", "Account 4471-55820")], "bill").join(" ")).not.toMatch(/amount due/);
+});
+
+test("unknownNumber flags only a notice that asks for a call", () => {
+  expect(unknownNumber([f("phone_numbers", "888-555-0199", "Questions? 888-555-0199")], null, "utility")).toBe(false);
+  expect(unknownNumber([f("phone_numbers", "888-555-0199", "call 888-555-0199 now")], null, "ad")).toBe(false);
+  expect(unknownNumber([f("phone_numbers", "888-555-0199", "call 888-555-0199 now")], null, "notice")).toBe(true);
+  expect(unknownNumber([f("phone_numbers", "888-555-0199", "Customer service 888-555-0199")], null, "notice")).toBe(false);
 });

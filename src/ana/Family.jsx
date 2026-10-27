@@ -36,7 +36,7 @@ export default function Family() {
     <main className="screen ana wide">
       <header className="row between wrap">
         <div><span className="label">Biscuit · family page</span><h1 className="display small">{h.called}</h1></div>
-        <span className="label plain right">Signed in with Kindred ID<br />{h.called} shares letters and actions · she can hide any letter</span>
+        <span className="label plain right">Signed in with Kindred ID<br />{h.called} chose whether letters appear here when she said yes</span>
       </header>
       {note && <p className="lead small signal">{note}</p>}
       <div className="cols">
@@ -95,7 +95,7 @@ export default function Family() {
         </div>
       </div>
       <section className="card"><span className="label">Delete</span><p className="lead small">Removes everything Biscuit kept for this page and unlinks both phones. {h.called}'s own list stays on her phone until she deletes it there.</p><button type="button" className="btn ana small" onClick={() => { if (window.confirm("Delete this household? This cannot be undone.")) api("/household/ana", { method: "DELETE" }).then(() => navigate("/ana/new")); }}>Delete this household</button></section>
-      <p className="foot">Nothing on this page goes to a hospital. You approve every application in Waive. {h.called} can keep any letter off this page by saying "don't share this one". Say "stop" to Biscuit and he stops.</p>
+      <p className="foot">Nothing on this page goes to a hospital. You approve every application in Waive. Sharing is {h.called}'s choice, made with her yes. Say "stop" to Biscuit and he stops.</p>
     </main>
   );
 }

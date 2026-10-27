@@ -36,13 +36,25 @@ export function overlapScore(query: string, candidate: string): number {
 
 const ROWS = hospitals as Hospital[];
 
-/** Exact normalised name first; then a unique best token-overlap match at or above the floor; otherwise null. */
-export function matchHospital(name: string, state?: string): HospitalMatch | null {
+/** Every distinct two-letter state printed next to a ZIP code, in order of appearance. */
+export function statesFromText(text: string): string[] {
+  const out: string[] = [];
+  for (const m of text.matchAll(/\b([A-Z]{2})\s+\d{5}(?:-\d{4})?\b/g)) if (!out.includes(m[1])) out.push(m[1]);
+  return out;
+}
+
+/**
+ * A unique exact normalised name in the candidate states first; then a unique best token-overlap match at or above the
+ * floor; otherwise null. Two hospitals with the same name are never guessed between.
+ */
+export function matchHospital(name: string, states?: string | string[]): HospitalMatch | null {
   const q = normalizeName(name);
   if (!q) return null;
-  const pool = state ? ROWS.filter((h) => h.state === state.toUpperCase()) : ROWS;
-  const exact = pool.find((h) => normalizeName(h.name) === q);
-  if (exact) return { ...exact, score: 1 };
+  const list = (Array.isArray(states) ? states : states ? [states] : []).map((s) => s.toUpperCase());
+  const pool = list.length ? ROWS.filter((h) => list.includes(h.state)) : ROWS;
+  const exact = pool.filter((h) => normalizeName(h.name) === q);
+  if (exact.length === 1) return { ...exact[0], score: 1 };
+  if (exact.length > 1) return null;
   let best: HospitalMatch | null = null;
   let tie = false;
   for (const h of pool) {

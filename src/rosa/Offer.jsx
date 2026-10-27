@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import Dog from "../components/Dog.jsx";
 import { handoff, patchLetter, transcribe } from "../lib/api.js";
 import { navigate } from "../lib/navigate.js";
-import { listen, saidStop, speak, stopSpeaking } from "../lib/speech.js";
+import { listen, speak, speakAndKeep, stopSpeaking } from "../lib/speech.js";
+import { handleVoiceCommand } from "../lib/commands.js";
 import { store, useStore } from "../lib/store.js";
 
 function setStatus(id, status, extra = {}) {
@@ -21,13 +22,15 @@ export default function Offer() {
     alive.current = true;
     if (!r) { navigate("/"); return; }
     (async () => {
-      await speak(lines);
+      await speakAndKeep(lines);
+      if (mode === "unknown") patchLetter(r.id, { status: "unknown_number", needsReview: true }).catch(() => {});
+      if (mode === "send") patchLetter(r.id, { needsReview: true }).catch(() => {});
       if (!alive.current || s.buttonsMode || !(mode === "offer" || mode === "ad")) return;
       try {
         const { blob, spoke } = await listen();
         const text = spoke ? await transcribe(blob) : "";
         if (!alive.current) return;
-        if (saidStop(text)) { navigate("/"); return; }
+        if (handleVoiceCommand(text)) return;
         if (/\b(yes|yeah|yep|please|go ahead|toss)\b/i.test(text)) yes();
         else if (/\b(no|nope|not now|keep)\b/i.test(text)) no();
       } catch { /* buttons remain */ }
@@ -52,6 +55,9 @@ export default function Offer() {
         setStatus(r.id, mode === "unknown" ? "unknown_number" : "read", { needsReview: true });
         await speak(["Sent to Ana."]);
       }
+      navigate("/docket");
+    } catch {
+      await speak(["That didn't go through. It's on your papers; we can try again later."]);
       navigate("/docket");
     } finally { setBusy(false); }
   }

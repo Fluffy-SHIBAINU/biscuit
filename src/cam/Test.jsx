@@ -5,6 +5,7 @@ import { navigate } from "../lib/navigate.js";
 import { speak } from "../lib/speech.js";
 import { store, useStore } from "../lib/store.js";
 import { startWatcher } from "./watch.js";
+import { MotionDetector } from "./motion.js";
 
 const WINDOW_MS = 60_000;
 
@@ -16,27 +17,31 @@ export default function Test() {
   const [log, setLog] = useState([]);
   const [tries, setTries] = useState(0);
   const [left, setLeft] = useState(60);
+  const cleanup = useRef(() => {});
   const region = s.cam?.region;
 
   function run() {
     setPhase("waiting"); setLog([]); setLeft(60);
     const started = Date.now();
     const clock = () => new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
+    let tick = null;
     const stop = startWatcher(video.current, region, {
+      detector: new MotionDetector({ cooldownMs: 5000 }),
       onFrames: async (frames) => {
         setLog((l) => [...l, `${clock()} Motion at the box · ${frames.length} frames sent`]);
         try {
           const r = await sendFrames(frames.concat([]), true);
-          if (r.seen) { setLog((l) => [...l, `${clock()} “${r.seen}” seen`]); finish("works", stop); }
+          if (r.seen) { setLog((l) => [...l, `${clock()} “${r.seen}” seen`]); clearInterval(tick); finish("works", stop); }
         } catch { /* keep watching */ }
       },
     });
-    const tick = setInterval(() => {
+    tick = setInterval(() => {
       const ms = WINDOW_MS - (Date.now() - started);
       setLeft(Math.max(0, Math.ceil(ms / 1000)));
       if (ms <= 0) { clearInterval(tick); stop(); setPhase("missed"); setTries((t) => t + 1); }
     }, 500);
-    return () => { clearInterval(tick); stop(); };
+    cleanup.current = () => { clearInterval(tick); stop(); };
+    return cleanup.current;
   }
 
   async function finish(result, stop) {
@@ -49,9 +54,8 @@ export default function Test() {
 
   useEffect(() => {
     if (!region) { navigate("/cam/setup"); return; }
-    let cleanup = () => {};
-    (async () => { try { stream.current = await openCamera(video.current); cleanup = run(); } catch { navigate("/cam/setup"); } })();
-    return () => { cleanup(); stopCamera(stream.current); };
+    (async () => { try { stream.current = await openCamera(video.current); run(); } catch { navigate("/cam/setup"); } })();
+    return () => { cleanup.current(); stopCamera(stream.current); };
   }, []);
 
   return (
@@ -64,7 +68,7 @@ export default function Test() {
         {log.length ? log.map((l, i) => <p key={i} className="said">{l}</p>) : <p className="lead small muted">{phase === "missed" ? "Motion didn't reach the box region, or glare hid the lid. Move the phone closer to the glass, tilt it down to lose the glare." : "Waiting for the lid."}</p>}
       </section>
       <div className="spacer" />
-      {phase === "missed" && tries < 2 && <button type="button" className="btn" onClick={() => { const c = run(); window.__biscuitCleanup = c; }}>Try again <span className="hint">try {tries + 1} of 2</span></button>}
+      {phase === "missed" && tries < 2 && <button type="button" className="btn" onClick={() => { cleanup.current(); run(); }}>Try again <span className="hint">try {tries + 1} of 2</span></button>}
       {phase === "missed" && <button type="button" className="btn secondary" onClick={() => finish("pending")}>Set it anyway</button>}
       {(phase === "works" || phase === "pending") && <button type="button" className="btn" onClick={() => navigate("/cam")}>Done. Watch the box</button>}
       <p className="foot mono">Frames of the box region checked by SAM 3.1 for “mailbox door”, then discarded. Set anyway: Ana's page shows “test pending” until the first real delivery.</p>

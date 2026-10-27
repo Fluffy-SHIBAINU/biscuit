@@ -25,12 +25,23 @@ export default function Home() {
   useEffect(() => {
     if (!helpRef.current) return;
     return holdToHelp(helpRef.current, () => {
+      // Runs inside the pointerup handler: the release is the gesture that may open the phone's "Call 911?" sheet.
       store.set({ helpOpenAt: new Date().toISOString() });
       postEvent("help").catch(() => {});
       window.location.assign("tel:911");
       navigate("/help");
-    }, 2000, setHolding);
+    }, 2000, setHolding, () => setArmed(true));
   }, [s.consentedAt]);
+  const [armed, setArmed] = useState(false);
+  useEffect(() => { if (!holding) setArmed(false); }, [holding]);
+  useEffect(() => {
+    if (!s.deviceToken) return;
+    const refresh = () => getDocket().then((d) => { if (d.lastMailSeen) store.set({ lastMailSeen: d.lastMailSeen }); }).catch(() => {});
+    const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    const t = setInterval(refresh, 60_000);
+    return () => { document.removeEventListener("visibilitychange", onVisible); clearInterval(t); };
+  }, [s.deviceToken]);
   useEffect(() => {
     if (!s.deviceToken) return;
     getDocket().then((d) => { if (d.lastMailSeen) store.set({ lastMailSeen: d.lastMailSeen }); }).catch(() => {});
@@ -58,7 +69,7 @@ export default function Home() {
       {chimeError && <p className="foot bad">{chimeError}</p>}
       <button type="button" className="btn big" onClick={() => navigate("/talk")}>Talk to Biscuit</button>
       <button type="button" className="btn secondary" onClick={() => navigate("/letter")}>Show me a letter</button>
-      {s.consentedAt && <button type="button" ref={helpRef} className="btn danger hold" style={{ "--hold": holding }}>Help <span className="hint">hold 2 s · calls 911, tells Ana</span></button>}
+      {s.consentedAt && <button type="button" ref={helpRef} className={`btn danger hold ${armed ? "armed" : ""}`} style={{ "--hold": holding }}>{armed ? "Let go to call 911" : "Help"} <span className="hint">{armed ? "Ana is told when you let go" : "hold 2 s · calls 911, tells Ana"}</span></button>}
       <div className="spacer" />
       {waiting && (
         <section className="card">

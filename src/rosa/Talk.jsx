@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import Dog from "../components/Dog.jsx";
 import { transcribe } from "../lib/api.js";
 import { navigate } from "../lib/navigate.js";
-import { listen, saidStop, speak, stopSpeaking } from "../lib/speech.js";
+import { listen, speak, stopSpeaking } from "../lib/speech.js";
+import { handleVoiceCommand } from "../lib/commands.js";
 
 export function replyTo(text) {
   const t = (text || "").trim();
@@ -26,7 +27,7 @@ export default function Talk() {
       const text = spoke ? await transcribe(blob) : "";
       if (!alive.current) return;
       setHeard(text);
-      if (saidStop(text)) { stopSpeaking(); navigate("/"); return; }
+      if (handleVoiceCommand(text)) return;
       const line = replyTo(text);
       setReply(line); setPhase("speaking");
       await speak([line]);

@@ -14,14 +14,16 @@ export function speak(lines, { rate = 0.9 } = {}) {
   stopSpeaking();
   const volume = Math.min(1, 0.8 + 0.1 * (store.get().volumeStep || 0));
   return new Promise((resolve) => {
+    const guard = setTimeout(resolve, 5000 + lines.join(" ").length * 90);
+    const done = () => { clearTimeout(guard); resolve(); };
     current = lines.map((text) => {
       const u = new SpeechSynthesisUtterance(text);
       u.rate = rate; u.volume = volume; u.lang = "en-US";
       return u;
     });
     const last = current[current.length - 1];
-    last.onend = () => resolve();
-    last.onerror = () => resolve();
+    last.onend = done;
+    last.onerror = done;
     current.forEach((u) => window.speechSynthesis.speak(u));
   });
 }
@@ -31,6 +33,7 @@ export async function listen({ maxMs = 6000, silenceMs = 1200, onLevel } = {}) {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
   const Ctx = window.AudioContext || window.webkitAudioContext;
   const ctx = new Ctx();
+  if (ctx.state === "suspended") await ctx.resume().catch(() => {});
   const source = ctx.createMediaStreamSource(stream);
   const node = ctx.createScriptProcessor(4096, 1, 1);
   const chunks = [];
@@ -65,4 +68,16 @@ export async function listen({ maxMs = 6000, silenceMs = 1200, onLevel } = {}) {
 
 export function saidStop(text) {
   return /\bstop\b/i.test(text || "");
+}
+
+/** Keeps a spoken line for Ana's page (never Rosa's words), when letters are shared. */
+export function keep(text) {
+  const st = store.get();
+  if (!st.deviceToken || st.household?.shareLetters === false || !text) return;
+  fetch("/api/biscuit/events", { method: "POST", headers: { authorization: `Bearer ${st.deviceToken}`, "content-type": "application/json" }, body: JSON.stringify({ kind: "said", data: { text: String(text).slice(0, 300) } }) }).catch(() => {});
+}
+
+export function speakAndKeep(lines, opts) {
+  keep(lines.join(" "));
+  return speak(lines, opts);
 }

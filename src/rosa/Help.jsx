@@ -2,14 +2,14 @@ import React, { useEffect } from "react";
 import Dog from "../components/Dog.jsx";
 import { postEvent } from "../lib/api.js";
 import { navigate } from "../lib/navigate.js";
-import { speak, stopSpeaking } from "../lib/speech.js";
+import { speakAndKeep, stopSpeaking } from "../lib/speech.js";
 import { store, useStore } from "../lib/store.js";
 
 export default function Help() {
   const s = useStore();
   const name = s.household?.called || "Rosa";
   useEffect(() => {
-    speak(["Your phone is calling 911. Stay where you are. Tell them where you are and what happened. Ana has been told."]);
+    speakAndKeep(["Your phone is calling 911. Stay where you are. Tell them where you are and what happened. Ana has been told."]);
     const onVisible = () => { if (document.visibilityState === "visible" && store.get().helpOpenAt) navigate("/help/after"); };
     document.addEventListener("visibilitychange", onVisible);
     return () => { document.removeEventListener("visibilitychange", onVisible); stopSpeaking(); };

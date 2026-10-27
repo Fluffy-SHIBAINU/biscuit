@@ -24,3 +24,19 @@ test("encodeWav writes a 16-bit mono RIFF header", () => {
   expect(v.getInt16(46, true)).toBe(16383); // 0.5
   expect(buf.byteLength).toBe(52);
 });
+
+import { saidHelp } from "../src/lib/commands.js";
+import { answerFrom } from "../src/lib/answers.js";
+test("saidHelp", () => {
+  expect(saidHelp("Biscuit, help")).toBe(true);
+  expect(saidHelp("help me")).toBe(true);
+  expect(saidHelp("helpful tips")).toBe(false);
+  expect(saidHelp("")).toBe(false);
+});
+test("answerFrom hears no before yes", () => {
+  expect(answerFrom("No, I did not pay")).toBe("no");
+  expect(answerFrom("yes I did")).toBe("yes");
+  expect(answerFrom("that's not right")).toBe("no");
+  expect(answerFrom("three")).toBe("3");
+  expect(answerFrom("I'm not sure")).toBe("unsure");
+});

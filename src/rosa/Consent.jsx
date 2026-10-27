@@ -3,7 +3,8 @@ import Dog from "../components/Dog.jsx";
 import { api, postEvent, transcribe } from "../lib/api.js";
 import { navigate } from "../lib/navigate.js";
 import { subscribePush } from "../lib/push.js";
-import { listen, saidStop, speak, stopSpeaking } from "../lib/speech.js";
+import { listen, speak, stopSpeaking } from "../lib/speech.js";
+import { saidHelp, saidStop } from "../lib/commands.js";
 import { store, useStore } from "../lib/store.js";
 
 export const CONSENT_TEXT = (name) => `I'm Biscuit. I speak up when the mail comes and when you ask. I read your letters out loud and keep a list of them on this phone. Ana sees what I read, unless you tell me not to share one. If you press Help, this phone calls 911 and Ana is told. Say stop and I stop. Shall I go on?`;
@@ -35,7 +36,7 @@ export default function Consent() {
         const { blob, spoke } = await listen();
         const text = spoke ? await transcribe(blob) : "";
         if (!alive.current) return;
-        if (saidStop(text) || /\b(no|nope|not now)\b/i.test(text)) no();
+        if (saidStop(text) || saidHelp(text) || /\b(no|nope|not now)\b/i.test(text)) no();
         else if (/\b(yes|yeah|yep|go on|okay|ok|sure)\b/i.test(text)) yes();
       } catch { /* buttons remain */ }
     })();

@@ -2,18 +2,10 @@ import React, { useEffect, useRef, useState } from "react";
 import Dog from "../components/Dog.jsx";
 import { api, transcribe } from "../lib/api.js";
 import { navigate } from "../lib/navigate.js";
-import { listen, saidStop, speak, stopSpeaking } from "../lib/speech.js";
+import { listen, speak, stopSpeaking } from "../lib/speech.js";
+import { handleVoiceCommand } from "../lib/commands.js";
+import { answerFrom } from "../lib/answers.js";
 import { store, useStore } from "../lib/store.js";
-
-export function answerFrom(text) {
-  const t = (text || "").toLowerCase();
-  if (/\bnot sure\b|\bdon'?t know\b|\bmaybe\b/.test(t)) return "unsure";
-  if (/\b(yes|yeah|yep|correct|right|i did|it is)\b/.test(t)) return "yes";
-  if (/\b(no|nope|not yet|i didn'?t|haven'?t)\b/.test(t)) return "no";
-  const n = t.match(/\b(\d+|one|two|three|four|five|six)\b/);
-  if (n) return { one: "1", two: "2", three: "3", four: "4", five: "5", six: "6" }[n[1]] || n[1];
-  return null;
-}
 
 export default function Question() {
   const s = useStore();
@@ -27,7 +19,7 @@ export default function Question() {
     alive.current = true;
     if (!r) { navigate("/"); return; }
     const known = Object.keys(s.answers[r.id] || {});
-    api("/question", { method: "POST", json: { kind: r.kind, hasSheet: Boolean(r.hospital), known } })
+    api("/question", { method: "POST", json: { kind: r.kind, hasSheet: Boolean(r.sheet?.freeCare), known } })
       .then((res) => { if (alive.current) setQuestions(res.questions); })
       .catch(() => { if (alive.current) setQuestions([]); });
     return () => { alive.current = false; stopSpeaking(); };
@@ -45,7 +37,7 @@ export default function Question() {
         const { blob, spoke } = await listen();
         const text = spoke ? await transcribe(blob) : "";
         if (!alive.current) return;
-        if (saidStop(text)) { navigate("/"); return; }
+        if (handleVoiceCommand(text)) return;
         const a = answerFrom(text);
         if (a) record(a);
       } catch { /* fall back to the buttons */ } finally { if (alive.current) setListening(false); }

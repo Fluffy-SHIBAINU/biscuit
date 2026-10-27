@@ -13,6 +13,13 @@ export function cents(money) {
 }
 
 const verified = (facts, field) => facts.find((f) => f.field === field && f.verified)?.value ?? null;
+const norm = (s) => (s || "").normalize("NFKC").replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[\u2010-\u2015\u2212]/g, "-").replace(/\s+/g, " ").trim();
+
+/** What Biscuit may say for a fact: the value only when the quote prints it in that exact form. */
+export function spokenValue(fact) {
+  if (!fact || !fact.verified) return null;
+  return norm(fact.quote).includes(norm(fact.value)) ? norm(fact.value) : null;
+}
 
 /** What the server may keep: no text, only the verified values and their quotes. */
 export function summaryOf(entry) {
@@ -33,8 +40,8 @@ export function summaryOf(entry) {
 }
 
 export function statusLine(l) {
-  const money = l.facts?.find((f) => f.field === "amount_due" && f.verified)?.value;
-  const due = l.facts?.find((f) => f.field === "due_date" && f.verified)?.value;
+  const money = spokenValue(l.facts?.find((f) => f.field === "amount_due"));
+  const due = spokenValue(l.facts?.find((f) => f.field === "due_date"));
   switch (l.status) {
     case "handoff": return `${money ? money + ". " : ""}Ana has the application. Waiting on her, then the hospital.`;
     case "waiting_hospital": return `${money ? money + ". " : ""}Waiting on the hospital's answer.`;

@@ -30,7 +30,7 @@ export default function EnterCode() {
       {tries >= 3 && <p className="lead">Three misses. Ana taps New code on her phone, then try again.</p>}
       <button type="button" className="btn big" disabled={code.length !== 6} onClick={submit}>Link</button>
       <div className="spacer" />
-      <p className="foot">Rosa needs no account. This phone keeps a small key; Ana can unlink it from her page.</p>
+      <p className="foot">Rosa needs no account. This phone keeps a small key; Delete everything in Settings removes it.</p>
     </main>
   );
 }

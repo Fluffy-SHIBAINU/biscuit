@@ -19,8 +19,15 @@ export async function cropJpeg(video, region, outW = 640, maxBytes = 300_000) {
   return new Promise((r) => canvas.toBlob(r, "image/jpeg", 0.3));
 }
 
+/** Whether frames may leave the phone right now: not paused, and not below 10 percent battery while unplugged. */
+export function shouldSend({ paused = false, battery = null, charging = null } = {}) {
+  if (paused) return false;
+  if (battery !== null && battery !== undefined && !charging && battery < 10) return false;
+  return true;
+}
+
 /** Samples the region every 500 ms; on motion grabs three crops 500 ms apart and hands them to onFrames. Returns a stop function. */
-export function startWatcher(video, region, { onFrames, onLevel, detector = new MotionDetector(), intervalMs = 500 } = {}) {
+export function startWatcher(video, region, { onFrames, onLevel, isPaused, detector = new MotionDetector(), intervalMs = 500 } = {}) {
   let busy = false;
   let stopped = false;
   const timer = setInterval(async () => {
@@ -31,6 +38,7 @@ export function startWatcher(video, region, { onFrames, onLevel, detector = new 
     const state = detector.sample(gray, Date.now());
     if (onLevel) onLevel(state);
     if (state !== "motion") return;
+    if (isPaused && isPaused()) return;
     busy = true;
     try {
       const frames = [];

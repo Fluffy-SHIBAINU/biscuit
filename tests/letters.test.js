@@ -13,3 +13,10 @@ test("summaryOf keeps values and quotes, never the text", () => {
   expect(sum).toMatchObject({ hospitalCcn: "220071", amountCents: 185000, dueOn: null, quotes: [{ field: "amount_due", quote: "Amount Due: $1,850.00" }] });
   expect(JSON.stringify(sum)).not.toContain("SECRET");
 });
+
+import { spokenValue } from "../src/lib/letters.js";
+test("spokenValue speaks only what the quote prints", () => {
+  expect(spokenValue({ value: "2026-11-02", quote: "Due Date: 11/02/2026", verified: true })).toBeNull();
+  expect(spokenValue({ value: "$1,850.00", quote: "Amount Due: $1,850.00", verified: true })).toBe("$1,850.00");
+  expect(spokenValue({ value: "11/02/2026", quote: "Due Date: 11/02/2026", verified: false })).toBeNull();
+});

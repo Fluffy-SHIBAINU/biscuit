@@ -19,3 +19,20 @@ test("an unknown token is unlinked, not a crash", async () => {
   const none = await app.request("/x");
   expect(none.status).toBe(401);
 });
+
+import { requireKind } from "../server/auth.js";
+const rosa = { device: { id: "r", kind: "rosa" } as any, household: { id: "h" } as any };
+const camDev = { device: { id: "c", kind: "cam" } as any, household: { id: "h" } as any };
+
+test("the frame route is exempt from the general device limit", async () => {
+  const app = new Hono().use("*", deviceAuth({ lookup: async () => rosa, limiter: async () => false, exempt: (p) => p.endsWith("/letter/frame") })).get("/api/biscuit/letter/frame", (c) => c.json({ ok: true })).get("/x", (c) => c.json({ ok: true }));
+  expect((await app.request("/api/biscuit/letter/frame", { headers: { authorization: "Bearer t" } })).status).toBe(200);
+  expect((await app.request("/x", { headers: { authorization: "Bearer t" } })).status).toBe(429);
+});
+
+test("requireKind refuses the mailbox phone on Rosa's routes", async () => {
+  const app = new Hono().use("*", deviceAuth({ lookup: async () => camDev })).delete("/household", requireKind("rosa"), (c) => c.json({ ok: true }));
+  const res = await app.request("/household", { method: "DELETE", headers: { authorization: "Bearer t" } });
+  expect(res.status).toBe(403);
+  expect(await res.json()).toEqual({ error: "wrong_device" });
+});

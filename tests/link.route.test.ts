@@ -47,3 +47,9 @@ describe.skipIf(!process.env.DATABASE_URL)("POST /api/biscuit/link/claim", () =>
     expect(await res.json()).toEqual({ error: "no_match" });
   });
 });
+
+test("claims are rate limited by caller", async () => {
+  const app = createApp({ claimLimiter: async () => false });
+  const res = await app.request("/api/biscuit/link/claim", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code: "123456" }) });
+  expect(res.status).toBe(429);
+});

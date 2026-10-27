@@ -53,6 +53,9 @@ export function docketRoutes(deps: { auth: MiddlewareHandler<AuthVars>; events: 
       const b = await c.req.json().catch(() => ({}));
       const kind = b?.kind;
       if (!DEVICE_EVENTS.includes(kind) || !EVENT_KINDS.includes(kind)) return c.json({ error: "bad_kind" }, 400);
+      const camKinds = ["mail_seen", "cam_online", "cam_offline", "cam_battery", "cam_paused"];
+      if (c.var.device.kind === "cam" ? !camKinds.includes(kind) : camKinds.includes(kind) && kind !== "mail_seen") return c.json({ error: "wrong_device" }, 403);
+      if (kind === "said" && typeof b?.data?.text === "string") b.data.text = b.data.text.slice(0, 300);
       const data = b?.data && typeof b.data === "object" ? b.data : {};
       const id = await deps.events.record(c.var.household.id, c.var.device.id, kind, data);
       const h = c.var.household;

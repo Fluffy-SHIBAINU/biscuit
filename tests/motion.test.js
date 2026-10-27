@@ -19,3 +19,11 @@ test("motion needs two consecutive samples then cools down", () => {
   expect(m.sample(moved, 1500)).toBe("cooldown");
   expect(m.sample(still, 92_000)).toBe("motion");
 });
+
+import { shouldSend } from "../src/cam/watch.js";
+test("shouldSend", () => {
+  expect(shouldSend({ paused: false, battery: null, charging: null })).toBe(true);
+  expect(shouldSend({ paused: true, battery: 80, charging: true })).toBe(false);
+  expect(shouldSend({ paused: false, battery: 9, charging: false })).toBe(false);
+  expect(shouldSend({ paused: false, battery: 9, charging: true })).toBe(true);
+});

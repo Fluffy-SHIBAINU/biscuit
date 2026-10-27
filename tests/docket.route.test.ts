@@ -62,3 +62,19 @@ describe.skipIf(!process.env.DATABASE_URL)("docket, letters, handoff, events", (
     expect((await req("/api/biscuit/events", { method: "POST", body: JSON.stringify({ kind: "nope" }) })).status).toBe(400);
   });
 });
+
+describe.skipIf(!process.env.DATABASE_URL)("what Biscuit said reaches the family page", () => {
+  test("a said event is listed", async () => {
+    const db = getDb();
+    await db.delete(household).where(eq(household.ownerEmail, "said-test@biscuit.local"));
+    const [h] = await db.insert(household).values({ ownerEmail: "said-test@biscuit.local", seniorName: "Rosa", called: "Rosa" }).returning();
+    const t = newToken();
+    await db.insert(device).values({ householdId: h.id, kind: "rosa", tokenHash: t.hash });
+    const app = createApp({ anaEnv: { KINDRED_AUTH_BYPASS: "said-test@biscuit.local" } });
+    const res = await app.request("/api/biscuit/events", { method: "POST", headers: { authorization: `Bearer ${t.token}`, "content-type": "application/json" }, body: JSON.stringify({ kind: "said", data: { text: "You've got mail, Rosa." } }) });
+    expect(res.status).toBe(200);
+    const fam = await (await app.request("/api/biscuit/family", { headers: { "content-type": "application/json" } })).json();
+    expect(fam.said[0].text).toBe("You've got mail, Rosa.");
+    await db.delete(household).where(eq(household.ownerEmail, "said-test@biscuit.local"));
+  });
+});

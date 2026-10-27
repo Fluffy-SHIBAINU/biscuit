@@ -57,3 +57,8 @@ test("a letter from nobody on record that asks for a call is flagged", async () 
   expect(body.unknownNumber).toBe(true);
   expect(body.offerLines[0]).toMatch(/^This asks you to call a number I don't know/);
 });
+
+test("frame checks have their own budget", async () => {
+  const app = createApp({ lookup: linked, events, frameLimiter: async () => false, sam: { detect: async () => [] } });
+  expect((await post(app, "/api/biscuit/letter/frame", new Uint8Array(jpeg))).status).toBe(429);
+});

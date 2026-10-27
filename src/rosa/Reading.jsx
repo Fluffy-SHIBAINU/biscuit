@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import Dog from "../components/Dog.jsx";
 import { navigate } from "../lib/navigate.js";
-import { speak, stopSpeaking } from "../lib/speech.js";
+import { speakAndKeep, stopSpeaking } from "../lib/speech.js";
 import { useStore } from "../lib/store.js";
 
 export const FIELD_LABEL = { sender: "From", hospital_name: "Hospital", amount_due: "Amount due", statement_date: "Statement date", due_date: "Due date", financial_assistance: "Financial assistance", phone_numbers: "Phone number", account_last4: "Account" };
@@ -10,7 +10,7 @@ export default function Reading() {
   const s = useStore();
   const r = s.lastReading;
   useEffect(() => {
-    if (r?.lines?.length) speak(r.lines);
+    if (r?.lines?.length) speakAndKeep(r.lines);
     return () => stopSpeaking();
   }, [r?.id]);
   if (!r) { navigate("/"); return null; }

@@ -7,7 +7,7 @@ import { detect, LETTER_PROMPT, type Detection, type SamPrompt } from "../meta/s
 import { extractFacts, transcribeLetter, type Extraction } from "../meta/spark.js";
 import { verifyFacts } from "../verify.js";
 import { composeOffer, composeReading, unknownNumber } from "../compose.js";
-import { matchHospital } from "../hospitals.js";
+import { matchHospital, statesFromText } from "../hospitals.js";
 import { fetchSheet, type SheetSummary } from "../waive.js";
 
 export const MAX_FRAME_BYTES = 300_000;
@@ -19,11 +19,7 @@ export type SparkDeps = { transcribe: (jpeg: Buffer) => Promise<string>; extract
 export type SamDeps = { detect: (jpeg: Buffer, prompt: SamPrompt) => Promise<Detection[]> };
 export type SheetFn = (ccn: string) => Promise<SheetSummary | null>;
 
-/** A two-letter state next to a ZIP code anywhere on the page, for the hospital match. */
-export function stateFromText(text: string): string | undefined {
-  const m = text.match(/\b([A-Z]{2})\s+\d{5}(?:-\d{4})?\b/);
-  return m ? m[1] : undefined;
-}
+
 
 async function imageOf(c: any, max: number): Promise<Buffer | { error: string; status: 400 | 413 }> {
   const form = await c.req.formData();
@@ -33,12 +29,13 @@ async function imageOf(c: any, max: number): Promise<Buffer | { error: string; s
   return Buffer.from(await image.arrayBuffer());
 }
 
-export function letterRoutes(deps: { auth: MiddlewareHandler<AuthVars>; spark?: SparkDeps; sam?: SamDeps; events: Events; sheet?: SheetFn }) {
+export function letterRoutes(deps: { auth: MiddlewareHandler<AuthVars>; spark?: SparkDeps; sam?: SamDeps; events: Events; sheet?: SheetFn; frameLimiter?: (key: string) => Promise<boolean> }) {
   const sheetOf: SheetFn = deps.sheet ?? fetchSheet;
   const spark: SparkDeps = deps.spark ?? { transcribe: transcribeLetter, extract: extractFacts };
   const sam: SamDeps = deps.sam ?? { detect };
   return new Hono<AuthVars>()
     .post("/letter/frame", deps.auth, async (c) => {
+      if (deps.frameLimiter && !(await deps.frameLimiter(`frame:${c.var.device.id}`))) return c.json({ error: "rate" }, 429);
       const img = await imageOf(c, MAX_FRAME_BYTES);
       if (!Buffer.isBuffer(img)) return c.json({ error: img.error }, img.status);
       return c.json(frameCheck(await sam.detect(img, { text: LETTER_PROMPT })));
@@ -55,14 +52,14 @@ export function letterRoutes(deps: { auth: MiddlewareHandler<AuthVars>; spark?: 
       if (!extraction || !senderName) return c.json({ error: "unreadable" }, 422);
       const facts = verifyFacts(extraction, transcription);
       const hospitalName = extraction.hospital_name?.value || (extraction.kind === "bill" ? extraction.sender?.value : null);
-      const match = hospitalName ? matchHospital(hospitalName, stateFromText(transcription)) : null;
+      const match = hospitalName ? matchHospital(hospitalName, statesFromText(transcription)) : null;
       const hospital = match ? { ccn: match.ccn, name: match.name, city: match.city, state: match.state, score: match.score } : null;
       let sheet: SheetSummary | null = null;
       if (hospital) {
         try { sheet = await sheetOf(hospital.ccn); } catch { sheet = null; }
       }
       // A matched hospital's own bill is never "unknown number"; the rule is for letters from nobody on record.
-      const unknown = hospital ? false : unknownNumber(facts, sheet);
+      const unknown = hospital ? false : unknownNumber(facts, sheet, extraction.kind);
       await deps.events.record(home.id, c.var.device.id, "letter_read", { kind: extraction.kind });
       return c.json({
         transcription, facts, kind: extraction.kind, sender: senderName, hospital, sheet, unknownNumber: unknown,

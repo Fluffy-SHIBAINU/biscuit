@@ -4,7 +4,7 @@ import { openCamera, stopCamera } from "../lib/camera.js";
 import { navigate } from "../lib/navigate.js";
 import { speak } from "../lib/speech.js";
 import { useStore } from "../lib/store.js";
-import { startWatcher } from "./watch.js";
+import { shouldSend, startWatcher } from "./watch.js";
 
 const clock = () => new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
@@ -19,12 +19,14 @@ export default function Watching() {
   const [sentToday, setSentToday] = useState(0);
   const [paused, setPaused] = useState(false);
   const warned = useRef({});
+  const gate = useRef({ paused: false, battery: null, charging: null });
   const region = s.cam?.region;
+  const setGate = (patch) => { gate.current = { ...gate.current, ...patch }; setPaused(!shouldSend(gate.current)); };
 
   useEffect(() => {
     if (!region) { navigate("/cam/setup"); return; }
     let stopWatch = () => {};
-    let alive = true;
+    let hb = null;
     let bat = null;
     (async () => {
       try { stream.current = await openCamera(video.current); } catch { navigate("/cam/setup"); return; }
@@ -33,32 +35,31 @@ export default function Watching() {
       const beat = async () => {
         const level = bat ? Math.round(bat.level * 100) : null;
         const chg = bat ? bat.charging : null;
-        setBattery(level); setCharging(chg);
+        setBattery(level); setCharging(chg); setGate({ battery: level, charging: chg });
         if (level !== null && !chg) {
           if (level <= 20 && !warned.current[20]) { warned.current[20] = true; speak(["Plug me in."]); }
           if (level <= 12 && !warned.current[12]) { warned.current[12] = true; speak(["Plug me in. I'm almost out."]); }
         }
-        const low = level !== null && !chg && level < 10;
-        try { const r = await heartbeat(level, chg); setPaused(Boolean(r.paused) || low); } catch { setPaused(low); }
+        try { const r = await heartbeat(level, chg); setGate({ paused: Boolean(r.paused) }); } catch { /* keep the last known gate */ }
       };
       await beat();
-      const hb = setInterval(beat, 60_000);
+      hb = setInterval(beat, 60_000);
       setStatus("watching");
       stopWatch = startWatcher(video.current, region, {
+        isPaused: () => !shouldSend(gate.current),
         onFrames: async (frames) => {
-          if (paused) return;
+          if (!shouldSend(gate.current)) return;
           try {
             const r = await sendFrames(frames);
             setSentToday(r.callsToday ?? 0);
             setEvents((e) => [{ at: clock(), text: r.seen ? `“${r.seen}” · mail seen · Rosa's phone told` : "movement · nothing recognised" }, ...e].slice(0, 6));
           } catch (err) {
-            if (err?.status === 429 || err?.status === 409) setPaused(true);
+            if (err?.status === 429 || err?.status === 409) setGate({ paused: true });
           }
         },
       });
-      return () => { alive = false; clearInterval(hb); };
     })();
-    return () => { alive = false; stopWatch(); stopCamera(stream.current); };
+    return () => { if (hb) clearInterval(hb); stopWatch(); stopCamera(stream.current); };
   }, []);
 
   return (

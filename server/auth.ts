@@ -26,13 +26,13 @@ export function bearer(header: string | undefined): string | null {
 }
 
 /** Device routes: a Bearer device token, or 401 {"error":"unlinked"}. */
-export function deviceAuth(o: { lookup?: Lookup; limiter?: (key: string) => Promise<boolean> } = {}): MiddlewareHandler<AuthVars> {
+export function deviceAuth(o: { lookup?: Lookup; limiter?: (key: string) => Promise<boolean>; exempt?: (path: string) => boolean } = {}): MiddlewareHandler<AuthVars> {
   const lookup = o.lookup ?? lookupDevice;
   return async (c, next) => {
     const token = bearer(c.req.header("authorization"));
     const found = token ? await lookup(hashToken(token)) : null;
     if (!found) return c.json({ error: "unlinked" }, 401);
-    if (o.limiter && !(await o.limiter(`device:${found.device.id}`))) return c.json({ error: "rate" }, 429);
+    if (o.limiter && !(o.exempt && o.exempt(c.req.path)) && !(await o.limiter(`device:${found.device.id}`))) return c.json({ error: "rate" }, 429);
     c.set("device", found.device);
     c.set("household", found.household);
     await next();
@@ -55,6 +55,14 @@ export function anaAuth(o: { env?: Record<string, string | undefined>; allowNone
     const [home] = await getDb().select().from(household).where(eq(household.ownerEmail, email)).limit(1);
     if (!home && !o.allowNone) return c.json({ error: "no_household" }, 404);
     if (home) c.set("household", home);
+    await next();
+  };
+}
+
+/** After deviceAuth: only these device kinds may continue; the mailbox phone never reaches Rosa's routes. */
+export function requireKind(...kinds: ("rosa" | "cam" | "ana")[]): MiddlewareHandler<AuthVars> {
+  return async (c, next) => {
+    if (!kinds.includes(c.var.device.kind)) return c.json({ error: "wrong_device" }, 403);
     await next();
   };
 }

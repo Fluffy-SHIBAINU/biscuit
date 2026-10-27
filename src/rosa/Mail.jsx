@@ -2,7 +2,8 @@ import React, { useEffect, useRef } from "react";
 import Dog from "../components/Dog.jsx";
 import { postEvent, transcribe } from "../lib/api.js";
 import { navigate } from "../lib/navigate.js";
-import { listen, saidStop, speak, stopSpeaking } from "../lib/speech.js";
+import { listen, speakAndKeep, stopSpeaking } from "../lib/speech.js";
+import { handleVoiceCommand } from "../lib/commands.js";
 import { store, useStore } from "../lib/store.js";
 
 const clock = (iso) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -17,13 +18,13 @@ export default function Mail() {
     alive.current = true;
     if (fromHome) { store.set({ lastMailSeen: new Date().toISOString() }); postEvent("mail_tapped").catch(() => {}); }
     (async () => {
-      await speak([`You've got mail, ${name}. Want me to look through it?`]);
+      await speakAndKeep([`You've got mail, ${name}. Want me to look through it?`]);
       if (!alive.current || s.buttonsMode) return;
       try {
         const { blob, spoke } = await listen();
         const text = spoke ? await transcribe(blob) : "";
         if (!alive.current) return;
-        if (saidStop(text)) { navigate("/"); return; }
+        if (handleVoiceCommand(text)) return;
         if (/\b(yes|yeah|yep|sure|please|okay|ok)\b/i.test(text)) navigate("/letter");
         else if (/\b(no|nope|not now|later)\b/i.test(text)) navigate("/");
       } catch { /* buttons remain */ }
