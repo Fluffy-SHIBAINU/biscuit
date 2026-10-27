@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { frameCheck, readLetter } from "../lib/api.js";
+import { frameCheck, postLetter, readLetter } from "../lib/api.js";
+import { summaryOf } from "../lib/letters.js";
 import { grabJpeg, openCamera, stopCamera } from "../lib/camera.js";
 import { navigate } from "../lib/navigate.js";
 import { speak, stopSpeaking } from "../lib/speech.js";
@@ -31,6 +32,7 @@ export default function Letter() {
       const r = await readLetter(jpeg);
       const entry = { id: crypto.randomUUID(), readAt: new Date().toISOString(), kind: r.kind, sender: r.sender, facts: r.facts, transcription: r.transcription, hospital: r.hospital, status: "read" };
       store.set((s) => ({ docket: [entry, ...s.docket], lastReading: { ...r, id: entry.id } }));
+      if (store.get().household?.shareLetters !== false) postLetter(summaryOf(entry)).catch(() => {});
       navigate("/reading");
     } catch (err) {
       const line = err?.status === 422 ? "I can't read this one. Keep it for Ana." : err?.status === 429 ? "I've read a lot this hour. Let's try again a little later." : "Something went wrong reading that. Let's try again.";

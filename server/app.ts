@@ -6,6 +6,7 @@ import { linkRoutes } from "./routes/link.js";
 import { rosaRoutes, type AsrFn } from "./routes/rosa.js";
 import { questionRoutes } from "./routes/question.js";
 import { sheetRoutes, type SheetFn } from "./routes/sheet.js";
+import { docketRoutes } from "./routes/docket.js";
 import type { Chooser } from "./questions.js";
 
 export const VERSION = "0.1.0";
@@ -19,7 +20,8 @@ export function createApp(opts: AppOptions = {}): Hono {
   app.get("/api/biscuit/health", (c) => c.json({ ok: true, version: VERSION }));
   app.route("/api/biscuit", linkRoutes);
   app.route("/api/biscuit", rosaRoutes({ auth, asr: opts.asr }));
-  app.route("/api/biscuit", letterRoutes({ auth, spark: opts.spark, sam: opts.sam, events }));
+  app.route("/api/biscuit", letterRoutes({ auth, spark: opts.spark, sam: opts.sam, events, sheet: opts.sheet }));
+  app.route("/api/biscuit", docketRoutes({ auth, events }));
   app.route("/api/biscuit", questionRoutes({ auth, chooser: opts.chooser }));
   app.route("/api/biscuit", sheetRoutes({ auth, sheet: opts.sheet }));
   return app;

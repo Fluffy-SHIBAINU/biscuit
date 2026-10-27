@@ -35,3 +35,9 @@ export async function readLetter(jpegBlob) {
   form.set("image", jpegBlob, "letter.jpg");
   return api("/letter/read", { method: "POST", form });
 }
+
+export const postLetter = (entry) => api("/letter", { method: "POST", json: entry });
+export const patchLetter = (id, patch) => api(`/letter/${id}`, { method: "PATCH", json: patch });
+export const handoff = (letterId, ccn) => api("/handoff", { method: "POST", json: { letterId, ccn } });
+export const postEvent = (kind, data = {}) => api("/events", { method: "POST", json: { kind, data } });
+export const getDocket = () => api("/docket");

@@ -40,3 +40,24 @@ export function composeReading(facts: Fact[], kind: LetterKind): string[] {
   if (fa && fa.value === "true") lines.push("It mentions financial assistance.");
   return lines;
 }
+
+import type { SheetSummary } from "./waive.js";
+
+export const MEDICARE_NUMBER = "18006334227";
+const digits = (s: string) => s.replace(/\D/g, "").replace(/^1(\d{10})$/, "$1");
+
+/** True when a verified phone number on the letter matches neither the hospital's sheet phone nor Medicare's line. */
+export function unknownNumber(facts: Fact[], sheet: SheetSummary | null): boolean {
+  const known = new Set([digits(MEDICARE_NUMBER), ...(sheet?.phone ? [digits(sheet.phone)] : [])]);
+  return facts.some((f) => f.field === "phone_numbers" && f.verified && digits(f.value).length >= 10 && !known.has(digits(f.value)));
+}
+
+/** The offer, spoken: the hospital's own rule with its number, then "The hospital decides.", then the question. No estimate is promised. */
+export function composeOffer(sheet: SheetSummary | null, _answers: Record<string, string>): string[] {
+  if (!sheet?.freeCare) return ["I can send this to Ana."];
+  return [
+    `${sheet.hospital} gives free care to households at or below ${sheet.freeCare.maxFpl} percent of the federal poverty level.`,
+    "The hospital decides.",
+    "I can start the application with Ana. Shall I?",
+  ];
+}

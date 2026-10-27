@@ -30,3 +30,22 @@ test("frameCheck names the cut edge", () => {
   expect(frameCheck([{ box: { x: 0.3, y: 0.3, w: 0.3, h: 0.3 }, score: 0.9 }])).toEqual({ ok: false, coverage: 0.09, cutEdge: null });
   expect(frameCheck([])).toEqual({ ok: false, coverage: 0, cutEdge: null });
 });
+
+import { composeOffer, unknownNumber } from "../server/compose.js";
+
+test("composeOffer with a sheet", () => {
+  const lines = composeOffer({ hospital: "Massachusetts General Hospital", freeCare: { maxFpl: "150", quote: "…", sourceUrl: null, checkedOn: null } } as any, {});
+  expect(lines[0]).toBe("Massachusetts General Hospital gives free care to households at or below 150 percent of the federal poverty level.");
+  expect(lines[1]).toBe("The hospital decides.");
+  expect(lines.at(-1)).toBe("I can start the application with Ana. Shall I?");
+});
+
+test("composeOffer without a sheet", () => expect(composeOffer(null, {})).toEqual(["I can send this to Ana."]));
+
+test("unknownNumber flags a number nobody publishes", () => {
+  const sheet = { phone: "617-555-0100" } as any;
+  expect(unknownNumber([f("phone_numbers", "617-555-0100", "call 617-555-0100")], sheet)).toBe(false);
+  expect(unknownNumber([f("phone_numbers", "1-800-633-4227", "call 1-800-MEDICARE (1-800-633-4227)")], null)).toBe(false);
+  expect(unknownNumber([f("phone_numbers", "888-555-0199", "call 888-555-0199 now")], sheet)).toBe(true);
+  expect(unknownNumber([f("phone_numbers", "888-555-0199", "call 888-555-0199 now", false)], sheet)).toBe(false);
+});
