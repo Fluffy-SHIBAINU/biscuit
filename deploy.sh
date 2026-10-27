@@ -13,7 +13,7 @@ while IFS= read -r line || [ -n "$line" ]; do
   v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"
   if [[ "$v" == \"*\" || "$v" == \'*\' ]]; then v="${v:1:${#v}-2}"; fi
   [[ -z "$v" ]] && continue
-  case "$k" in VERCEL_*|POSTGRES_*|PG*|NEON_*|VITE_NEON_*|DATABASE_URL|KINDRED_AUTH_BYPASS) continue;; esac
+  case "$k" in VERCEL_*|POSTGRES_*|PG*|NEON_*|VITE_NEON_*|DATABASE_URL*|KINDRED_AUTH_BYPASS) continue;; esac
   if grep -qx "$k" <<<"$existing"; then
     [[ "${BISCUIT_ENV_REFRESH:-}" == "1" ]] || continue
     $V env rm "$k" production --yes --scope "$SCOPE" >/dev/null 2>&1 || true
