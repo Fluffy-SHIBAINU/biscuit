@@ -23,3 +23,15 @@ export async function transcribe(wavBlob) {
   form.set("audio", wavBlob, "clip.wav");
   return (await api("/asr", { method: "POST", form })).text;
 }
+
+export async function frameCheck(jpegBlob) {
+  const form = new FormData();
+  form.set("image", jpegBlob, "frame.jpg");
+  return api("/letter/frame", { method: "POST", form });
+}
+
+export async function readLetter(jpegBlob) {
+  const form = new FormData();
+  form.set("image", jpegBlob, "letter.jpg");
+  return api("/letter/read", { method: "POST", form });
+}

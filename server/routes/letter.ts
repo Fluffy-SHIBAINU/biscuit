@@ -6,6 +6,7 @@ import { frameCheck } from "../frame.js";
 import { detect, LETTER_PROMPT, type Detection, type SamPrompt } from "../meta/sam.js";
 import { extractFacts, transcribeLetter, type Extraction } from "../meta/spark.js";
 import { verifyFacts } from "../verify.js";
+import { composeReading } from "../compose.js";
 
 export const MAX_FRAME_BYTES = 300_000;
 export const MAX_LETTER_BYTES = 2_000_000;
@@ -44,6 +45,6 @@ export function letterRoutes(deps: { auth: MiddlewareHandler<AuthVars>; spark?: 
       if (!extraction || !senderName) return c.json({ error: "unreadable" }, 422);
       const facts = verifyFacts(extraction, transcription);
       await deps.events.record(home.id, c.var.device.id, "letter_read", { kind: extraction.kind });
-      return c.json({ transcription, facts, kind: extraction.kind, sender: senderName, hospital: null });
+      return c.json({ transcription, facts, kind: extraction.kind, sender: senderName, hospital: null, lines: composeReading(facts, extraction.kind) });
     });
 }

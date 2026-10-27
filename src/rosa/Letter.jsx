@@ -1,0 +1,87 @@
+import React, { useEffect, useRef, useState } from "react";
+import { frameCheck, readLetter } from "../lib/api.js";
+import { grabJpeg, openCamera, stopCamera } from "../lib/camera.js";
+import { navigate } from "../lib/navigate.js";
+import { speak, stopSpeaking } from "../lib/speech.js";
+import { store } from "../lib/store.js";
+
+export function statusLine(check) {
+  if (!check) return { pill: "Looking", text: "Hold the letter in the frame." };
+  if (check.ok) return { pill: "Hold still", text: "That's it. Hold still." };
+  if (check.cutEdge) return { pill: "Not yet", text: `A little closer. The ${check.cutEdge} is cut off.` };
+  if (check.coverage > 0) return { pill: "Not yet", text: "A little closer." };
+  return { pill: "Looking", text: "Hold the letter in the frame." };
+}
+
+export default function Letter() {
+  const video = useRef(null);
+  const stream = useRef(null);
+  const busy = useRef(false);
+  const [check, setCheck] = useState(null);
+  const [elapsed, setElapsed] = useState(0);
+  const [phase, setPhase] = useState("looking");
+
+  async function capture() {
+    if (busy.current) return;
+    busy.current = true;
+    setPhase("reading");
+    try {
+      const jpeg = await grabJpeg(video.current, 2000, 2_000_000);
+      speak(["I've got it. One moment while I read."]);
+      const r = await readLetter(jpeg);
+      const entry = { id: crypto.randomUUID(), readAt: new Date().toISOString(), kind: r.kind, sender: r.sender, facts: r.facts, transcription: r.transcription, hospital: r.hospital, status: "read" };
+      store.set((s) => ({ docket: [entry, ...s.docket], lastReading: { ...r, id: entry.id } }));
+      navigate("/reading");
+    } catch (err) {
+      const line = err?.status === 422 ? "I can't read this one. Keep it for Ana." : err?.status === 429 ? "I've read a lot this hour. Let's try again a little later." : "Something went wrong reading that. Let's try again.";
+      await speak([line]);
+      navigate("/");
+    } finally {
+      busy.current = false;
+    }
+  }
+
+  useEffect(() => {
+    let alive = true;
+    let timer = null;
+    const started = Date.now();
+    (async () => {
+      try {
+        stream.current = await openCamera(video.current);
+        speak(["Hold the letter in the frame. I'll take the picture myself when it's clear."]);
+      } catch {
+        await speak(["I can't see. Allow the camera for Biscuit and try again."]);
+        navigate("/");
+        return;
+      }
+      timer = setInterval(async () => {
+        if (!alive || busy.current || !video.current?.videoWidth) return;
+        setElapsed(Math.round((Date.now() - started) / 1000));
+        try {
+          busy.current = true;
+          const result = await frameCheck(await grabJpeg(video.current, 1280, 300_000));
+          busy.current = false;
+          if (!alive) return;
+          setCheck(result);
+          if (result.ok) { clearInterval(timer); await capture(); }
+        } catch {
+          busy.current = false;
+        }
+      }, 1000);
+    })();
+    return () => { alive = false; if (timer) clearInterval(timer); stopCamera(stream.current); stopSpeaking(); };
+  }, []);
+
+  const s = statusLine(check);
+  return (
+    <main className="screen">
+      <div className="row between"><span className="label">Show me the letter</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); navigate("/"); }}>Stop</a></div>
+      <h1 className="display small">Hold the letter in the frame.</h1>
+      <div className="frame"><video ref={video} autoPlay playsInline muted /></div>
+      <section className="card status"><span className={`pill ${check?.ok ? "ok" : "warn"}`}>{phase === "reading" ? "Reading" : s.pill}</span><p className="lead small">{phase === "reading" ? "Reading it now." : s.text}</p></section>
+      <div className="spacer" />
+      {elapsed >= 10 && phase !== "reading" && <button type="button" className="btn secondary" onClick={capture}>Take it anyway</button>}
+      <p className="foot mono">Frame check: SAM 3.1 · letter read by Muse Spark on Kindred's server · nothing kept after reading</p>
+    </main>
+  );
+}

@@ -28,3 +28,15 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .bars span { width: 6px; height: 8px; background: var(--rule-strong); border-radius: 3px; transition: height .15s; }
 .bars span.on { background: var(--signal); height: 28px; }
 .bars span.on:nth-child(2) { height: 20px; } .bars span.on:nth-child(4) { height: 16px; }
+.display.small { font-size: 30px; line-height: 1.1; }
+.frame { width: 100%; aspect-ratio: 4 / 5; background: var(--night); border-radius: var(--r-sheet); overflow: hidden; border: 1px solid #1F2A3D; }
+.frame video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card.status { flex-direction: row; align-items: center; gap: 12px; }
+.pill { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; border-radius: 999px; padding: 4px 10px; white-space: nowrap; border: 1px solid currentColor; }
+.pill.ok { color: var(--ok); } .pill.warn { color: var(--warn); } .pill.bad { color: var(--bad); } .pill.signal { color: var(--signal); }
+.foot.mono { font-family: var(--mono); font-size: 12px; }
+.facts { gap: 12px; }
+.fact { display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 1px solid var(--rule); }
+.fact strong { font-size: 18px; }
+.fact .quote { font-size: 15px; line-height: 1.5; }
+.fact.unverified strong { color: var(--muted); text-decoration: line-through; }

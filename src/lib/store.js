@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 const KEY = "biscuit";
-const EMPTY = { deviceToken: null, kind: null, household: null, docket: [], answers: {}, consentedAt: null, buttonsMode: false, lastMailSeen: null, volumeStep: 0 };
+const EMPTY = { deviceToken: null, kind: null, household: null, docket: [], answers: {}, consentedAt: null, buttonsMode: false, lastMailSeen: null, volumeStep: 0, lastReading: null };
 const listeners = new Set();
 let state = load();
 
