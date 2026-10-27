@@ -57,23 +57,23 @@ biscuit/                               new public repository (first commit: this
 │   ├── src/lib/{api,speech,store,push,navigate}.js
 │   ├── public/sw.js                   service worker: install, web push, notification tap
 │   └── styles/tokens.css              Kindred tokens (same values as DESIGN.md in eventhorizon)
-├── api/                               Hono on Cloud Run, service biscuit-api
-│   ├── server.ts                      routes under /api/biscuit/*, Kindred ID verifier on /ana writes
+├── api/                               Hono on Vercel Functions (Node runtime), one catch-all function
+│   ├── [[...route]].ts                routes under /api/biscuit/*, Kindred ID verifier on /ana writes
 │   ├── _lib/{db,schema,auth,push,limits}.ts
 │   ├── _lib/meta/{spark,sam,asr}.ts   the only code that holds MODEL_API_KEY
 │   ├── _lib/{verify,compose,questions,hospitals,waive}.ts
 │   └── data/hospitals.json            CMS Hospital General Information: name, city, state, CCN
 ├── tests/                             vitest: verify, compose, link codes, region math, motion, fixtures
-├── vercel.json                        /api/:path* rewrite to Cloud Run; everything else to index.html
-├── Dockerfile, cloudbuild.yaml, deploy.sh
+├── vercel.json                        everything except /api to index.html
+├── deploy.sh                          vercel --prod, after pushing .env.local values to Vercel env
 └── docs/                              this spec, the QA script, the README disclosure table
 ```
 
-Hosting and domains (same shapes as Tender):
+Hosting and domains (one Vercel project, no Google Cloud):
 
-- Frontend on Vercel, domain biscuit.kindred-ai.dev, DNS CNAME to Vercel.
-- API on Cloud Run in the existing Kindred GCP project, 1 CPU, 1 GiB, min-instances 1, reached through the Vercel rewrite `/api/:path*`.
-- Postgres: a new database `biscuit` on the existing Cloud SQL instance, node-postgres pool, drizzle migrations. Tables are all prefixed `biscuit_`. Nothing of Tender's or Waive's is touched.
+- Frontend and API in one Vercel project, domain biscuit.kindred-ai.dev, DNS CNAME to Vercel. The API is a Hono app served by a single Vercel Function under `api/`; request bodies stay under Vercel's 4.5 MB limit (letter JPEG at most 2 MB, camera frames at most 300 KB each). No cron jobs: offline and overdue states are computed when a page is read.
+- Postgres on Neon, added to the Vercel project from the Vercel Marketplace, which injects `DATABASE_URL`. node-postgres pool over Neon's TCP pooler, drizzle migrations. Tables are all prefixed `biscuit_`. Nothing of Tender's or Waive's is touched.
+- Meta's $150 credit pays for model calls only (Spark, SAM, Voice Transcribe); it hosts nothing. Baseten's credit hosts models only. All Biscuit compute and storage run on Vercel and Neon free or existing plans.
 - Kindred ID (id.kindred-ai.dev): Ana signs in with Google through it. The verifier files are copied from eventhorizon `id/verifiers/` (hono.ts for the API, vercel-middleware.ts for the /ana pages). Any return URL under kindred-ai.dev is already accepted by the Issuer, so no Issuer change is needed. Locally, `KINDRED_AUTH_BYPASS=<email>` stands in for the cookie, as in Tender.
 - Waive (waive.kindred-ai.dev): read only, two existing routes. `GET /atlas/{ccn}.json` returns the published policy sheet with its quotes and ledger. `GET /start?ccn={ccn}` is Waive's confirm page for another Kindred product; its one button (`POST /start`) opens the case in Ana's Waive history because she is signed in there with the same Kindred ID. No Waive code change is needed.
 - Meta Model API (`https://api.meta.ai/v1`, env `MODEL_API_KEY`): Spark 1.3 and SAM 3.1 through the Responses API, Voice Transcribe through `POST /v1/asr/transcribe`. The key lives on the API only; phones call Biscuit's relays.
@@ -295,8 +295,8 @@ Device QA script (docs/qa.md), run on an iPhone (Rosa) and an Android phone (mai
 Working days of about twelve hours. Dates are the founder's; the hackathon deadline is Wednesday, November 4, 9:00 PM ET.
 
 Day 1 (foundation and the letter core)
-- 3 h: repository, Vite PWA with the three surfaces, Hono API, drizzle schema and migration, vitest; Vercel project with the rewrite; Cloud Run service and the `biscuit` database; biscuit.kindred-ai.dev live with a hello page.
-- 2 h: the three Meta relays with fixtures and contract tests; `MODEL_API_KEY` and VAPID keys in Cloud Run.
+- 3 h: repository, Vite PWA with the three surfaces, Hono API as a Vercel Function, drizzle schema and migration, vitest; Vercel project; Neon database from the Vercel Marketplace; biscuit.kindred-ai.dev live with a hello page.
+- 2 h: the three Meta relays with fixtures and contract tests; `MODEL_API_KEY` and VAPID keys in Vercel env.
 - 3 h: Rosa's Home and the Talk loop: record, ASR, templated reply, `speechSynthesis`.
 - 4 h: Show me the letter with the SAM frame check; `letter/read` with the two Spark calls; `verify`; Reading screen; speech composer and its tests.
 - Cut line: if the SAM frame check is not stable by 20:00, Take it anyway becomes the default and the check stays as a hint.
@@ -328,7 +328,7 @@ Day 4 (submission)
 - Batch transcription per clip instead of streaming: simpler and robust in three days; streaming is a Should.
 - Spark chooses questions from a fixed list and fills speech templates; no free-form speech, so the verifier can hold.
 - The hospital list ships in the repository from CMS public data; no lookup service.
-- One database on the existing Cloud SQL instance, new database name, all tables prefixed; nothing shared with Tender or Waive.
+- Vercel plus Neon instead of Cloud Run plus Cloud SQL: one deploy command, no Google Cloud permissions, free tiers; Meta's credit cannot host anything. All tables prefixed; nothing shared with Tender or Waive.
 - Rosa's docket lives on her phone; the server keeps summaries only while `share_letters` is true.
 - Ana's page polls; no sockets.
 
@@ -336,7 +336,7 @@ Day 4 (submission)
 
 - DNS: CNAME biscuit.kindred-ai.dev to Vercel.
 - The Meta Model API key, the Baseten key, and a check that the Baseten model bills per token.
-- A Vercel project and a Cloud Run service in the Kindred GCP project; the `biscuit` database on the Cloud SQL instance.
-- VAPID keys (generated once, stored in Cloud Run env).
+- A signed-in Vercel CLI (`vercel login`); one click to add Neon Postgres to the project from the Vercel Marketplace.
+- VAPID keys (generated once by `scripts/vapid.mjs`, stored in Vercel env).
 - Two phones for QA and the video: an iPhone for Rosa, an Android phone as the mailbox phone, both with Chrome or Safari current.
 - A synthetic hospital bill for the demo, printed, with a Mass General or another Waive-published hospital name.
