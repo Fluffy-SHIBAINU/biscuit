@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sample statement</title>
+<style>
+  @page { size: letter; margin: 0.75in; }
+  body { font-family: Helvetica, Arial, sans-serif; color: #111; margin: 0; }
+  .top { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 12px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .muted { color: #444; font-size: 12px; line-height: 1.5; }
+  .box { border: 1px solid #111; padding: 12px 16px; margin-top: 22px; }
+  .row { display: flex; justify-content: space-between; font-size: 15px; padding: 6px 0; border-bottom: 1px solid #ccc; }
+  .row.total { font-weight: bold; font-size: 18px; border-bottom: 0; }
+  table { width: 100%; border-collapse: collapse; margin-top: 22px; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid #ccc; }
+  th { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #444; }
+  .notice { margin-top: 22px; font-size: 13px; line-height: 1.5; }
+  .foot { margin-top: 40px; font-size: 10px; color: #666; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <div>
+      <h1>Massachusetts General Hospital</h1>
+      <div class="muted">Patient Financial Services<br>55 Fruit Street, Boston, MA 02114<br>Questions: 617-555-0100, Monday to Friday, 8 AM to 5 PM</div>
+    </div>
+    <div class="muted" style="text-align: right">Statement Date: 10/03/2026<br>Account Number: 4471-55820<br>Guarantor: Rosa Alvarez<br>14 Linden Street, Apt 2A<br>Somerville, MA 02143</div>
+  </div>
+  <div class="box">
+    <div class="row"><span>Previous balance</span><span>$0.00</span></div>
+    <div class="row"><span>New charges</span><span>$6,420.00</span></div>
+    <div class="row"><span>Insurance payments and adjustments</span><span>-$4,570.00</span></div>
+    <div class="row total"><span>Amount Due: $1,850.00</span><span>Due Date: 11/02/2026</span></div>
+  </div>
+  <table>
+    <tr><th>Date of service</th><th>Description</th><th>Charges</th><th>Insurance</th><th>Your share</th></tr>
+    <tr><td>09/14/2026</td><td>Emergency department visit, level 4</td><td>$2,980.00</td><td>-$2,110.00</td><td>$870.00</td></tr>
+    <tr><td>09/14/2026</td><td>CT scan, abdomen and pelvis</td><td>$2,640.00</td><td>-$1,980.00</td><td>$660.00</td></tr>
+    <tr><td>09/14/2026</td><td>Laboratory panel</td><td>$800.00</td><td>-$480.00</td><td>$320.00</td></tr>
+  </table>
+  <p class="notice">This is your first statement for this visit. Payment is due within 30 days of the statement date. Financial assistance may be available: if you have trouble paying this bill, call 617-555-0100 or visit the Patient Financial Services office to apply. No collection action will be taken while an application is under review.</p>
+  <p class="foot">Sample statement for a product demonstration. Not a real bill. The patient, account, charges and phone number are fictional.</p>
+</body>
+</html>
