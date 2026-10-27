@@ -28,7 +28,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   app.route("/api/biscuit", docketRoutes({ auth, events }));
   app.route("/api/biscuit", anaRoutes({ env: opts.anaEnv }));
   app.route("/api/biscuit", pushRoutes({ auth, anaAuth: anaAuth({ env: opts.anaEnv }), events }));
-  app.route("/api/biscuit", camRoutes({ auth, sam: opts.sam }));
+  app.route("/api/biscuit", camRoutes({ auth, sam: opts.sam, events }));
   app.route("/api/biscuit", questionRoutes({ auth, chooser: opts.chooser }));
   app.route("/api/biscuit", sheetRoutes({ auth, sheet: opts.sheet }));
   return app;

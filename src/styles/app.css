@@ -74,3 +74,6 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 @keyframes scan { from { top: 10%; } to { top: 85%; } }
 .screen.night { background: var(--night); color: var(--night-ink); }
 .btn.secondary.night { background: var(--night-card); color: var(--night-ink); border-color: #2E3C52; }
+.screen.night.dim .frame { opacity: .45; }
+.card.night .row { font-size: 16px; color: #B3BECD; padding: 6px 0; border-top: 1px solid var(--night-border); }
+.card.night .row:first-child { border-top: 0; }

@@ -2,20 +2,24 @@ import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 import type { AuthVars } from "../auth.js";
-import { bestDetection } from "../cam.js";
+import { allowSamCall, bestDetection, SAM_DAILY_CAP, TEST_PROMPTS, WATCH_PROMPTS } from "../cam.js";
+import type { Events } from "../events.js";
+import { MAIL_PAYLOAD, sendPush } from "../push.js";
 import { getDb } from "../db.js";
 import { detect } from "../meta/sam.js";
 import type { SamDeps } from "./letter.js";
 import { cam, device, type Region } from "../schema.js";
 
 export const MAX_FIND_BYTES = 600_000;
+export const MAX_FRAME_BYTES = 300_000;
+const today = () => new Date().toISOString().slice(0, 10);
 
 function validRegion(r: any): r is Region {
   const ok = (n: unknown) => typeof n === "number" && n >= 0 && n <= 1;
   return r && ok(r.x) && ok(r.y) && ok(r.w) && ok(r.h) && r.w > 0 && r.h > 0 && r.x + r.w <= 1.001 && r.y + r.h <= 1.001;
 }
 
-export function camRoutes(deps: { auth: MiddlewareHandler<AuthVars>; sam?: SamDeps }) {
+export function camRoutes(deps: { auth: MiddlewareHandler<AuthVars>; sam?: SamDeps; events: Events }) {
   const sam: SamDeps = deps.sam ?? { detect };
   return new Hono<AuthVars>()
     .post("/cam/find", deps.auth, async (c) => {
@@ -36,6 +40,53 @@ export function camRoutes(deps: { auth: MiddlewareHandler<AuthVars>; sam?: SamDe
       const now = new Date();
       await getDb().insert(cam).values({ householdId: h, region: b.region, setAt: now, testStatus: "pending" }).onConflictDoUpdate({ target: cam.householdId, set: { region: b.region, setAt: now, testStatus: "pending", paused: false } });
       return c.json({ ok: true });
+    })
+    .post("/cam/frames", deps.auth, async (c) => {
+      const form = await c.req.formData();
+      const frames: Buffer[] = [];
+      for (const key of ["frame1", "frame2", "frame3"]) {
+        const f = form.get(key);
+        if (f instanceof Blob) {
+          if (f.size > MAX_FRAME_BYTES) return c.json({ error: "too_large" }, 413);
+          frames.push(Buffer.from(await f.arrayBuffer()));
+        }
+      }
+      if (!frames.length) return c.json({ error: "no_frames" }, 400);
+      const isTest = form.get("test") === "1";
+      const db = getDb();
+      const h = c.var.household;
+      const [row] = await db.select().from(cam).where(eq(cam.householdId, h.id)).limit(1);
+      if (!row) return c.json({ error: "not_set" }, 409);
+      if (row.paused && !isTest) return c.json({ error: "paused" }, 409);
+      const day = today();
+      let calls = row.samDay === day ? row.samCallsToday : 0;
+      if (!allowSamCall({ samCallsToday: calls, samDay: row.samDay === day ? day : null }, day)) {
+        await db.update(cam).set({ paused: true }).where(eq(cam.householdId, h.id));
+        await deps.events.record(h.id, c.var.device.id, "cam_paused", { reason: "cap", cap: SAM_DAILY_CAP });
+        return c.json({ error: "cap" }, 429);
+      }
+      let seen: string | null = null;
+      outer: for (const prompt of isTest ? TEST_PROMPTS : WATCH_PROMPTS) {
+        for (const frame of frames) {
+          if (calls >= SAM_DAILY_CAP) break outer;
+          calls++;
+          const best = bestDetection(await sam.detect(frame, { text: prompt }));
+          if (best) { seen = prompt; break outer; }
+        }
+      }
+      await db.update(cam).set({ samCallsToday: calls, samDay: day, lastMotionAt: new Date() }).where(eq(cam.householdId, h.id));
+      if (seen && !isTest) {
+        const id = await deps.events.record(h.id, c.var.device.id, "mail_seen", { seen });
+        await sendPush(db, h.id, ["rosa"], MAIL_PAYLOAD(h.called, id)).catch(() => ({ sent: 0 }));
+      }
+      return c.json({ seen, callsToday: calls });
+    })
+    .post("/cam/test", deps.auth, async (c) => {
+      const b = await c.req.json().catch(() => ({}));
+      const result = b?.result === "works" ? "works" : b?.result === "pending" ? "pending" : null;
+      if (!result) return c.json({ error: "bad_result" }, 400);
+      const rows = await getDb().update(cam).set({ testStatus: result }).where(eq(cam.householdId, c.var.household.id)).returning({ id: cam.householdId });
+      return rows.length ? c.json({ ok: true }) : c.json({ error: "not_set" }, 409);
     })
     .post("/cam/heartbeat", deps.auth, async (c) => {
       const b = await c.req.json().catch(() => ({}));

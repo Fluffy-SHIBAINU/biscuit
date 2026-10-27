@@ -15,3 +15,14 @@ export function bestDetection(d: Detection[], minScore = 0.5): Detection | null 
   const best = [...d].sort((a, b) => b.score - a.score)[0];
   return best && best.score >= minScore ? best : null;
 }
+
+export const SAM_DAILY_CAP = 400;
+
+/** False once today's SAM calls reach the cap; a new day resets the count. */
+export function allowSamCall(row: { samCallsToday: number; samDay: string | null }, today: string): boolean {
+  if (row.samDay !== today) return true;
+  return row.samCallsToday < SAM_DAILY_CAP;
+}
+
+export const WATCH_PROMPTS = ["mail carrier", "mailbox door", "envelope"] as const;
+export const TEST_PROMPTS = ["mailbox door"] as const;
