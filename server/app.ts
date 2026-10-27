@@ -5,11 +5,12 @@ import { letterRoutes, type SamDeps, type SparkDeps } from "./routes/letter.js";
 import { linkRoutes } from "./routes/link.js";
 import { rosaRoutes, type AsrFn } from "./routes/rosa.js";
 import { questionRoutes } from "./routes/question.js";
+import { sheetRoutes, type SheetFn } from "./routes/sheet.js";
 import type { Chooser } from "./questions.js";
 
 export const VERSION = "0.1.0";
 
-export type AppOptions = { lookup?: Lookup; asr?: AsrFn; spark?: SparkDeps; sam?: SamDeps; events?: Events; chooser?: Chooser };
+export type AppOptions = { lookup?: Lookup; asr?: AsrFn; spark?: SparkDeps; sam?: SamDeps; events?: Events; chooser?: Chooser; sheet?: SheetFn };
 
 export function createApp(opts: AppOptions = {}): Hono {
   const app = new Hono();
@@ -20,5 +21,6 @@ export function createApp(opts: AppOptions = {}): Hono {
   app.route("/api/biscuit", rosaRoutes({ auth, asr: opts.asr }));
   app.route("/api/biscuit", letterRoutes({ auth, spark: opts.spark, sam: opts.sam, events }));
   app.route("/api/biscuit", questionRoutes({ auth, chooser: opts.chooser }));
+  app.route("/api/biscuit", sheetRoutes({ auth, sheet: opts.sheet }));
   return app;
 }
