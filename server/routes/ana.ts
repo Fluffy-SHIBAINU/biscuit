@@ -59,6 +59,14 @@ export function anaRoutes(o: { env?: Record<string, string | undefined> } = {}) 
       }
       return c.json({ error: "try_again" }, 503);
     })
+    .post("/cam/pause", auth, async (c) => {
+      const rows = await getDb().update(cam).set({ paused: true }).where(eq(cam.householdId, c.var.household.id)).returning({ id: cam.householdId });
+      return rows.length ? c.json({ ok: true }) : c.json({ error: "not_set" }, 404);
+    })
+    .post("/cam/resume", auth, async (c) => {
+      const rows = await getDb().update(cam).set({ paused: false }).where(eq(cam.householdId, c.var.household.id)).returning({ id: cam.householdId });
+      return rows.length ? c.json({ ok: true }) : c.json({ error: "not_set" }, 404);
+    })
     .get("/family", auth, async (c) => {
       const db = getDb();
       const h = c.var.household;

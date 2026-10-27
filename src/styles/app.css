@@ -51,3 +51,18 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .steps { margin: 0; padding-left: 20px; font-size: 16px; line-height: 1.5; color: var(--ink-2); }
 .codebox { font: 500 44px/1 var(--mono); letter-spacing: .18em; text-align: center; background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r-sheet); padding: 24px 0; }
 .foot.bad { color: var(--bad); }
+.screen.ana.wide { max-width: 1280px; }
+.row.wrap { flex-wrap: wrap; align-items: flex-start; }
+.right { text-align: right; line-height: 1.6; }
+.cols { display: flex; flex-wrap: wrap; gap: 22px; align-items: flex-start; }
+.cols .grow { flex: 999 1 520px; min-width: 0; }
+.stack { flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: 22px; }
+.stack.tight { gap: 10px; flex: none; }
+.h2 { margin: 6px 0 0; font-family: var(--display); font-weight: 400; font-size: 24px; }
+.card.night { background: var(--btn); color: var(--night-ink); border-radius: var(--r-night); border: 0; }
+.label.night { color: var(--night-muted); }
+.btn.ana.light { background: #E8EDF5; color: var(--ink); height: 48px; font-size: 15px; font-weight: 600; border: 0; }
+.btn.ana.small { height: 40px; padding: 0 14px; width: auto; font-size: 14px; }
+.said { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+.quote.small { font-size: 14px; line-height: 1.5; }
+.lead.signal { color: var(--signal); }
