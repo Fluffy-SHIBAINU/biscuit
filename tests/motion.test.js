@@ -27,3 +27,14 @@ test("shouldSend", () => {
   expect(shouldSend({ paused: false, battery: 9, charging: false })).toBe(false);
   expect(shouldSend({ paused: false, battery: 9, charging: true })).toBe(true);
 });
+
+// Calibration needs the level that tripped the gate, so the detector remembers its last difference.
+test("the detector keeps the last difference it measured", () => {
+  const d = new MotionDetector({ threshold: 12, consecutive: 1, cooldownMs: 0 });
+  const a = new Uint8Array([0, 0, 0, 0]), b = new Uint8Array([20, 20, 20, 20]);
+  expect(d.lastDiff).toBe(0);
+  d.sample(a, 1000);
+  expect(d.lastDiff).toBe(0);
+  expect(d.sample(b, 2000)).toBe("motion");
+  expect(d.lastDiff).toBe(20);
+});

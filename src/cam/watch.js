@@ -26,7 +26,14 @@ export function shouldSend({ paused = false, battery = null, charging = null } =
   return true;
 }
 
-/** Samples the region every 500 ms; on motion grabs three crops 500 ms apart and hands them to onFrames. Returns a stop function. */
+/** The extra fields a send carries in collect mode: the flag and the motion level that tripped the gate. Nothing otherwise. */
+export function frameFields(collect, detector) {
+  if (!collect) return {};
+  const level = detector && Number.isFinite(detector.lastDiff) ? detector.lastDiff : null;
+  return level === null ? { collect: "1" } : { collect: "1", level: level.toFixed(1) };
+}
+
+/** Samples the region every 500 ms; on motion grabs three crops 500 ms apart and hands them to onFrames with the motion level. Returns a stop function. */
 export function startWatcher(video, region, { onFrames, onLevel, isPaused, detector = new MotionDetector(), intervalMs = 500 } = {}) {
   let busy = false;
   let stopped = false;
@@ -40,13 +47,14 @@ export function startWatcher(video, region, { onFrames, onLevel, isPaused, detec
     if (state !== "motion") return;
     if (isPaused && isPaused()) return;
     busy = true;
+    const level = detector.lastDiff;
     try {
       const frames = [];
       for (let i = 0; i < 3; i++) {
         frames.push(await cropJpeg(video, region));
         if (i < 2) await new Promise((r) => setTimeout(r, 500));
       }
-      await onFrames(frames);
+      await onFrames(frames, { level });
     } finally { busy = false; }
   }, intervalMs);
   return () => { stopped = true; clearInterval(timer); };

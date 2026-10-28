@@ -26,3 +26,12 @@ export function allowSamCall(row: { samCallsToday: number; samDay: string | null
 
 export const WATCH_PROMPTS = ["mail carrier", "mailbox door", "envelope"] as const;
 export const TEST_PROMPTS = ["mailbox door"] as const;
+
+/** The prompts scored on a kept frame, so calibration can compare them; the watch prompts first. */
+export const COLLECT_PROMPTS = [...WATCH_PROMPTS, "person", "hand", "package"] as const;
+
+/** Frames may be kept only for the household whose owner CAM_COLLECT_OWNER names, and only when the phone asks on that send. */
+export function collectAllowed(env: Record<string, string | undefined>, ownerEmail: string | null | undefined, asked: string | null | undefined): boolean {
+  const owner = env.CAM_COLLECT_OWNER?.trim().toLowerCase();
+  return Boolean(owner && ownerEmail && ownerEmail.trim().toLowerCase() === owner && asked === "1");
+}

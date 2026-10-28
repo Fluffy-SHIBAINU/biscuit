@@ -4,7 +4,7 @@ import { openCamera, stopCamera } from "../lib/camera.js";
 import { navigate } from "../lib/navigate.js";
 import { speak } from "../lib/speech.js";
 import { store, useStore } from "../lib/store.js";
-import { startWatcher } from "./watch.js";
+import { frameFields, startWatcher } from "./watch.js";
 import { MotionDetector } from "./motion.js";
 
 const WINDOW_MS = 60_000;
@@ -25,12 +25,13 @@ export default function Test() {
     const started = Date.now();
     const clock = () => new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
     let tick = null;
+    const detector = new MotionDetector({ cooldownMs: 5000 });
     const stop = startWatcher(video.current, region, {
-      detector: new MotionDetector({ cooldownMs: 5000 }),
+      detector,
       onFrames: async (frames) => {
         setLog((l) => [...l, `${clock()} Motion at the box · ${frames.length} frames sent`]);
         try {
-          const r = await sendFrames(frames.concat([]), true);
+          const r = await sendFrames(frames.concat([]), true, frameFields(Boolean(store.get().cam?.collect), detector));
           if (r.seen) { setLog((l) => [...l, `${clock()} “${r.seen}” seen`]); clearInterval(tick); finish("works", stop); }
         } catch { /* keep watching */ }
       },

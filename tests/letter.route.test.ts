@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { createApp } from "../server/app.js";
+import { SHADOW_LABEL, shadowReader } from "../server/routes/letter.js";
 
 const fx = (name: string) => JSON.parse(readFileSync(new URL(`./fixtures/meta/${name}.json`, import.meta.url), "utf8"));
 const jpeg = readFileSync(new URL("./fixtures/letter-synthetic.jpg", import.meta.url));
@@ -133,4 +134,66 @@ test("no second reader configured: single, no agreement fields, today's lines", 
   expect(body.readers).toEqual([expect.objectContaining({ name: "meta", status: "ok" })]);
   expect(body.facts.every((f: any) => f.agreement === undefined)).toBe(true);
   expect(body.lines).toContain("The statement date is 10/03/2026.");
+});
+
+// The shadow reader: a third model reads beside the pair for Ana's page and the eval log; Rosa never hears it.
+test("the shadow reader is on only when FIREWORKS_READER_SHADOW names a model and a key is set, labelled Kindred's reader", () => {
+  expect(shadowReader({})).toBeNull();
+  expect(shadowReader({ FIREWORKS_READER_SHADOW: "accounts/a/models/biscuit-glimmer-x" })).toBeNull();
+  expect(shadowReader({ FIREWORKS_READER_SHADOW: " ", FIREWORKS_API_KEY: "k" })).toBeNull();
+  const s = shadowReader({ FIREWORKS_READER_SHADOW: "accounts/a/models/biscuit-glimmer-x", FIREWORKS_API_KEY: "k" });
+  expect(s?.label).toBe(SHADOW_LABEL);
+  expect(SHADOW_LABEL).toBe("Kindred's reader (Glimmer 30B, trained)");
+  expect(shadowReader({ FIREWORKS_READER_SHADOW: "m", FIREWORKS_API_KEY: "k", FIREWORKS_READER_SHADOW_LABEL: "Trial reader" })?.label).toBe("Trial reader");
+});
+
+test("a shadow reader reads beside the pair, never speaks, and is recorded for Ana after the reply", async () => {
+  const { calls, events: ev } = recorder();
+  const pending: Promise<unknown>[] = [];
+  const same = { transcribe: async () => transcription2, extract: async () => extraction2 };
+  // The shadow is slow: the reply must not wait for it.
+  let release: () => void = () => {};
+  const gate = new Promise<void>((r) => { release = r; });
+  const app = createApp({ lookup: linked, events: ev, sheet: async () => null, spark: same, reader2: { label: "DeepSeek V4.1 Flash on Fireworks", ...same }, shadow: { label: SHADOW_LABEL, transcribe: () => gate.then(() => transcription2), extract: same.extract }, waitUntil: (p) => { pending.push(p); } });
+  const body = await (await post(app, "/api/biscuit/letter/read", new Uint8Array(jpeg))).json();
+  expect(body.readers.map((r: any) => r.name)).toEqual(["meta", "fireworks"]);
+  expect(body.readBy).toBe("twice");
+  expect(body.facts.filter((f: any) => f.verified).every((f: any) => f.spoken)).toBe(true);
+  expect(calls.map((c) => c.kind)).toEqual(["letter_read"]);
+  expect(pending).toHaveLength(1);
+  release();
+  await Promise.all(pending);
+  expect(calls.map((c) => c.kind)).toEqual(["letter_read", "shadow_read"]);
+  expect(calls[1].data).toMatchObject({ letterEventId: 1, name: "shadow", label: SHADOW_LABEL, status: "ok", agreed: 8, of: 8 });
+  expect(typeof calls[1].data.ms).toBe("number");
+});
+
+test("a shadow that fails, times out or reads a line differently changes nothing Rosa hears", async () => {
+  const { calls, events: ev } = recorder();
+  const pending: Promise<unknown>[] = [];
+  const same = { transcribe: async () => transcription2, extract: async () => extraction2 };
+  const app = createApp({ lookup: linked, events: ev, sheet: async () => null, spark: same, reader2: { label: "DeepSeek V4.1 Flash on Fireworks", ...same }, shadow: { label: SHADOW_LABEL, transcribe: async () => { throw new Error("fireworks 503: cold"); }, extract: same.extract }, waitUntil: (p) => { pending.push(p); } });
+  const body = await (await post(app, "/api/biscuit/letter/read", new Uint8Array(jpeg))).json();
+  expect(body.readBy).toBe("twice");
+  expect(body.checks).toEqual([]);
+  await Promise.all(pending);
+  expect(calls[1].data).toMatchObject({ name: "shadow", status: "failed", error: "fireworks 503: cold", agreed: 0, of: 8 });
+
+  const differ = { ...extraction2, amount_due: { value: "$1,580.00", quote: "Amount Due: $1,580.00" } };
+  const { calls: calls2, events: ev2 } = recorder();
+  const pending2: Promise<unknown>[] = [];
+  const app2 = createApp({ lookup: linked, events: ev2, sheet: async () => null, spark: same, reader2: { label: "DeepSeek V4.1 Flash on Fireworks", ...same }, shadow: { label: SHADOW_LABEL, transcribe: async () => transcription2.replace("$1,850.00", "$1,580.00"), extract: async () => differ }, waitUntil: (p) => { pending2.push(p); } });
+  const body2 = await (await post(app2, "/api/biscuit/letter/read", new Uint8Array(jpeg))).json();
+  expect(body2.facts.find((f: any) => f.field === "amount_due")).toMatchObject({ value: "$1,850.00", spoken: true });
+  expect(body2.checks).toEqual([]);
+  await Promise.all(pending2);
+  expect(calls2[1].data).toMatchObject({ status: "ok", agreed: 7, of: 8 });
+});
+
+test("without a shadow reader nothing is deferred", async () => {
+  const pending: Promise<unknown>[] = [];
+  const same = { transcribe: async () => transcription2, extract: async () => extraction2 };
+  const app = createApp({ lookup: linked, events, sheet: async () => null, spark: same, waitUntil: (p) => { pending.push(p); } });
+  expect((await post(app, "/api/biscuit/letter/read", new Uint8Array(jpeg))).status).toBe(200);
+  expect(pending).toEqual([]);
 });

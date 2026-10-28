@@ -1,7 +1,7 @@
 // Letter helpers shared by the Rosa screens: summaries for the server, dates and amounts from verified quotes.
 
 /** How each reader is named on screen. */
-export const READER_NAME = { meta: "Meta's reader", fireworks: "Fireworks reader" };
+export const READER_NAME = { meta: "Meta's reader", fireworks: "Fireworks reader", shadow: "Kindred's reader" };
 /** A reader's printed name: its label (the model), else the name Biscuit knows, else the id. Takes a reader object or a name. */
 export const readerName = (r) => (r && typeof r === "object" ? r.label || READER_NAME[r.name] || r.name : READER_NAME[r] || r);
 

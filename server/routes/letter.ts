@@ -1,3 +1,4 @@
+import { waitUntil } from "@vercel/functions";
 import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 import type { AuthVars } from "../auth.js";
@@ -9,7 +10,7 @@ import { fireworksReaderFor, readerModel } from "../fireworks/spark.js";
 import { composeOffer, composeReading, unknownNumber } from "../compose.js";
 import { matchHospital, statesFromText } from "../hospitals.js";
 import { fetchSheet, type SheetSummary } from "../waive.js";
-import { attempt, READ_TIMEOUT_MS, type Reader } from "../read.js";
+import { attempt, READ_TIMEOUT_MS, type Reader, type ReadOutcome } from "../read.js";
 import { agree } from "../agree.js";
 
 export { MIN_WORDS } from "../read.js";
@@ -26,6 +27,15 @@ export function secondReader(env: Record<string, string | undefined> = process.e
   return env.READER_SECOND === "fireworks" && env.FIREWORKS_API_KEY ? fireworksReaderFor(readerModel(env)) : null;
 }
 
+export const SHADOW_LABEL = "Kindred's reader (Glimmer 30B, trained)";
+
+/** The shadow reader: FIREWORKS_READER_SHADOW names a model that reads beside the pair for Ana's page and the eval log. It never speaks. */
+export function shadowReader(env: Record<string, string | undefined> = process.env): Reader | null {
+  const model = env.FIREWORKS_READER_SHADOW?.trim();
+  if (!model || !env.FIREWORKS_API_KEY) return null;
+  return { ...fireworksReaderFor(model), label: env.FIREWORKS_READER_SHADOW_LABEL?.trim() || SHADOW_LABEL };
+}
+
 async function imageOf(c: any, max: number): Promise<Buffer | { error: string; status: 400 | 413 }> {
   const form = await c.req.formData();
   const image = form.get("image");
@@ -34,10 +44,13 @@ async function imageOf(c: any, max: number): Promise<Buffer | { error: string; s
   return Buffer.from(await image.arrayBuffer());
 }
 
-export function letterRoutes(deps: { auth: MiddlewareHandler<AuthVars>; spark?: SparkDeps; reader2?: Reader | null; readTimeoutMs?: number; sam?: SamDeps; events: Events; sheet?: SheetFn; frameLimiter?: (key: string) => Promise<boolean> }) {
+export function letterRoutes(deps: { auth: MiddlewareHandler<AuthVars>; spark?: SparkDeps; reader2?: Reader | null; shadow?: Reader | null; waitUntil?: (p: Promise<unknown>) => void; readTimeoutMs?: number; sam?: SamDeps; events: Events; sheet?: SheetFn; frameLimiter?: (key: string) => Promise<boolean> }) {
   const sheetOf: SheetFn = deps.sheet ?? fetchSheet;
   const spark: Reader = deps.spark ?? { transcribe: transcribeLetter, extract: extractFacts };
   const second: Reader | null = deps.reader2 === undefined ? secondReader() : deps.reader2;
+  const shadow: Reader | null = deps.shadow === undefined ? shadowReader() : deps.shadow;
+  // Work after the reply: on Vercel the function stays up for it; elsewhere the promise simply runs.
+  const defer = deps.waitUntil ?? ((p: Promise<unknown>) => { waitUntil(p); });
   const timeoutMs = deps.readTimeoutMs ?? READ_TIMEOUT_MS;
   const sam: SamDeps = deps.sam ?? { detect };
   return new Hono<AuthVars>()
@@ -52,7 +65,8 @@ export function letterRoutes(deps: { auth: MiddlewareHandler<AuthVars>; spark?: 
       if (!Buffer.isBuffer(img)) return c.json({ error: img.error }, img.status);
       const home = c.var.household;
       if ((await deps.events.count(home.id, "letter_read", 3_600_000)) >= READS_PER_HOUR) return c.json({ error: "rate" }, 429);
-      // Both readers at once: the read costs the slower of the two, never the sum.
+      // Both readers at once: the read costs the slower of the two, never the sum. The shadow starts with them and is never waited for.
+      const shadowRun: Promise<ReadOutcome> | null = shadow ? attempt("shadow", shadow, img, timeoutMs) : null;
       const [a, b] = await Promise.all([attempt("meta", spark, img, timeoutMs), second ? attempt("fireworks", second, img, timeoutMs) : Promise.resolve(null)]);
       const outcomes = b ? [a, b] : [a];
       const primary = a.read ? a : b?.read ? b : null;
@@ -76,10 +90,19 @@ export function letterRoutes(deps: { auth: MiddlewareHandler<AuthVars>; spark?: 
       const lines = composeReading(gate.facts.filter((f) => f.spoken), extraction.kind);
       if (gate.differLine) lines.push(gate.differLine);
       const readers = outcomes.map(({ name, label, status, ms, error }) => ({ name, ...(label ? { label } : {}), status, ms, ...(error ? { error } : {}) }));
-      await deps.events.record(home.id, c.var.device.id, "letter_read", {
+      const eventId = await deps.events.record(home.id, c.var.device.id, "letter_read", {
         kind: extraction.kind, readBy: gate.readBy, readers: readers.map(({ name, label, status, ms }) => ({ name, ...(label ? { label } : {}), status, ms })),
         agreed: gate.facts.filter((f) => f.agreement === "agreed").length, differ: gate.checks.length,
       });
+      if (shadowRun) {
+        // The shadow's reading is compared with the spoken reader's and logged for Ana; nothing it read reaches Rosa.
+        const of = read.facts.filter((f) => f.verified).length;
+        defer(shadowRun.then((s) => {
+          const g = s.read ? agree({ name: primary.name, facts: read.facts }, { name: "shadow", facts: s.read.facts }, "paired") : null;
+          const agreed = g ? g.facts.filter((f) => f.agreement === "agreed").length : 0;
+          return deps.events.record(home.id, c.var.device.id, "shadow_read", { letterEventId: eventId, name: "shadow", label: s.label ?? SHADOW_LABEL, status: s.status, ms: s.ms, ...(s.error ? { error: s.error } : {}), agreed, of });
+        }).catch(() => undefined));
+      }
       return c.json({
         transcription, facts: gate.facts, kind: extraction.kind, sender: read.senderName, hospital, sheet, unknownNumber: unknown,
         readBy: gate.readBy, readers, checks: gate.checks, lines,

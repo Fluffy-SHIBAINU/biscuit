@@ -29,11 +29,11 @@ export function meanAbsDiff(a, b) {
 export class MotionDetector {
   constructor({ threshold = 12, consecutive = 2, cooldownMs = 90_000 } = {}) {
     this.threshold = threshold; this.consecutive = consecutive; this.cooldownMs = cooldownMs;
-    this.prev = null; this.streak = 0; this.lastSentAt = -Infinity;
+    this.prev = null; this.streak = 0; this.lastSentAt = -Infinity; this.lastDiff = 0;
   }
   sample(gray, now) {
     const diff = this.prev ? meanAbsDiff(gray, this.prev) : 0;
-    this.prev = gray;
+    this.prev = gray; this.lastDiff = diff;
     this.streak = diff >= this.threshold ? this.streak + 1 : 0;
     if (diff >= this.threshold && now - this.lastSentAt < this.cooldownMs) return "cooldown";
     if (this.streak < this.consecutive) return "idle";

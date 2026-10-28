@@ -1,10 +1,10 @@
-import { bigserial, boolean, date, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigserial, boolean, date, integer, jsonb, pgTable, real, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const DEVICE_KINDS = ["rosa", "cam", "ana"] as const;
 export type DeviceKind = (typeof DEVICE_KINDS)[number];
 export const EVENT_KINDS = [
   "mail_seen", "mail_tapped", "letter_read", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack",
-  "cam_online", "cam_offline", "cam_battery", "cam_paused", "consent", "said", "delete", "look_requested",
+  "cam_online", "cam_offline", "cam_battery", "cam_paused", "consent", "said", "delete", "look_requested", "shadow_read",
 ] as const;
 export const READ_BY = ["single", "twice", "once"] as const;
 export type ReadBy = (typeof READ_BY)[number];
@@ -87,6 +87,20 @@ export const cam = pgTable("biscuit_cam", {
   samCallsToday: integer("sam_calls_today").notNull().default(0),
   samDay: date("sam_day"),
   paused: boolean("paused").notNull().default(false),
+});
+
+/** A mailbox frame set kept for calibration, only for the household CAM_COLLECT_OWNER names and only when its phone asked. */
+export const camSample = pgTable("biscuit_cam_sample", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  householdId: uuid("household_id").notNull().references(() => household.id, { onDelete: "cascade" }),
+  deviceId: uuid("device_id"),
+  at: ts("at").notNull().defaultNow(),
+  test: boolean("test").notNull().default(false),
+  level: real("level"),
+  seen: text("seen"),
+  scores: jsonb("scores").$type<Record<string, number>>().notNull().default({}),
+  frames: jsonb("frames").$type<string[]>().notNull().default([]),
+  label: text("label"),
 });
 
 export const rate = pgTable("biscuit_rate", {

@@ -93,10 +93,10 @@ export default function Family() {
             {readers ? (
               <>
                 <span className="label plain">Last letter {when(readers.at)} · {readers.readBy === "twice" ? "read twice" : readers.readBy === "once" ? "read once" : "read by one reader"}</span>
-                {readers.list.map((r) => <div key={r.name} className="row"><span className={`pill ${(READER_STATE[r.status] || READER_STATE.failed)[0]}`}>{(READER_STATE[r.status] || READER_STATE.failed)[1]}</span><span className="lead small">{readerName(r)}{Number.isFinite(r.ms) ? ` · ${(r.ms / 1000).toFixed(1)} s` : ""}</span></div>)}
+                {readers.list.map((r) => <div key={r.name} className="row"><span className={`pill ${r.shadow ? "signal" : (READER_STATE[r.status] || READER_STATE.failed)[0]}`}>{r.shadow ? "Shadow" : (READER_STATE[r.status] || READER_STATE.failed)[1]}</span><span className="lead small">{readerName(r)}{r.shadow ? ` · ${r.status === "ok" ? `agreed on ${r.agreed} of ${r.of}` : (READER_STATE[r.status] || READER_STATE.failed)[1].toLowerCase()}` : ""}{Number.isFinite(r.ms) ? ` · ${(r.ms / 1000).toFixed(1)} s` : ""}</span></div>)}
               </>
             ) : <p className="lead small muted">No letter read yet.</p>}
-            <span className="label plain">Meta's reader is Spark 1.3 on Meta Model API; Spark Open is Meta's open weights on Fireworks. Both read every letter; {h.called} hears only what both read the same way.</span>
+            <span className="label plain">Meta's reader is Spark 1.3 on Meta Model API; the second reader is DeepSeek V4.1 Flash on Fireworks. Both read every letter; {h.called} hears only what both read the same way. Kindred's reader, Meta's Glimmer 30B trained on synthetic letters, reads in the shadow: logged here, never spoken.</span>
           </section>
           <section className="card">
             <span className="label">Mailbox phone</span>

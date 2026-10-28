@@ -19,9 +19,10 @@ export function readerModel(env: Record<string, string | undefined> = process.en
   return env.FIREWORKS_READER_MODEL?.trim() || DEFAULT_MODEL;
 }
 
-/** A letter is transcription and copying: no reasoning where the model allows it. Muse Spark Open refuses "none", so it gets the least it offers. */
+/** A letter is transcription and copying: no reasoning where the model allows it. Muse models (Spark Open, Glimmer and anything trained on Glimmer) refuse "none", so they get the least they offer. */
+const MUSE = /muse-spark-open|glimmer/;
 export function reasoningFor(model: string): "none" | "low" {
-  return model === SPARK_OPEN_MODEL ? "low" : "none";
+  return MUSE.test(model) ? "low" : "none";
 }
 
 /** The name the screens print for a reader on this model. */

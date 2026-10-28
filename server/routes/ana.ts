@@ -90,6 +90,10 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
       const [camRow] = await db.select().from(cam).where(eq(cam.householdId, h.id)).limit(1);
       const [lastRead] = await db.select().from(event).where(and(eq(event.householdId, h.id), eq(event.kind, "letter_read"))).orderBy(desc(event.at)).limit(1);
       const readData = (lastRead?.data ?? {}) as { readBy?: string; readers?: unknown[] };
+      // The shadow reader's entry for that same read, when one was logged after the reply.
+      const shadows = lastRead ? await db.select().from(event).where(and(eq(event.householdId, h.id), eq(event.kind, "shadow_read"))).orderBy(desc(event.at)).limit(5) : [];
+      const shadowData = shadows.map((e) => e.data as any).find((d) => d?.letterEventId === lastRead!.id);
+      const shadowEntry = shadowData ? [{ name: "shadow", label: shadowData.label, status: shadowData.status, ms: shadowData.ms, shadow: true, agreed: shadowData.agreed ?? 0, of: shadowData.of ?? 0, ...(shadowData.error ? { error: shadowData.error } : {}) }] : [];
       const camDevice = devices.find((d) => d.kind === "cam");
       const lastTest = events.find((e) => e.kind === "help_test");
       const acked = lastTest ? events.some((e) => e.kind === "help_test_ack" && (e.data as any)?.eventId === lastTest.id) : false;
@@ -103,7 +107,7 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
         events: events.filter((e) => e.kind !== "said").map((e) => ({ id: e.id, kind: e.kind, at: e.at, data: e.data })),
         camera: { status: cameraStatus(camRow ?? null, camDevice?.lastSeenAt ?? null, now), testStatus: camRow?.testStatus ?? null, paused: camRow?.paused ?? false, battery: camDevice?.battery ?? null, charging: camDevice?.charging ?? null, lastMotionAt: camRow?.lastMotionAt ?? null, setAt: camRow?.setAt ?? null },
         help: { lastTestAt: lastTest?.at ?? null, acked, openHelpAt: closed ? null : openHelp?.at ?? null },
-        readers: lastRead ? { at: lastRead.at, readBy: readData.readBy ?? "single", list: Array.isArray(readData.readers) ? readData.readers : [] } : null,
+        readers: lastRead ? { at: lastRead.at, readBy: readData.readBy ?? "single", list: [...(Array.isArray(readData.readers) ? readData.readers : []), ...shadowEntry] } : null,
       });
     });
 }

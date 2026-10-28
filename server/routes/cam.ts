@@ -2,13 +2,13 @@ import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 import type { AuthVars } from "../auth.js";
-import { allowSamCall, bestDetection, SAM_DAILY_CAP, TEST_PROMPTS, WATCH_PROMPTS } from "../cam.js";
+import { allowSamCall, bestDetection, COLLECT_PROMPTS, collectAllowed, SAM_DAILY_CAP, TEST_PROMPTS, WATCH_PROMPTS } from "../cam.js";
 import type { Events } from "../events.js";
 import { MAIL_PAYLOAD, sendPush } from "../push.js";
 import { getDb } from "../db.js";
 import { detect } from "../meta/sam.js";
 import type { SamDeps } from "./letter.js";
-import { cam, device, type Region } from "../schema.js";
+import { cam, camSample, device, type Region } from "../schema.js";
 
 export const MAX_FIND_BYTES = 600_000;
 export const MAX_FRAME_BYTES = 300_000;
@@ -19,8 +19,21 @@ function validRegion(r: any): r is Region {
   return r && ok(r.x) && ok(r.y) && ok(r.w) && ok(r.h) && r.w > 0 && r.h > 0 && r.x + r.w <= 1.001 && r.y + r.h <= 1.001;
 }
 
-export function camRoutes(deps: { auth: MiddlewareHandler<AuthVars>; sam?: SamDeps; events: Events }) {
+type CamRow = typeof cam.$inferSelect;
+export type CamSampleRow = { householdId: string; deviceId: string | null; test: boolean; level: number | null; seen: string | null; scores: Record<string, number>; frames: string[] };
+/** The watcher's rows: read, update, and keep a calibration sample. The live store is the database; tests pass their own. */
+export type CamStore = { get(householdId: string): Promise<CamRow | null>; update(householdId: string, patch: Partial<CamRow>): Promise<void>; keep(row: CamSampleRow): Promise<void> };
+
+export const dbCamStore: CamStore = {
+  async get(householdId) { const [row] = await getDb().select().from(cam).where(eq(cam.householdId, householdId)).limit(1); return row ?? null; },
+  async update(householdId, patch) { await getDb().update(cam).set(patch).where(eq(cam.householdId, householdId)); },
+  async keep(row) { await getDb().insert(camSample).values(row); },
+};
+
+export function camRoutes(deps: { auth: MiddlewareHandler<AuthVars>; sam?: SamDeps; events: Events; env?: Record<string, string | undefined>; store?: CamStore }) {
   const sam: SamDeps = deps.sam ?? { detect };
+  const env = deps.env ?? process.env;
+  const store = deps.store ?? dbCamStore;
   return new Hono<AuthVars>()
     .post("/cam/find", deps.auth, async (c) => {
       const form = await c.req.formData();
@@ -55,31 +68,55 @@ export function camRoutes(deps: { auth: MiddlewareHandler<AuthVars>; sam?: SamDe
       const isTest = form.get("test") === "1";
       const db = getDb();
       const h = c.var.household;
-      const [row] = await db.select().from(cam).where(eq(cam.householdId, h.id)).limit(1);
+      const row = await store.get(h.id);
       if (!row) return c.json({ error: "not_set" }, 409);
       if (row.paused && !isTest) return c.json({ error: "paused" }, 409);
       const day = today();
       let calls = row.samDay === day ? row.samCallsToday : 0;
       if (!allowSamCall({ samCallsToday: calls, samDay: row.samDay === day ? day : null }, day)) {
-        await db.update(cam).set({ paused: true }).where(eq(cam.householdId, h.id));
+        await store.update(h.id, { paused: true });
         await deps.events.record(h.id, c.var.device.id, "cam_paused", { reason: "cap", cap: SAM_DAILY_CAP });
         return c.json({ error: "cap" }, 429);
       }
+      // Collect mode: every prompt is scored on the first frame and the frames are kept with those scores for calibration.
+      const collecting = collectAllowed(env, h.ownerEmail, String(form.get("collect") ?? ""));
       let seen: string | null = null;
+      const scores: Record<string, number> = {};
+      if (collecting) {
+        for (const prompt of COLLECT_PROMPTS) {
+          if (calls >= SAM_DAILY_CAP) break;
+          calls++;
+          const best = bestDetection(await sam.detect(frames[0], { text: prompt }), 0);
+          scores[prompt] = best ? Math.round(best.score * 1000) / 1000 : 0;
+          if (!seen && best && best.score >= 0.5 && (isTest ? (TEST_PROMPTS as readonly string[]) : (WATCH_PROMPTS as readonly string[])).includes(prompt)) seen = prompt;
+        }
+      }
       outer: for (const prompt of isTest ? TEST_PROMPTS : WATCH_PROMPTS) {
-        for (const frame of frames) {
+        if (seen) break;
+        for (const frame of collecting ? frames.slice(1) : frames) {
           if (calls >= SAM_DAILY_CAP) break outer;
           calls++;
           const best = bestDetection(await sam.detect(frame, { text: prompt }));
           if (best) { seen = prompt; break outer; }
         }
       }
-      await db.update(cam).set({ samCallsToday: calls, samDay: day, lastMotionAt: new Date() }).where(eq(cam.householdId, h.id));
+      await store.update(h.id, { samCallsToday: calls, samDay: day, lastMotionAt: new Date() });
+      let kept = false;
+      if (collecting) {
+        const level = Number(form.get("level"));
+        // Keeping a sample never breaks the watch: a missing table or a full disk only means this one is not kept.
+        try {
+          await store.keep({ householdId: h.id, deviceId: c.var.device.id, test: isTest, level: Number.isFinite(level) ? level : null, seen, scores, frames: frames.map((f) => `data:image/jpeg;base64,${f.toString("base64")}`) });
+          kept = true;
+        } catch (err: any) {
+          console.warn(JSON.stringify({ cam: "keep_failed", error: String(err?.message ?? err).slice(0, 200) }));
+        }
+      }
       if (seen && !isTest) {
         const id = await deps.events.record(h.id, c.var.device.id, "mail_seen", { seen });
         await sendPush(db, h.id, ["rosa"], MAIL_PAYLOAD(h.called, id)).catch(() => ({ sent: 0 }));
       }
-      return c.json({ seen, callsToday: calls });
+      return c.json({ seen, callsToday: calls, ...(collecting ? { kept } : {}) });
     })
     .post("/cam/test", deps.auth, async (c) => {
       const b = await c.req.json().catch(() => ({}));

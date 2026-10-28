@@ -63,3 +63,9 @@ test("fwChat posts to Fireworks with the key and throws on a bad status", async 
   await expect(fwChat({ model: DEFAULT_MODEL, messages: [] }, bad)).rejects.toThrow(/fireworks 400/);
   expect(typeof fireworksReader.transcribe).toBe("function");
 });
+
+test("Muse models reason at least a little: Glimmer and anything trained on it get low, others none", () => {
+  expect(reasoningFor("accounts/fireworks/models/muse-glimmer-30b")).toBe("low");
+  expect(reasoningFor("accounts/i-shawn-yoon-zldmgt3/models/biscuit-glimmer-oct28a")).toBe("low");
+  expect(reasoningFor(DEFAULT_MODEL)).toBe("none");
+});

@@ -24,7 +24,8 @@ describe.skipIf(!process.env.DATABASE_URL)("what Ana's page keeps from a read tw
     const t = newToken();
     token = t.token;
     await db.insert(device).values({ householdId, kind: "rosa", tokenHash: t.hash, pushSubscription: { endpoint: "https://push.example/rosa", keys: {} } });
-    await db.insert(event).values({ householdId, deviceId: null, kind: "letter_read", data: { kind: "bill", readBy: "twice", readers: [{ name: "meta", status: "ok", ms: 5700 }, { name: "fireworks", status: "ok", ms: 4100 }], agreed: 4, differ: 1 } });
+    const [readRow] = await db.insert(event).values({ householdId, deviceId: null, kind: "letter_read", data: { kind: "bill", readBy: "twice", readers: [{ name: "meta", status: "ok", ms: 5700 }, { name: "fireworks", status: "ok", ms: 4100 }], agreed: 4, differ: 1 } }).returning({ id: event.id });
+    await db.insert(event).values({ householdId, deviceId: null, kind: "shadow_read", data: { letterEventId: readRow.id, name: "shadow", label: "Kindred's reader (Glimmer 30B, trained)", status: "ok", ms: 4300, agreed: 4, of: 5 } });
   });
   afterAll(async () => { await getDb().delete(household).where(eq(household.ownerEmail, EMAIL)); });
 
@@ -36,7 +37,8 @@ describe.skipIf(!process.env.DATABASE_URL)("what Ana's page keeps from a read tw
     expect(docket.letters[0]).toMatchObject({ id, readBy: "twice", checks, lookRequestedAt: null });
     const fam = await (await ana("/api/biscuit/family")).json();
     expect(fam.letters[0]).toMatchObject({ id, readBy: "twice", checks, needsReview: true });
-    expect(fam.readers).toMatchObject({ readBy: "twice", list: [{ name: "meta", status: "ok", ms: 5700 }, { name: "fireworks", status: "ok", ms: 4100 }] });
+    expect(fam.readers).toMatchObject({ readBy: "twice", list: [{ name: "meta", status: "ok", ms: 5700 }, { name: "fireworks", status: "ok", ms: 4100 }, { name: "shadow", shadow: true, label: "Kindred's reader (Glimmer 30B, trained)", status: "ok", ms: 4300, agreed: 4, of: 5 }] });
+    expect(fam.readers.list).toHaveLength(3);
     expect(typeof fam.readers.at).toBe("string");
   });
 
