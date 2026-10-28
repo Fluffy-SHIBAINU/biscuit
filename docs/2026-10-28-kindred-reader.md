@@ -83,8 +83,11 @@ and 500 discharge summaries with JSON annotations, and is worth a look as a seco
 datasets (SROIE, CORD) are the closest real-image sets and are not medical. Nothing real and de-identified at scale
 exists in the open, which is the reason to generate.
 
-The next step, if a day is spent on it: a second renderer family (scanned-paper look, dot-matrix remittance stubs, EOB
-layouts) and a few dozen more public sample documents labelled by hand, so the real set can carry a confidence interval.
+The next step, if a day is spent on it, follows from the real-document result: letters with no account number, no
+amount, no phone, in layouts the generator has never drawn (scanned paper, dot-matrix remittance stubs, EOBs, Medicare
+notices, two-column headers), with the same truth-by-construction, so the adapter learns absence as well as presence;
+then a few dozen more public sample documents labelled by hand, so the real set can carry a confidence interval; then
+train again, and only a reader that beats both live readers on the real set takes a live seat.
 
 ## 4. Results
 
@@ -97,18 +100,19 @@ Held-out synthetic letters, 100, scored through the production verifier and agre
 | DeepSeek V4.1 Flash on Fireworks | 100/100 | 98.8% | 568/588 (96.6%) | 7 | 7 | 70.0% | 69/69 | 4.1 | 5.1 |
 | Spark 1.3 (Meta Model API) | 100/100 | 99.1% | 575/588 (97.8%) | 13 | 0 | 69.0% | 69/69 | 5.3 | 6.7 |
 | Glimmer 30B, base | 0/100 | 99.1% | 0/588 (0.0%) | 0 | 0 | 0.0% | 0/69 | 0 | 0 |
+| Glimmer 30B, base, schema in the prompt | 100/100 | 99.3% | 535/588 (91.0%) | 39 | 3 | 69.0% | 68/69 | 41.2 | 130 |
 | Kindred's reader (Glimmer 30B, trained) | 100/100 | 100.0% | 587/588 (99.8%) | 6 | 0 | 100.0% | 69/69 | 12.6 | 56.1 |
 
-| Field | DeepSeek V4.1 Flash on Fireworks | Spark 1.3 (Meta Model API) | Glimmer 30B, base | Kindred's reader (Glimmer 30B, trained) |
-|---|---|---|---|---|
-| sender | 99/100 [1] | 87/100 [13] | 0/100 [0] | 100/100 [0] |
-| hospital_name | 69/69 [0] | 69/69 [0] | 0/69 [0] | 69/69 [0] |
-| amount_due | 65/65 [0] | 65/65 [0] | 0/65 [0] | 65/65 [0] |
-| statement_date | 75/84 [0] | 84/84 [0] | 0/84 [0] | 84/84 [0] |
-| due_date | 53/53 [0] | 53/53 [0] | 0/53 [0] | 53/53 [0] |
-| account_last4 | 62/65 [3] | 65/65 [0] | 0/65 [0] | 64/65 [6] |
-| financial_assistance | 30/36 [3] | 36/36 [0] | 0/36 [0] | 36/36 [0] |
-| phone_numbers | 115/116 [0] | 116/116 [0] | 0/116 [0] | 116/116 [0] |
+| Field | DeepSeek V4.1 Flash on Fireworks | Spark 1.3 (Meta Model API) | Glimmer 30B, base | Glimmer 30B, base, schema in the prompt | Kindred's reader (Glimmer 30B, trained) |
+|---|---|---|---|---|---|
+| sender | 99/100 [1] | 87/100 [13] | 0/100 [0] | 69/100 [31] | 100/100 [0] |
+| hospital_name | 69/69 [0] | 69/69 [0] | 0/69 [0] | 69/69 [0] | 69/69 [0] |
+| amount_due | 65/65 [0] | 65/65 [0] | 0/65 [0] | 65/65 [0] | 65/65 [0] |
+| statement_date | 75/84 [0] | 84/84 [0] | 0/84 [0] | 73/84 [0] | 84/84 [0] |
+| due_date | 53/53 [0] | 53/53 [0] | 0/53 [0] | 53/53 [0] | 53/53 [0] |
+| account_last4 | 62/65 [3] | 65/65 [0] | 0/65 [0] | 59/65 [6] | 64/65 [6] |
+| financial_assistance | 30/36 [3] | 36/36 [0] | 0/36 [0] | 33/36 [2] | 36/36 [0] |
+| phone_numbers | 115/116 [0] | 116/116 [0] | 0/116 [0] | 114/116 [0] | 116/116 [0] |
 <!-- /results:synth -->
 
 Real public sample documents, 5 (`--truth synth/real --preds synth/runs/real`):
@@ -117,18 +121,20 @@ Real public sample documents, 5 (`--truth synth/real --preds synth/runs/real`):
 | Reader | Letters read | Lines read verbatim | Facts right | Verified but wrong | Unverified | Kind right | Hospital resolved | Median s | p90 s |
 |---|---|---|---|---|---|---|---|---|---|
 | DeepSeek V4.1 Flash on Fireworks | 5/5 | 100.0% | 24/26 (92.3%) | 3 | 0 | 60.0% | 2/3 | 5.6 | 6.2 |
+| Glimmer 30B, base, schema in the prompt | 5/5 | 100.0% | 22/26 (84.6%) | 2 | 0 | 80.0% | 2/3 | 19.9 | 24 |
+| Kindred's reader (Glimmer 30B, trained) | 5/5 | 100.0% | 21/26 (80.8%) | 12 | 0 | 40.0% | 2/3 | 14.3 | 15.9 |
 | Spark 1.3 (Meta Model API) | 5/5 | 100.0% | 25/26 (96.2%) | 2 | 0 | 100.0% | 2/3 | 9.2 | 9.7 |
 
-| Field | DeepSeek V4.1 Flash on Fireworks | Spark 1.3 (Meta Model API) |
-|---|---|---|
-| sender | 4/5 [1] | 4/5 [0] |
-| hospital_name | 5/5 [0] | 5/5 [0] |
-| amount_due | 4/4 [0] | 4/4 [0] |
-| statement_date | 3/4 [1] | 4/4 [0] |
-| due_date | 1/1 [0] | 1/1 [0] |
-| account_last4 | 1/1 [0] | 1/1 [0] |
-| financial_assistance | 1/1 [1] | 1/1 [1] |
-| phone_numbers | 5/5 [0] | 5/5 [1] |
+| Field | DeepSeek V4.1 Flash on Fireworks | Glimmer 30B, base, schema in the prompt | Kindred's reader (Glimmer 30B, trained) | Spark 1.3 (Meta Model API) |
+|---|---|---|---|---|
+| sender | 4/5 [1] | 3/5 [1] | 2/5 [3] | 4/5 [0] |
+| hospital_name | 5/5 [0] | 5/5 [0] | 4/5 [1] | 5/5 [0] |
+| amount_due | 4/4 [0] | 2/4 [0] | 4/4 [1] | 4/4 [0] |
+| statement_date | 3/4 [1] | 4/4 [0] | 4/4 [1] | 4/4 [0] |
+| due_date | 1/1 [0] | 1/1 [0] | 1/1 [0] | 1/1 [0] |
+| account_last4 | 1/1 [0] | 1/1 [0] | 1/1 [4] | 1/1 [0] |
+| financial_assistance | 1/1 [1] | 1/1 [1] | 1/1 [1] | 1/1 [1] |
+| phone_numbers | 5/5 [0] | 5/5 [0] | 4/5 [1] | 5/5 [1] |
 <!-- /results:real -->
 
 Reading the table. Kindred's reader read all 100 held-out letters, every line verbatim, 587 of 588 facts right, every
@@ -138,6 +144,17 @@ number or a ZIP code as the account (the quote is verbatim, the value is invente
 "2097-76963" as ending in 7963. Those six are exactly what the verbatim rule cannot catch and the agreement gate can:
 no other reader would cite them, so they would never be spoken. The held-out set comes from the same generator as the
 training set, so this row flatters the adapter; the loss reached zero inside the first epoch.
+
+On the five real documents the same adapter is the weakest reader in the room: 21 of 26 facts, 12 verified but wrong,
+two of five kinds right. Every template it trained on had an account number, so it finds one on pages that have none:
+the last digits of the amount due ("2099" from $2,099.03), of the hospital's phone ("3101"), of a claim number, even
+the word "[redacted]" from a blacked-out box. It names the patient as the sender of a Medicare notice, calls two
+"THIS IS NOT A BILL" statements bills, and reads a charge line as the amount due. The base model with the schema
+spelled out, asked the same way, gets 22 of 26 with 2 wrong (it calls Riverside Health System the sender, which a
+person might too, and reads "financial assistance information on back" as help offered). The adapter learned the
+seven templates, not letters. That is the finding of the day, measured rather than claimed, and the reason the seat
+stays a shadow: Biscuit speaks only what two readers read the same way, and this reader would not have been one of
+them.
 
 The two production readers read almost every line verbatim and get about 97 of 100 facts right. Their misses are
 consistent: both call a final notice and an appointment reminder a "notice" where Biscuit's catalogue says "bill" and
@@ -161,6 +178,7 @@ The shadow seat: $8 an hour while awake, nothing asleep.
 
 ## 6. Honest limits
 
-One generator, seven templates, one day. The held-out set is in-distribution and flatters the adapter; the real set is
-five documents and cannot carry a percentage with confidence. The shadow reader is logged, never spoken, and the
-deployment is awake only on demand. None of this changes what Rosa hears: two readers, the same way, or silence.
+One generator, seven templates, one day. The held-out set is in-distribution and flatters the adapter: 99.8 percent
+there, 81 percent on five real pages where the base model got 85 and the live readers 92 and 96. The real set is five
+documents and cannot carry a percentage with confidence either way. The shadow reader is logged, never spoken, and its
+deployment waits on a payment method. None of this changes what Rosa hears: two readers, the same way, or silence.

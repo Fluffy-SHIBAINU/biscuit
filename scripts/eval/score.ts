@@ -25,7 +25,7 @@ export type Score = {
 };
 
 const FIELDS = ["sender", "hospital_name", "amount_due", "statement_date", "due_date", "account_last4", "financial_assistance", "phone_numbers"];
-const LABELS: Record<string, string> = { glimmer_base: "Glimmer 30B, base", glimmer_tuned: "Kindred's reader (Glimmer 30B, trained)" };
+const LABELS: Record<string, string> = { glimmer_base: "Glimmer 30B, base", glimmer_base_schema: "Glimmer 30B, base, schema in the prompt", glimmer_tuned: "Kindred's reader (Glimmer 30B, trained)" };
 const median = (xs: number[]) => (xs.length ? [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] : 0);
 const p90 = (xs: number[]) => (xs.length ? [...xs].sort((a, b) => a - b)[Math.min(xs.length - 1, Math.floor(xs.length * 0.9))] : 0);
 

@@ -38,7 +38,7 @@ npx tsx scripts/eval/score.ts --truth synth/holdout --preds synth/runs/eval,synt
 python scripts/train/deploy.py create --model accounts/<account>/models/biscuit-glimmer-oct28a    # the shadow seat, $8 an hour awake, asleep in ten idle minutes
 ```
 
-**Results.** Every reader gets the same JPEG and the same two prompts; a fact counts as right only when its quote is verbatim in the reader's own transcription and its value agrees with the truth the way the agreement gate compares two readers. "Verified but wrong" is what Biscuit would have spoken that the page does not say.
+**Results.** Every reader gets the same JPEG and the same two prompts; a fact counts as right only when its quote is verbatim in the reader's own transcription and its value agrees with the truth the way the agreement gate compares two readers. "Verified but wrong" is what Biscuit would have spoken that the page does not say. On the 100 held-out synthetic letters Kindred's reader beats both live readers; on five real public documents it is the weakest of the four, inventing account numbers from amounts and phone numbers because every letter it trained on had one. It learned the templates, not letters, so it stays in the shadow. Glimmer rows' seconds are the pooled training sampler's, not serving latency; "base" in the session had no constrained decoding and wrote the page instead of JSON, so the base row to read is the one with the schema in the prompt.
 
 <!-- results:synth -->
 | Reader | Letters read | Lines read verbatim | Facts right | Verified but wrong | Unverified | Kind right | Hospital resolved | Median s | p90 s |
@@ -46,6 +46,7 @@ python scripts/train/deploy.py create --model accounts/<account>/models/biscuit-
 | DeepSeek V4.1 Flash on Fireworks | 100/100 | 98.8% | 568/588 (96.6%) | 7 | 7 | 70.0% | 69/69 | 4.1 | 5.1 |
 | Spark 1.3 (Meta Model API) | 100/100 | 99.1% | 575/588 (97.8%) | 13 | 0 | 69.0% | 69/69 | 5.3 | 6.7 |
 | Glimmer 30B, base | 0/100 | 99.1% | 0/588 (0.0%) | 0 | 0 | 0.0% | 0/69 | 0 | 0 |
+| Glimmer 30B, base, schema in the prompt | 100/100 | 99.3% | 535/588 (91.0%) | 39 | 3 | 69.0% | 68/69 | 41.2 | 130 |
 | Kindred's reader (Glimmer 30B, trained) | 100/100 | 100.0% | 587/588 (99.8%) | 6 | 0 | 100.0% | 69/69 | 12.6 | 56.1 |
 <!-- /results:synth -->
 
@@ -53,6 +54,8 @@ python scripts/train/deploy.py create --model accounts/<account>/models/biscuit-
 | Reader | Letters read | Lines read verbatim | Facts right | Verified but wrong | Unverified | Kind right | Hospital resolved | Median s | p90 s |
 |---|---|---|---|---|---|---|---|---|---|
 | DeepSeek V4.1 Flash on Fireworks | 5/5 | 100.0% | 24/26 (92.3%) | 3 | 0 | 60.0% | 2/3 | 5.6 | 6.2 |
+| Glimmer 30B, base, schema in the prompt | 5/5 | 100.0% | 22/26 (84.6%) | 2 | 0 | 80.0% | 2/3 | 19.9 | 24 |
+| Kindred's reader (Glimmer 30B, trained) | 5/5 | 100.0% | 21/26 (80.8%) | 12 | 0 | 40.0% | 2/3 | 14.3 | 15.9 |
 | Spark 1.3 (Meta Model API) | 5/5 | 100.0% | 25/26 (96.2%) | 2 | 0 | 100.0% | 2/3 | 9.2 | 9.7 |
 <!-- /results:real -->
 
