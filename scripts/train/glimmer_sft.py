@@ -298,7 +298,7 @@ def main() -> int:
             if args.adapter:
                 client.load_adapter(args.adapter).result()
                 print(json.dumps({"loaded_adapter": args.adapter}), flush=True)
-            snapshot = client.save_weights_for_sampler(f"biscuit-{args.label}"[:40]).result().path
+            snapshot = client.save_weights_for_sampler(f"biscuit-{args.label}".replace("_", "-")[:40]).result().path
             summary[args.label] = evaluate(args.label, service, snapshot, tokenizer, renderer, holdout, out_dir, args)
             return 0
         if not args.skip_base:
