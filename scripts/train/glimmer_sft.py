@@ -172,7 +172,10 @@ def evaluate(label: str, service, snapshot: str, tokenizer, renderer, letters: d
         t_params = sdk.SamplingParams(max_tokens=args.max_transcribe_tokens, temperature=0.0, stop=stop)
         stage1 = sample_texts(sampler, renderer, prompts, t_params, args.eval_batch, f"{label} transcribe", args.image_affixes)
         # Stage two: the extraction prompt over the model's own transcription, as production does.
-        extract_sys = letters[ids[0]]["extract"][0]
+        extract_sys = dict(letters[ids[0]]["extract"][0])
+        if getattr(args, "schema_in_prompt", None):
+            # The base model never saw the schema: production enforces it with response_format, which the pooled sampler lacks.
+            extract_sys["content"] = extract_sys["content"] + "\nThe schema, as JSON Schema:\n" + Path(args.schema_in_prompt).read_text().strip() + "\nAnswer with the JSON object only."
         prompts2 = [renderer.build_generation_prompt([extract_sys, {"role": "user", "content": s["text"] or "(no transcription)"}]) for s in stage1]
         x_params = sdk.SamplingParams(max_tokens=args.max_extract_tokens, temperature=0.0, stop=stop)
         stage2 = sample_texts(sampler, renderer, prompts2, x_params, args.eval_batch, f"{label} extract", args.image_affixes)
@@ -236,6 +239,10 @@ def main() -> int:
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--image-affixes", choices=("keep", "strip"), default="strip", help="whether the sampler prompt keeps the renderer's image boundary tokens")
     p.add_argument("--probe", action="store_true", help="sample one held-out letter with base weights both ways and exit")
+    p.add_argument("--eval-only", action="store_true", help="no training: score the base weights (or --adapter) on the holdout under --label, then exit")
+    p.add_argument("--adapter", default=None, help="a promoted adapter to load before --eval-only sampling")
+    p.add_argument("--label", default="glimmer_base", help="the reader name for --eval-only predictions")
+    p.add_argument("--schema-in-prompt", default=None, help="path to the extraction JSON schema to append to the extraction prompt")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--skip-base", action="store_true")
     p.add_argument("--no-promote", action="store_true")
@@ -254,6 +261,8 @@ def main() -> int:
     holdout = by_letter(load_rows(args.holdout))
     holdout = {k: holdout[k] for k in sorted(holdout)[: args.eval_n]}
     t0 = time.time()
+    if args.eval_only or args.probe:
+        train_rows = train_rows[:4]
     datums, stats = render_datums(train_rows, renderer, args.max_seq_len)
     stats["render_seconds"] = round(time.time() - t0, 1)
     print(json.dumps({"train": stats, "holdout_letters": len(holdout)}), flush=True)
@@ -267,7 +276,7 @@ def main() -> int:
     from fireworks.training import sdk
 
     service, base_url = connect(api_key)
-    log = (out_dir / "metrics.jsonl").open("a")
+    log = (out_dir / ("metrics.jsonl" if not (args.eval_only or args.probe) else f"metrics_{args.label}.jsonl")).open("a")
     summary: dict = {"run": args.run, "base_model": BASE_MODEL, "reasoning": REASONING, "train_rows": stats["kept"], "holdout_letters": len(holdout), "args": vars(args)}
     try:
         client = service.create_lora_training_client(base_model=BASE_MODEL, rank=args.rank, alpha=args.alpha, train_mlp=True, train_attn=True, train_unembed=True)
@@ -284,6 +293,13 @@ def main() -> int:
                 got = sample_texts(sampler, renderer, [prompt], sdk.SamplingParams(max_tokens=args.max_transcribe_tokens, temperature=0.0, stop=renderer.get_stop_sequences()), 1, f"probe {affixes}", affixes)[0]
                 words = set(truth.split()); mine = set((got["text"] or "").split())
                 print(json.dumps({"affixes": affixes, "error": got["error"], "ms": got["ms"], "sampled_tokens": got["sampled_tokens"], "clean": got["clean"], "word_overlap": round(len(words & mine) / max(1, len(words)), 3), "head": (got["text"] or "")[:300]}), flush=True)
+            return 0
+        if args.eval_only:
+            if args.adapter:
+                client.load_adapter(args.adapter).result()
+                print(json.dumps({"loaded_adapter": args.adapter}), flush=True)
+            snapshot = client.save_weights_for_sampler(f"biscuit-{args.label}"[:40]).result().path
+            summary[args.label] = evaluate(args.label, service, snapshot, tokenizer, renderer, holdout, out_dir, args)
             return 0
         if not args.skip_base:
             snapshot = client.save_weights_for_sampler("biscuit-base").result().path
@@ -315,7 +331,7 @@ def main() -> int:
         summary["promoted_model"] = None if args.no_promote else promote(service, base_url, api_key, args.run)
     finally:
         log.close()
-        (out_dir / "summary.json").write_text(json.dumps(summary, indent=1, default=str))
+        (out_dir / ("summary.json" if not (args.eval_only or args.probe) else f"summary_{args.label}.json")).write_text(json.dumps(summary, indent=1, default=str))
         # Release the pooled training slot now; the promoted model (if any) is already on the account.
         close_session = getattr(service, "delete_training_session", None)
         if close_session is not None:
