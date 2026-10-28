@@ -54,10 +54,12 @@ export async function sparkChat(body: Record<string, unknown>): Promise<any> {
   return json;
 }
 
-function content(json: any): string {
+/** The assistant text of a chat completion, whether a string or text parts. */
+export function messageContent(json: any): string {
   const c = json?.choices?.[0]?.message?.content;
   return typeof c === "string" ? c : Array.isArray(c) ? c.map((p: any) => p?.text ?? "").join("") : "";
 }
+const content = messageContent;
 
 export async function transcribeLetter(jpeg: Buffer, chat: ChatTransport = sparkChat): Promise<string> {
   const json = await chat({

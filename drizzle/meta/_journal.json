@@ -15,6 +15,13 @@
       "when": 1793078954049,
       "tag": "0001_hard_hex",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793150958323,
+      "tag": "0002_flat_malcolm_colcord",
+      "breakpoints": true
     }
   ]
 }

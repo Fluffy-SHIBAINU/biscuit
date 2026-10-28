@@ -4,8 +4,12 @@ export const DEVICE_KINDS = ["rosa", "cam", "ana"] as const;
 export type DeviceKind = (typeof DEVICE_KINDS)[number];
 export const EVENT_KINDS = [
   "mail_seen", "mail_tapped", "letter_read", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack",
-  "cam_online", "cam_offline", "cam_battery", "cam_paused", "consent", "said", "delete",
+  "cam_online", "cam_offline", "cam_battery", "cam_paused", "consent", "said", "delete", "look_requested",
 ] as const;
+export const READ_BY = ["single", "twice", "once"] as const;
+export type ReadBy = (typeof READ_BY)[number];
+/** A fact two readers read two ways: the field and each reader's value and quote. The same kind of content as `quotes`. */
+export type Check = { field: string; quotes: { reader: string; value: string; quote: string }[] };
 export type EventKind = (typeof EVENT_KINDS)[number];
 export type Region = { x: number; y: number; w: number; h: number };
 
@@ -69,6 +73,9 @@ export const letter = pgTable("biscuit_letter", {
   answers: jsonb("answers").notNull().default({}),
   status: text("status").notNull().default("read"),
   needsReview: boolean("needs_review").notNull().default(false),
+  readBy: text("read_by", { enum: READ_BY }),
+  checks: jsonb("checks").$type<Check[]>().notNull().default([]),
+  lookRequestedAt: ts("look_requested_at"),
 });
 
 export const cam = pgTable("biscuit_cam", {

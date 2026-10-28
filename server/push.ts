@@ -47,6 +47,7 @@ export async function sendPush(db: Db, householdId: string, kinds: DeviceKind[],
   return { sent };
 }
 
+export const LOOK_PAYLOAD = (sender: string, letterId: string): PushPayload => ({ title: "Biscuit", body: `Ana would like another look at the letter from ${sender}. Tap to show it again.`, url: "/letter", kind: "look_requested", ...({ letterId } as object) });
 export const MAIL_PAYLOAD = (called: string, eventId?: number): PushPayload => ({ title: "Biscuit", body: `You've got mail, ${called}. Tap to hear.`, url: "/mail", eventId, kind: "mail_seen" });
 export const HELP_PAYLOAD = (called: string, eventId: number, test: boolean): PushPayload => ({
   title: test ? "Biscuit · test" : "Biscuit · Help",

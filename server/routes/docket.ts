@@ -1,10 +1,10 @@
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, isNotNull, ne } from "drizzle-orm";
 import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 import type { AuthVars } from "../auth.js";
 import { getDb } from "../db.js";
 import type { Events } from "../events.js";
-import { EVENT_KINDS, event, household, letter, type EventKind } from "../schema.js";
+import { EVENT_KINDS, READ_BY, event, household, letter, type Check, type EventKind } from "../schema.js";
 import { isNull } from "drizzle-orm";
 import { startUrl } from "../waive.js";
 import { HELP_PAYLOAD, MAIL_PAYLOAD, sendPush, type PushPayload, type Sender } from "../push.js";
@@ -12,6 +12,17 @@ import { HELP_PAYLOAD, MAIL_PAYLOAD, sendPush, type PushPayload, type Sender } f
 const DEVICE_EVENTS: EventKind[] = ["mail_seen", "mail_tapped", "help", "help_cancel", "help_ok", "consent", "said", "cam_online", "cam_offline", "cam_battery", "cam_paused"];
 const STATUSES = ["read", "handoff", "waiting_hospital", "tossed", "unknown_number", "hidden"];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const cut = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : "");
+
+/** At most ten checks, two quotes each, strings cut to what Ana's page shows. */
+export function cleanChecks(raw: unknown): Check[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.slice(0, 10).flatMap((c: any) => {
+    const field = cut(c?.field, 40);
+    const quotes = Array.isArray(c?.quotes) ? c.quotes.slice(0, 2).map((q: any) => ({ reader: cut(q?.reader, 20), value: cut(q?.value, 200), quote: cut(q?.quote, 300) })) : [];
+    return field && quotes.length ? [{ field, quotes }] : [];
+  });
+}
 
 export function docketRoutes(deps: { auth: MiddlewareHandler<AuthVars>; events: Events; send?: Sender }) {
   return new Hono<AuthVars>()
@@ -25,8 +36,12 @@ export function docketRoutes(deps: { auth: MiddlewareHandler<AuthVars>; events: 
         amountCents: Number.isInteger(b.amountCents) ? b.amountCents : null, statementOn: b.statementOn ?? null, dueOn: b.dueOn ?? null,
         quotes: Array.isArray(b.quotes) ? b.quotes : [], answers: b.answers && typeof b.answers === "object" ? b.answers : {},
         status: STATUSES.includes(b.status) ? b.status : "read", needsReview: Boolean(b.needsReview),
+        readBy: READ_BY.includes(b.readBy) ? b.readBy : null, checks: cleanChecks(b.checks),
       };
-      await getDb().insert(letter).values(row).onConflictDoUpdate({ target: letter.id, set: { ...row, id: undefined, householdId: undefined } });
+      const db = getDb();
+      await db.insert(letter).values(row).onConflictDoUpdate({ target: letter.id, set: { ...row, id: undefined, householdId: undefined } });
+      // A fresh read from the same sender answers Ana's "another look".
+      if (row.sender) await db.update(letter).set({ lookRequestedAt: null }).where(and(eq(letter.householdId, row.householdId), eq(letter.sender, row.sender), ne(letter.id, id), isNotNull(letter.lookRequestedAt)));
       return c.json({ id, stored: true });
     })
     .patch("/letter/:id", deps.auth, async (c) => {

@@ -4,22 +4,27 @@ import type { AuthVars } from "../auth.js";
 import type { Events } from "../events.js";
 import { frameCheck } from "../frame.js";
 import { detect, LETTER_PROMPT, type Detection, type SamPrompt } from "../meta/sam.js";
-import { extractFacts, transcribeLetter, type Extraction } from "../meta/spark.js";
-import { verifyFacts } from "../verify.js";
+import { extractFacts, transcribeLetter } from "../meta/spark.js";
+import { fireworksReader } from "../fireworks/spark.js";
 import { composeOffer, composeReading, unknownNumber } from "../compose.js";
 import { matchHospital, statesFromText } from "../hospitals.js";
 import { fetchSheet, type SheetSummary } from "../waive.js";
+import { attempt, READ_TIMEOUT_MS, type Reader } from "../read.js";
+import { agree } from "../agree.js";
 
+export { MIN_WORDS } from "../read.js";
 export const MAX_FRAME_BYTES = 300_000;
 export const MAX_LETTER_BYTES = 2_000_000;
-export const MIN_WORDS = 40;
 export const READS_PER_HOUR = 20;
 
-export type SparkDeps = { transcribe: (jpeg: Buffer) => Promise<string>; extract: (t: string) => Promise<Extraction> };
+export type SparkDeps = Reader;
 export type SamDeps = { detect: (jpeg: Buffer, prompt: SamPrompt) => Promise<Detection[]> };
 export type SheetFn = (ccn: string) => Promise<SheetSummary | null>;
 
-
+/** The second reader is on when READER_SECOND=fireworks and a key is set. Tests pass one in, or null for off. */
+export function secondReader(env: Record<string, string | undefined> = process.env): Reader | null {
+  return env.READER_SECOND === "fireworks" && env.FIREWORKS_API_KEY ? fireworksReader : null;
+}
 
 async function imageOf(c: any, max: number): Promise<Buffer | { error: string; status: 400 | 413 }> {
   const form = await c.req.formData();
@@ -29,9 +34,11 @@ async function imageOf(c: any, max: number): Promise<Buffer | { error: string; s
   return Buffer.from(await image.arrayBuffer());
 }
 
-export function letterRoutes(deps: { auth: MiddlewareHandler<AuthVars>; spark?: SparkDeps; sam?: SamDeps; events: Events; sheet?: SheetFn; frameLimiter?: (key: string) => Promise<boolean> }) {
+export function letterRoutes(deps: { auth: MiddlewareHandler<AuthVars>; spark?: SparkDeps; reader2?: Reader | null; readTimeoutMs?: number; sam?: SamDeps; events: Events; sheet?: SheetFn; frameLimiter?: (key: string) => Promise<boolean> }) {
   const sheetOf: SheetFn = deps.sheet ?? fetchSheet;
-  const spark: SparkDeps = deps.spark ?? { transcribe: transcribeLetter, extract: extractFacts };
+  const spark: Reader = deps.spark ?? { transcribe: transcribeLetter, extract: extractFacts };
+  const second: Reader | null = deps.reader2 === undefined ? secondReader() : deps.reader2;
+  const timeoutMs = deps.readTimeoutMs ?? READ_TIMEOUT_MS;
   const sam: SamDeps = deps.sam ?? { detect };
   return new Hono<AuthVars>()
     .post("/letter/frame", deps.auth, async (c) => {
@@ -45,12 +52,18 @@ export function letterRoutes(deps: { auth: MiddlewareHandler<AuthVars>; spark?: 
       if (!Buffer.isBuffer(img)) return c.json({ error: img.error }, img.status);
       const home = c.var.household;
       if ((await deps.events.count(home.id, "letter_read", 3_600_000)) >= READS_PER_HOUR) return c.json({ error: "rate" }, 429);
-      const transcription = await spark.transcribe(img);
-      const words = transcription.split(/\s+/).filter(Boolean).length;
-      const extraction = words >= MIN_WORDS ? await spark.extract(transcription) : null;
-      const senderName = extraction?.hospital_name?.value || extraction?.sender?.value || null;
-      if (!extraction || !senderName) return c.json({ error: "unreadable" }, 422);
-      const facts = verifyFacts(extraction, transcription);
+      // Both readers at once: the read costs the slower of the two, never the sum.
+      const [a, b] = await Promise.all([attempt("meta", spark, img, timeoutMs), second ? attempt("fireworks", second, img, timeoutMs) : Promise.resolve(null)]);
+      const outcomes = b ? [a, b] : [a];
+      const primary = a.read ? a : b?.read ? b : null;
+      if (!primary) {
+        const unreadable = outcomes.some((o) => o.status === "unreadable");
+        return c.json({ error: unreadable ? "unreadable" : "readers_down" }, unreadable ? 422 : 503);
+      }
+      const other = primary === a ? b : a;
+      const read = primary.read!;
+      const gate = agree({ name: primary.name, facts: read.facts }, other?.read ? { name: other.name, facts: other.read.facts } : null, second ? "paired" : "single");
+      const { extraction, transcription } = read;
       const hospitalName = extraction.hospital_name?.value || (extraction.kind === "bill" ? extraction.sender?.value : null);
       const match = hospitalName ? matchHospital(hospitalName, statesFromText(transcription)) : null;
       const hospital = match ? { ccn: match.ccn, name: match.name, city: match.city, state: match.state, score: match.score } : null;
@@ -59,11 +72,17 @@ export function letterRoutes(deps: { auth: MiddlewareHandler<AuthVars>; spark?: 
         try { sheet = await sheetOf(hospital.ccn); } catch { sheet = null; }
       }
       // A matched hospital's own bill is never "unknown number"; the rule is for letters from nobody on record.
-      const unknown = hospital ? false : unknownNumber(facts, sheet, extraction.kind);
-      await deps.events.record(home.id, c.var.device.id, "letter_read", { kind: extraction.kind });
+      const unknown = hospital ? false : unknownNumber(gate.facts, sheet, extraction.kind);
+      const lines = composeReading(gate.facts.filter((f) => f.spoken), extraction.kind);
+      if (gate.differLine) lines.push(gate.differLine);
+      const readers = outcomes.map(({ name, status, ms, error }) => ({ name, status, ms, ...(error ? { error } : {}) }));
+      await deps.events.record(home.id, c.var.device.id, "letter_read", {
+        kind: extraction.kind, readBy: gate.readBy, readers: readers.map(({ name, status, ms }) => ({ name, status, ms })),
+        agreed: gate.facts.filter((f) => f.agreement === "agreed").length, differ: gate.checks.length,
+      });
       return c.json({
-        transcription, facts, kind: extraction.kind, sender: senderName, hospital, sheet, unknownNumber: unknown,
-        lines: composeReading(facts, extraction.kind),
+        transcription, facts: gate.facts, kind: extraction.kind, sender: read.senderName, hospital, sheet, unknownNumber: unknown,
+        readBy: gate.readBy, readers, checks: gate.checks, lines,
         offerLines: unknown ? ["This asks you to call a number I don't know. I'm sending it to Ana."] : extraction.kind === "bill" ? composeOffer(sheet, {}) : [],
       });
     });

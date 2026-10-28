@@ -5,6 +5,8 @@ import { anaAuth, type AnaVars } from "../auth.js";
 import { CODE_TTL_MS, newCode } from "../codes.js";
 import { getDb } from "../db.js";
 import { cam, device, event, household, letter, linkCode } from "../schema.js";
+import { dbEvents, type Events } from "../events.js";
+import { LOOK_PAYLOAD, sendPush, type Sender } from "../push.js";
 
 const LIVING = ["alone", "with_family", "with_care"];
 const CLEAN = (v: unknown, max = 80) => (typeof v === "string" ? v.trim().slice(0, max) : "");
@@ -21,7 +23,8 @@ export function cameraStatus(row: { paused: boolean } | null, lastHeartbeatAt: D
   return "online";
 }
 
-export function anaRoutes(o: { env?: Record<string, string | undefined> } = {}) {
+export function anaRoutes(o: { env?: Record<string, string | undefined>; events?: Events; send?: Sender } = {}) {
+  const events = o.events ?? dbEvents;
   const auth: MiddlewareHandler<AnaVars> = anaAuth({ env: o.env });
   const authOrNew: MiddlewareHandler<AnaVars> = anaAuth({ env: o.env, allowNone: true });
   return new Hono<AnaVars>()
@@ -67,14 +70,26 @@ export function anaRoutes(o: { env?: Record<string, string | undefined> } = {}) 
       const rows = await getDb().update(cam).set({ paused: false }).where(eq(cam.householdId, c.var.household.id)).returning({ id: cam.householdId });
       return rows.length ? c.json({ ok: true }) : c.json({ error: "not_set" }, 404);
     })
+    .post("/family/letter/:id/again", auth, async (c) => {
+      const db = getDb();
+      const h = c.var.household;
+      const rows = await db.update(letter).set({ lookRequestedAt: new Date() }).where(and(eq(letter.id, c.req.param("id")), eq(letter.householdId, h.id))).returning({ id: letter.id, sender: letter.sender });
+      if (!rows.length) return c.json({ error: "not_found" }, 404);
+      const sender = rows[0].sender || "a letter";
+      await events.record(h.id, null, "look_requested", { letterId: rows[0].id, sender });
+      const { sent } = await sendPush(db, h.id, ["rosa"], LOOK_PAYLOAD(sender, rows[0].id), { send: o.send }).catch(() => ({ sent: 0 }));
+      return c.json({ ok: true, sent });
+    })
     .get("/family", auth, async (c) => {
       const db = getDb();
       const h = c.var.household;
       const now = new Date();
       const devices = await db.select().from(device).where(eq(device.householdId, h.id));
       const letters = await db.select().from(letter).where(and(eq(letter.householdId, h.id), ne(letter.status, "hidden"))).orderBy(desc(letter.readAt)).limit(50);
-      const events = await db.select().from(event).where(and(eq(event.householdId, h.id), inArray(event.kind, ["said", "mail_seen", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack", "consent"]))).orderBy(desc(event.at)).limit(60);
+      const events = await db.select().from(event).where(and(eq(event.householdId, h.id), inArray(event.kind, ["said", "mail_seen", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack", "consent", "look_requested"]))).orderBy(desc(event.at)).limit(60);
       const [camRow] = await db.select().from(cam).where(eq(cam.householdId, h.id)).limit(1);
+      const [lastRead] = await db.select().from(event).where(and(eq(event.householdId, h.id), eq(event.kind, "letter_read"))).orderBy(desc(event.at)).limit(1);
+      const readData = (lastRead?.data ?? {}) as { readBy?: string; readers?: unknown[] };
       const camDevice = devices.find((d) => d.kind === "cam");
       const lastTest = events.find((e) => e.kind === "help_test");
       const acked = lastTest ? events.some((e) => e.kind === "help_test_ack" && (e.data as any)?.eventId === lastTest.id) : false;
@@ -88,6 +103,7 @@ export function anaRoutes(o: { env?: Record<string, string | undefined> } = {}) 
         events: events.filter((e) => e.kind !== "said").map((e) => ({ id: e.id, kind: e.kind, at: e.at, data: e.data })),
         camera: { status: cameraStatus(camRow ?? null, camDevice?.lastSeenAt ?? null, now), testStatus: camRow?.testStatus ?? null, paused: camRow?.paused ?? false, battery: camDevice?.battery ?? null, charging: camDevice?.charging ?? null, lastMotionAt: camRow?.lastMotionAt ?? null, setAt: camRow?.setAt ?? null },
         help: { lastTestAt: lastTest?.at ?? null, acked, openHelpAt: closed ? null : openHelp?.at ?? null },
+        readers: lastRead ? { at: lastRead.at, readBy: readData.readBy ?? "single", list: Array.isArray(readData.readers) ? readData.readers : [] } : null,
       });
     });
 }

@@ -20,7 +20,7 @@ import type { Chooser } from "./questions.js";
 
 export const VERSION = "0.1.0";
 
-export type AppOptions = { lookup?: Lookup; asr?: AsrFn; spark?: SparkDeps; sam?: SamDeps; events?: Events; chooser?: Chooser; sheet?: SheetFn; anaEnv?: Record<string, string | undefined>; pushSend?: Sender; limiter?: Limiter | null; claimLimiter?: Limiter; frameLimiter?: Limiter };
+export type AppOptions = { lookup?: Lookup; asr?: AsrFn; spark?: SparkDeps; reader2?: SparkDeps | null; readTimeoutMs?: number; sam?: SamDeps; events?: Events; chooser?: Chooser; sheet?: SheetFn; anaEnv?: Record<string, string | undefined>; pushSend?: Sender; limiter?: Limiter | null; claimLimiter?: Limiter; frameLimiter?: Limiter };
 
 export function createApp(opts: AppOptions = {}): Hono {
   const app = new Hono();
@@ -46,9 +46,9 @@ export function createApp(opts: AppOptions = {}): Hono {
   app.get("/api/biscuit/health", (c) => c.json({ ok: true, version: VERSION }));
   app.route("/api/biscuit", linkRoutes({ limiter: claimLimiter }));
   app.route("/api/biscuit", rosaRoutes({ auth, asr: opts.asr }));
-  app.route("/api/biscuit", letterRoutes({ auth, spark: opts.spark, sam: opts.sam, events, sheet: opts.sheet, frameLimiter }));
+  app.route("/api/biscuit", letterRoutes({ auth, spark: opts.spark, reader2: opts.reader2, readTimeoutMs: opts.readTimeoutMs, sam: opts.sam, events, sheet: opts.sheet, frameLimiter }));
   app.route("/api/biscuit", docketRoutes({ auth, events, send: opts.pushSend }));
-  app.route("/api/biscuit", anaRoutes({ env: opts.anaEnv }));
+  app.route("/api/biscuit", anaRoutes({ env: opts.anaEnv, events, send: opts.pushSend }));
   app.route("/api/biscuit", pushRoutes({ auth, anaAuth: anaAuth({ env: opts.anaEnv }), events }));
   app.route("/api/biscuit", camRoutes({ auth, sam: opts.sam, events }));
   app.route("/api/biscuit", householdRoutes({ auth, anaAuth: anaAuth({ env: opts.anaEnv }) }));
