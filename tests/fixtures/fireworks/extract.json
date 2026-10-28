@@ -1,0 +1,33 @@
+{
+ "id": "chatcmpl-1364854b",
+ "choices": [
+  {
+   "index": 0,
+   "message": {
+    "content": "{\"kind\": \"bill\", \"sender\": {\"value\": \"Massachusetts General Hospital\", \"quote\": \"Massachusetts General Hospital\"}, \"hospital_name\": {\"value\": \"Massachusetts General Hospital\", \"quote\": \"Massachusetts General Hospital\"}, \"amount_due\": {\"value\": \"$1,850.00\", \"quote\": \"Amount Due: $1,850.00\"}, \"statement_date\": {\"value\": \"10/03/2026\", \"quote\": \"Statement Date: 10/03/2026\"}, \"due_date\": {\"value\": \"11/02/2026\", \"quote\": \"Due Date: 11/02/2026\"}, \"financial_assistance\": {\"value\": true, \"quote\": \"Financial assistance may be available; if you have trouble paying this bill, call 617-555-0100 or visit the Patient\\nFinancial Services office to apply.\"}, \"phone_numbers\": [{\"value\": \"617-555-0100\", \"quote\": \"Questions: 617-555-0100, Monday to Friday, 8 AM to 5 PM\"}, {\"value\": \"617-555-0100\", \"quote\": \"call 617-555-0100 or visit the Patient\\nFinancial Services office to apply\"}], \"account_last4\": {\"value\": \"5820\", \"quote\": \"Account Number: 4471-55820\"}}",
+    "role": "assistant"
+   },
+   "finish_reason": "stop",
+   "logprobs": null,
+   "raw_output": null
+  }
+ ],
+ "created": 1793160186,
+ "model": "accounts/fireworks/models/deepseek-v4p1-flash",
+ "service_tier": null,
+ "system_fingerprint": null,
+ "object": "chat.completion",
+ "usage": {
+  "prompt_tokens": 861,
+  "completion_tokens": 291,
+  "total_tokens": 1152,
+  "prompt_tokens_details": {
+   "cached_tokens": 732
+  },
+  "completion_tokens_details": {
+   "accepted_prediction_tokens": null,
+   "reasoning_tokens": 0,
+   "rejected_prediction_tokens": null
+  }
+ }
+}

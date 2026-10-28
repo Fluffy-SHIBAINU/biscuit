@@ -17,15 +17,22 @@ const PHRASE: Record<string, string> = {
 const digits = (s: string) => s.replace(/\D/g, "");
 const flat = (s: string) => normalize(s).toLowerCase();
 
-/** Two readings of one field agree: digits for money, dates, accounts and phones; names ignoring case, or the same hospital record; otherwise the normalised value. */
+/** Two readings of one field agree: digits for money, dates, accounts and phones; names ignoring case, the same name with a department added, or the same hospital record; otherwise the normalised value. */
 export function valuesAgree(field: string, a: string, b: string): boolean {
   if (DIGIT_FIELDS.has(field)) return digits(a).length > 0 && digits(a) === digits(b);
   if (flat(a) === flat(b)) return true;
   if (NAME_FIELDS.has(field)) {
+    if (sameNameLonger(flat(a), flat(b))) return true;
     const ma = matchHospital(a), mb = matchHospital(b);
     return Boolean(ma && mb && ma.ccn === mb.ccn);
   }
   return false;
+}
+
+/** "Massachusetts General Hospital" and "Massachusetts General Hospital Patient Financial Services": one sender, the longer adds its department. Two words at least, on a word boundary. */
+function sameNameLonger(a: string, b: string): boolean {
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  return short.split(" ").length >= 2 && long.startsWith(`${short} `);
 }
 
 function findMatch(field: string, value: string, facts: Fact[]): Fact | undefined {

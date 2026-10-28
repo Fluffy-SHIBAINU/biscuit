@@ -27,3 +27,9 @@ test("attempt reports ok, unreadable, failed and timeout with milliseconds", asy
   expect(slow.status).toBe("timeout");
   expect(slow.ms).toBeGreaterThanOrEqual(15);
 });
+
+test("attempt carries the reader's label so the screens can name the model", async () => {
+  const good = { label: "DeepSeek V4.1 Flash on Fireworks", transcribe: async () => `${words(50)} Mass General Amount Due: $10.00`, extract: async () => X };
+  expect(await attempt("fireworks", good, jpeg, 1000)).toMatchObject({ name: "fireworks", label: "DeepSeek V4.1 Flash on Fireworks", status: "ok" });
+  expect(await attempt("meta", { transcribe: good.transcribe, extract: good.extract }, jpeg, 1000)).not.toHaveProperty("label");
+});

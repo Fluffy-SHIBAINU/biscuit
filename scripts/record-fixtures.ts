@@ -37,9 +37,9 @@ if (want("sam")) {
   console.log("sam letter:", lt.length, "boxes", JSON.stringify(lt.slice(0, 1).map((d) => ({ box: d.box, score: d.score }))));
 }
 if (want("fireworks")) {
-  const text = await transcribeLetterFw(letter, fwRec("spark-transcribe"));
+  const text = await transcribeLetterFw(letter, fwRec("transcribe"));
   console.log("fireworks transcription words:", text.split(/\s+/).length, "| has amount:", text.includes("Amount Due: $1,850.00"));
-  const x = await extractFactsFw(text, fwRec("spark-extract"));
+  const x = await extractFactsFw(text, fwRec("extract"));
   console.log("fireworks extract:", JSON.stringify({ kind: x.kind, sender: x.sender, hospital_name: x.hospital_name, amount_due: x.amount_due, statement_date: x.statement_date, due_date: x.due_date }));
 }
 if (want("asr")) console.log("asr:", await transcribeClip(wav, "audio/wav", { language: "en", keywords: ["Biscuit"] }, asrRec("asr")));

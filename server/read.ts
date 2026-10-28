@@ -1,10 +1,11 @@
 import type { Extraction } from "./meta/spark.js";
 import { verifyFacts, type Fact } from "./verify.js";
 
-export type Reader = { transcribe: (jpeg: Buffer) => Promise<string>; extract: (t: string) => Promise<Extraction> };
+/** A reader transcribes a picture and extracts facts from its own text; `label` is the name the screens print (the model). */
+export type Reader = { label?: string; transcribe: (jpeg: Buffer) => Promise<string>; extract: (t: string) => Promise<Extraction> };
 export type Read = { transcription: string; extraction: Extraction; facts: Fact[]; senderName: string };
 export type ReaderStatus = "ok" | "unreadable" | "failed" | "timeout";
-export type ReadOutcome = { name: string; status: ReaderStatus; ms: number; read: Read | null; error?: string };
+export type ReadOutcome = { name: string; label?: string; status: ReaderStatus; ms: number; read: Read | null; error?: string };
 
 export const MIN_WORDS = 40;
 /** Each reader's share of the 12-second budget from capture to speech; the two run side by side. */
@@ -31,11 +32,12 @@ export async function readWith(reader: Reader, jpeg: Buffer): Promise<Read | nul
 /** A reader's attempt with its outcome and milliseconds; never throws. */
 export async function attempt(name: string, reader: Reader, jpeg: Buffer, timeoutMs: number): Promise<ReadOutcome> {
   const started = Date.now();
+  const tag = reader.label ? { label: reader.label } : {};
   try {
     const read = await withTimeout(readWith(reader, jpeg), timeoutMs);
-    return { name, status: read ? "ok" : "unreadable", ms: Date.now() - started, read };
+    return { name, ...tag, status: read ? "ok" : "unreadable", ms: Date.now() - started, read };
   } catch (err: any) {
     const timeout = err?.message === "timeout";
-    return { name, status: timeout ? "timeout" : "failed", ms: Date.now() - started, read: null, error: timeout ? undefined : String(err?.message ?? err).slice(0, 200) };
+    return { name, ...tag, status: timeout ? "timeout" : "failed", ms: Date.now() - started, read: null, error: timeout ? undefined : String(err?.message ?? err).slice(0, 200) };
   }
 }

@@ -5,7 +5,7 @@ import type { Events } from "../events.js";
 import { frameCheck } from "../frame.js";
 import { detect, LETTER_PROMPT, type Detection, type SamPrompt } from "../meta/sam.js";
 import { extractFacts, transcribeLetter } from "../meta/spark.js";
-import { fireworksReader } from "../fireworks/spark.js";
+import { fireworksReaderFor, readerModel } from "../fireworks/spark.js";
 import { composeOffer, composeReading, unknownNumber } from "../compose.js";
 import { matchHospital, statesFromText } from "../hospitals.js";
 import { fetchSheet, type SheetSummary } from "../waive.js";
@@ -21,9 +21,9 @@ export type SparkDeps = Reader;
 export type SamDeps = { detect: (jpeg: Buffer, prompt: SamPrompt) => Promise<Detection[]> };
 export type SheetFn = (ccn: string) => Promise<SheetSummary | null>;
 
-/** The second reader is on when READER_SECOND=fireworks and a key is set. Tests pass one in, or null for off. */
+/** The second reader is on when READER_SECOND=fireworks and a key is set, on the model FIREWORKS_READER_MODEL names (DeepSeek V4.1 Flash by default). Tests pass one in, or null for off. */
 export function secondReader(env: Record<string, string | undefined> = process.env): Reader | null {
-  return env.READER_SECOND === "fireworks" && env.FIREWORKS_API_KEY ? fireworksReader : null;
+  return env.READER_SECOND === "fireworks" && env.FIREWORKS_API_KEY ? fireworksReaderFor(readerModel(env)) : null;
 }
 
 async function imageOf(c: any, max: number): Promise<Buffer | { error: string; status: 400 | 413 }> {
@@ -75,9 +75,9 @@ export function letterRoutes(deps: { auth: MiddlewareHandler<AuthVars>; spark?: 
       const unknown = hospital ? false : unknownNumber(gate.facts, sheet, extraction.kind);
       const lines = composeReading(gate.facts.filter((f) => f.spoken), extraction.kind);
       if (gate.differLine) lines.push(gate.differLine);
-      const readers = outcomes.map(({ name, status, ms, error }) => ({ name, status, ms, ...(error ? { error } : {}) }));
+      const readers = outcomes.map(({ name, label, status, ms, error }) => ({ name, ...(label ? { label } : {}), status, ms, ...(error ? { error } : {}) }));
       await deps.events.record(home.id, c.var.device.id, "letter_read", {
-        kind: extraction.kind, readBy: gate.readBy, readers: readers.map(({ name, status, ms }) => ({ name, status, ms })),
+        kind: extraction.kind, readBy: gate.readBy, readers: readers.map(({ name, label, status, ms }) => ({ name, ...(label ? { label } : {}), status, ms })),
         agreed: gate.facts.filter((f) => f.agreement === "agreed").length, differ: gate.checks.length,
       });
       return c.json({

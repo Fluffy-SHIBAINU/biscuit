@@ -93,7 +93,7 @@ export default function Family() {
             {readers ? (
               <>
                 <span className="label plain">Last letter {when(readers.at)} · {readers.readBy === "twice" ? "read twice" : readers.readBy === "once" ? "read once" : "read by one reader"}</span>
-                {readers.list.map((r) => <div key={r.name} className="row"><span className={`pill ${(READER_STATE[r.status] || READER_STATE.failed)[0]}`}>{(READER_STATE[r.status] || READER_STATE.failed)[1]}</span><span className="lead small">{readerName(r.name)}{Number.isFinite(r.ms) ? ` · ${(r.ms / 1000).toFixed(1)} s` : ""}</span></div>)}
+                {readers.list.map((r) => <div key={r.name} className="row"><span className={`pill ${(READER_STATE[r.status] || READER_STATE.failed)[0]}`}>{(READER_STATE[r.status] || READER_STATE.failed)[1]}</span><span className="lead small">{readerName(r)}{Number.isFinite(r.ms) ? ` · ${(r.ms / 1000).toFixed(1)} s` : ""}</span></div>)}
               </>
             ) : <p className="lead small muted">No letter read yet.</p>}
             <span className="label plain">Meta's reader is Spark 1.3 on Meta Model API; Spark Open is Meta's open weights on Fireworks. Both read every letter; {h.called} hears only what both read the same way.</span>

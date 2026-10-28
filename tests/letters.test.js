@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { cents, isoDate, summaryOf } from "../src/lib/letters.js";
+import { cents, isoDate, readerName, readOnceLine, summaryOf } from "../src/lib/letters.js";
 
 test("isoDate and cents", () => {
   expect(isoDate("10/03/2026")).toBe("2026-10-03");
@@ -38,4 +38,17 @@ test("summaryOf carries readBy and the checks, flags a review, and keeps a dispu
 test("statusLine never says a disputed amount", () => {
   expect(statusLine({ status: "read", facts: [{ field: "amount_due", value: "$1,850.00", quote: "Amount Due: $1,850.00", verified: true, spoken: false }] })).toBe("Read.");
   expect(statusLine({ status: "handoff", facts: [{ field: "amount_due", value: "$1,850.00", quote: "Amount Due: $1,850.00", verified: true, spoken: true }] })).toMatch(/^\$1,850\.00\. Ana has the application/);
+});
+
+test("readerName prefers the reader's label, then the name Biscuit knows, then the id", () => {
+  expect(readerName({ name: "fireworks", label: "DeepSeek V4.1 Flash on Fireworks" })).toBe("DeepSeek V4.1 Flash on Fireworks");
+  expect(readerName({ name: "fireworks" })).toBe("Fireworks reader");
+  expect(readerName("meta")).toBe("Meta's reader");
+  expect(readerName("other")).toBe("other");
+});
+
+test("readOnceLine names the reader that was away and the one that read alone", () => {
+  const readers = [{ name: "meta", status: "ok", ms: 5700 }, { name: "fireworks", status: "timeout", ms: 10000, label: "DeepSeek V4.1 Flash on Fireworks" }];
+  expect(readOnceLine(readers)).toBe("DeepSeek V4.1 Flash on Fireworks didn't answer in 10 seconds. Meta's reader read it alone. Ana's page says so.");
+  expect(readOnceLine([{ name: "meta", status: "failed" }, { name: "fireworks", status: "ok" }])).toBe("Meta's reader had an error. Fireworks reader read it alone. Ana's page says so.");
 });

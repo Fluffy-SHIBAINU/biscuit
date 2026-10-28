@@ -52,3 +52,10 @@ test("two facts read two ways make one line", () => {
   expect(g.differLine).toBe("The amount and the statement date I read two ways, so I won't say them. Ana will check.");
   expect(g.checks).toHaveLength(2);
 });
+
+test("valuesAgree: a sender that adds its department to the same name is the same sender", () => {
+  expect(valuesAgree("sender", "Massachusetts General Hospital", "Massachusetts General Hospital Patient Financial Services")).toBe(true);
+  expect(valuesAgree("sender", "Patient Financial Services", "Massachusetts General Hospital Patient Financial Services")).toBe(false);
+  expect(valuesAgree("sender", "Medicare", "Medicare Rewards Department")).toBe(false);
+  expect(valuesAgree("sender", "Medicare Rewards Department", "Medicare Rewards Departmental")).toBe(false);
+});

@@ -1,8 +1,9 @@
 // Letter helpers shared by the Rosa screens: summaries for the server, dates and amounts from verified quotes.
 
 /** How each reader is named on screen. */
-export const READER_NAME = { meta: "Meta's reader", fireworks: "Spark Open on Fireworks" };
-export const readerName = (n) => READER_NAME[n] || n;
+export const READER_NAME = { meta: "Meta's reader", fireworks: "Fireworks reader" };
+/** A reader's printed name: its label (the model), else the name Biscuit knows, else the id. Takes a reader object or a name. */
+export const readerName = (r) => (r && typeof r === "object" ? r.label || READER_NAME[r.name] || r.name : READER_NAME[r] || r);
 
 /** Why a letter was read once: which reader was away, and who read it alone. */
 export function readOnceLine(readers) {
@@ -10,7 +11,7 @@ export function readOnceLine(readers) {
   const alone = (readers || []).find((r) => r.status === "ok");
   if (!away || !alone) return "One reader read it alone. Ana's page says so.";
   const why = away.status === "timeout" ? "didn't answer in 10 seconds" : away.status === "unreadable" ? "couldn't make out the page" : "had an error";
-  return `${readerName(away.name)} ${why}. ${readerName(alone.name)} read it alone. Ana's page says so.`;
+  return `${readerName(away)} ${why}. ${readerName(alone)} read it alone. Ana's page says so.`;
 }
 
 export function isoDate(us) {

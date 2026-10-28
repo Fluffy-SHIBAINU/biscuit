@@ -70,16 +70,18 @@ const recorder = () => { const calls: any[] = []; return { calls, events: { coun
 
 test("both readers agree: read twice, every fact agreed, the lines as before", async () => {
   const { calls, events: ev } = recorder();
-  const app = createApp({ lookup: linked, events: ev, sheet: async () => null, spark: { transcribe: async () => transcription2, extract: async () => extraction2 }, reader2: { transcribe: async () => transcription2, extract: async () => extraction2 } });
+  const app = createApp({ lookup: linked, events: ev, sheet: async () => null, spark: { transcribe: async () => transcription2, extract: async () => extraction2 }, reader2: { label: "DeepSeek V4.1 Flash on Fireworks", transcribe: async () => transcription2, extract: async () => extraction2 } });
   const body = await (await post(app, "/api/biscuit/letter/read", new Uint8Array(jpeg))).json();
   expect(body.readBy).toBe("twice");
   expect(body.readers.map((r: any) => [r.name, r.status])).toEqual([["meta", "ok"], ["fireworks", "ok"]]);
+  expect(body.readers[1].label).toBe("DeepSeek V4.1 Flash on Fireworks");
+  expect(body.readers[0]).not.toHaveProperty("label");
   expect(body.facts.filter((f: any) => f.verified).every((f: any) => f.agreement === "agreed" && f.spoken)).toBe(true);
   expect(body.checks).toEqual([]);
   expect(body.lines[0]).toBe("This is from Massachusetts General Hospital.");
   expect(body.lines).toContain("The amount due is $1,850.00.");
   expect(calls[0]).toMatchObject({ kind: "letter_read", data: { readBy: "twice", differ: 0 } });
-  expect(calls[0].data.readers[1]).toMatchObject({ name: "fireworks", status: "ok" });
+  expect(calls[0].data.readers[1]).toMatchObject({ name: "fireworks", status: "ok", label: "DeepSeek V4.1 Flash on Fireworks" });
 });
 
 test("the readers differ on the statement date: not spoken, both quotes kept, Ana will check", async () => {
