@@ -4,3 +4,6 @@ node_modules/
 dist/
 .vercel
 .superpowers/
+
+# synthetic letters and their truth files (regenerate: npx tsx scripts/synth/render.ts)
+/synth/
