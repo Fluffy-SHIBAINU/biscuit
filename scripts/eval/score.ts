@@ -9,7 +9,7 @@ import { valuesAgree } from "../../server/agree.js";
 import { matchHospital, statesFromText } from "../../server/hospitals.js";
 import { normalizeExtraction, type Extraction } from "../../server/meta/spark.js";
 import { MIN_WORDS } from "../../server/read.js";
-import { verifyFacts, type Fact } from "../../server/verify.js";
+import { normalize, verifyFacts, type Fact } from "../../server/verify.js";
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -20,11 +20,12 @@ type Truth = { id: string; template: string; kind: string; hospital: { ccn: stri
 type Pred = { id: string; transcription: string | null; extraction: unknown | null; msTranscribe: number; msExtract: number; error?: string };
 export type Score = {
   reader: string; label: string; model: string; letters: number; read: number; kindRight: number; hospitalLetters: number; hospitalResolved: number;
-  truthFacts: number; right: number; missed: number; verifiedWrong: number; unverified: number; medianSeconds: number; p90Seconds: number;
+  truthFacts: number; verbatim: number; right: number; missed: number; verifiedWrong: number; unverified: number; medianSeconds: number; p90Seconds: number;
   byField: Record<string, { truth: number; right: number; verifiedWrong: number }>; byTemplate: Record<string, { letters: number; read: number; right: number; truth: number }>;
 };
 
 const FIELDS = ["sender", "hospital_name", "amount_due", "statement_date", "due_date", "account_last4", "financial_assistance", "phone_numbers"];
+const LABELS: Record<string, string> = { glimmer_base: "Glimmer 30B, base", glimmer_tuned: "Kindred's reader (Glimmer 30B, trained)" };
 const median = (xs: number[]) => (xs.length ? [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] : 0);
 const p90 = (xs: number[]) => (xs.length ? [...xs].sort((a, b) => a - b)[Math.min(xs.length - 1, Math.floor(xs.length * 0.9))] : 0);
 
@@ -40,6 +41,9 @@ export function scoreLetter(t: Truth, p: Pred) {
   const words = transcription.split(/\s+/).filter(Boolean).length;
   const read = words >= MIN_WORDS && Boolean(x.hospital_name?.value || x.sender?.value) && !p.error;
   const truthFacts: Fact[] = verifyFacts(normalizeExtraction(t.truth), t.transcription);
+  // How much of the page the reader read: truth quotes that are verbatim in its transcription, whatever its extraction did.
+  const page = normalize(transcription);
+  const verbatim = truthFacts.filter((tf) => page.includes(normalize(tf.quote))).length;
   const facts: Fact[] = read ? verifyFacts(x, transcription) : [];
   const verified = facts.filter((f) => f.verified);
   let right = 0, verifiedWrong = 0;
@@ -56,11 +60,11 @@ export function scoreLetter(t: Truth, p: Pred) {
   }
   const name = x.hospital_name?.value || (x.kind === "bill" ? x.sender?.value : null);
   const resolved = t.hospital ? matchHospital(name ?? "", statesFromText(transcription))?.ccn === t.hospital.ccn : null;
-  return { read, kindRight: read && x.kind === t.kind, truthFacts: truthFacts.length, right, missed: truthFacts.length - right, verifiedWrong, unverified: facts.length - verified.length, resolved, seconds: (p.msTranscribe + p.msExtract) / 1000, byField };
+  return { read, kindRight: read && x.kind === t.kind, truthFacts: truthFacts.length, verbatim, right, missed: truthFacts.length - right, verifiedWrong, unverified: facts.length - verified.length, resolved, seconds: (p.msTranscribe + p.msExtract) / 1000, byField };
 }
 
 export function scoreReader(name: string, meta: { label?: string; model?: string }, truths: Truth[], preds: Map<string, Pred>): Score {
-  const s: Score = { reader: name, label: meta.label ?? name, model: meta.model ?? "", letters: 0, read: 0, kindRight: 0, hospitalLetters: 0, hospitalResolved: 0, truthFacts: 0, right: 0, missed: 0, verifiedWrong: 0, unverified: 0, medianSeconds: 0, p90Seconds: 0, byField: {}, byTemplate: {} };
+  const s: Score = { reader: name, label: meta.label && meta.label !== name ? meta.label : LABELS[name] ?? name, model: meta.model ?? "", letters: 0, read: 0, kindRight: 0, hospitalLetters: 0, hospitalResolved: 0, truthFacts: 0, verbatim: 0, right: 0, missed: 0, verifiedWrong: 0, unverified: 0, medianSeconds: 0, p90Seconds: 0, byField: {}, byTemplate: {} };
   const secs: number[] = [];
   for (const t of truths) {
     const p = preds.get(t.id);
@@ -68,7 +72,7 @@ export function scoreReader(name: string, meta: { label?: string; model?: string
     const r = scoreLetter(t, p);
     s.letters++; s.read += r.read ? 1 : 0; s.kindRight += r.kindRight ? 1 : 0;
     if (t.hospital) { s.hospitalLetters++; s.hospitalResolved += r.resolved ? 1 : 0; }
-    s.truthFacts += r.truthFacts; s.right += r.right; s.missed += r.missed; s.verifiedWrong += r.verifiedWrong; s.unverified += r.unverified;
+    s.truthFacts += r.truthFacts; s.verbatim += r.verbatim; s.right += r.right; s.missed += r.missed; s.verifiedWrong += r.verifiedWrong; s.unverified += r.unverified;
     if (r.read) secs.push(r.seconds);
     for (const [f, v] of Object.entries(r.byField)) { const b = (s.byField[f] ??= { truth: 0, right: 0, verifiedWrong: 0 }); b.truth += v.truth; b.right += v.right; b.verifiedWrong += v.verifiedWrong; }
     const bt = (s.byTemplate[t.template] ??= { letters: 0, read: 0, right: 0, truth: 0 }); bt.letters++; bt.read += r.read ? 1 : 0; bt.right += r.right; bt.truth += r.truthFacts;
@@ -80,8 +84,8 @@ export function scoreReader(name: string, meta: { label?: string; model?: string
 const pct = (a: number, b: number) => (b ? `${((100 * a) / b).toFixed(1)}%` : "n/a");
 
 export function markdown(scores: Score[]): string {
-  const lines = ["| Reader | Letters read | Facts right | Verified but wrong | Unverified | Kind right | Hospital resolved | Median s | p90 s |", "|---|---|---|---|---|---|---|---|---|"];
-  for (const s of scores) lines.push(`| ${s.label} | ${s.read}/${s.letters} | ${s.right}/${s.truthFacts} (${pct(s.right, s.truthFacts)}) | ${s.verifiedWrong} | ${s.unverified} | ${pct(s.kindRight, s.letters)} | ${s.hospitalResolved}/${s.hospitalLetters} | ${s.medianSeconds} | ${s.p90Seconds} |`);
+  const lines = ["| Reader | Letters read | Lines read verbatim | Facts right | Verified but wrong | Unverified | Kind right | Hospital resolved | Median s | p90 s |", "|---|---|---|---|---|---|---|---|---|---|"];
+  for (const s of scores) lines.push(`| ${s.label} | ${s.read}/${s.letters} | ${pct(s.verbatim, s.truthFacts)} | ${s.right}/${s.truthFacts} (${pct(s.right, s.truthFacts)}) | ${s.verifiedWrong} | ${s.unverified} | ${pct(s.kindRight, s.letters)} | ${s.hospitalResolved}/${s.hospitalLetters} | ${s.medianSeconds} | ${s.p90Seconds} |`);
   lines.push("", "Per field, facts right over facts on the page (verified but wrong in brackets):", "", `| Field | ${scores.map((s) => s.label).join(" | ")} |`, `|---|${scores.map(() => "---").join("|")}|`);
   for (const f of FIELDS) lines.push(`| ${f} | ${scores.map((s) => { const b = s.byField[f]; return b ? `${b.right}/${b.truth} [${b.verifiedWrong}]` : "n/a"; }).join(" | ")} |`);
   lines.push("", "Per template, letters read and facts right:", "", `| Template | ${scores.map((s) => s.label).join(" | ")} |`, `|---|${scores.map(() => "---").join("|")}|`);
