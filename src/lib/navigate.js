@@ -2,6 +2,9 @@ import { useSyncExternalStore } from "react";
 
 const listeners = new Set();
 
+export const getPath = () => window.location.pathname;
+export const getSearch = () => window.location.search;
+
 export function navigate(path) {
   if (window.location.pathname + window.location.search !== path) window.history.pushState({}, "", path);
   listeners.forEach((l) => l());
@@ -17,5 +20,10 @@ function subscribe(listener) {
 }
 
 export function usePath() {
-  return useSyncExternalStore(subscribe, () => window.location.pathname, () => "/");
+  return useSyncExternalStore(subscribe, getPath, () => "/");
+}
+
+/** The query string, for a screen whose state lives there: a navigation that changes only the query re-renders it. */
+export function useSearch() {
+  return useSyncExternalStore(subscribe, getSearch, () => "");
 }

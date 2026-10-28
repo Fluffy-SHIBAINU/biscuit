@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
-import { navigate, usePath } from "../lib/navigate.js";
+import { navigate, useSearch } from "../lib/navigate.js";
 
 export default function LinkCode() {
-  usePath();
-  const kind = new URLSearchParams(window.location.search).get("kind") === "cam" ? "cam" : "rosa";
+  const search = useSearch();
+  const kind = new URLSearchParams(search).get("kind") === "cam" ? "cam" : "rosa";
   const [code, setCode] = useState(null);
   const [expiresAt, setExpiresAt] = useState(null);
   const [linked, setLinked] = useState(false);

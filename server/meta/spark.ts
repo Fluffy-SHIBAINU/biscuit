@@ -18,6 +18,8 @@ export type Extraction = {
 export type ChatTransport = (body: Record<string, unknown>) => Promise<any>;
 
 export const MODEL = "muse-spark-1.3";
+/** Spark reasons by default (a thousand-plus reasoning tokens, eight seconds a call); reading a letter is transcription and copying, so every call asks for the least. */
+export const REASONING_EFFORT = "minimal";
 export const TRANSCRIBE_PROMPT =
   "Transcribe every printed word on this page in reading order. Keep line breaks. Write numbers, dates and amounts exactly as printed. Add nothing.";
 export const EXTRACT_PROMPT =
@@ -61,6 +63,7 @@ export async function transcribeLetter(jpeg: Buffer, chat: ChatTransport = spark
   const json = await chat({
     model: MODEL,
     temperature: 0,
+    reasoning_effort: REASONING_EFFORT,
     messages: [{ role: "user", content: [{ type: "text", text: TRANSCRIBE_PROMPT }, { type: "image_url", image_url: { url: dataUrl(jpeg) } }] }],
   });
   return content(json).trim();
@@ -92,6 +95,7 @@ export async function extractFacts(transcription: string, chat: ChatTransport = 
   const json = await chat({
     model: MODEL,
     temperature: 0,
+    reasoning_effort: REASONING_EFFORT,
     messages: [{ role: "system", content: EXTRACT_PROMPT }, { role: "user", content: transcription }],
     response_format: { type: "json_schema", json_schema: { name: "letter_extraction", schema: EXTRACTION_SCHEMA } },
   });
@@ -103,6 +107,7 @@ export async function chooseQuestions(kind: LetterKind, known: string[], chat: C
   const json = await chat({
     model: MODEL,
     temperature: 0,
+    reasoning_effort: REASONING_EFFORT,
     messages: [
       { role: "system", content: QUESTIONS_PROMPT },
       { role: "user", content: `Letter kind: ${kind}\nAlready answered: ${known.join(", ") || "none"}\nQuestions:\n${catalogue}` },
