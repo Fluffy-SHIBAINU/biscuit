@@ -1,5 +1,18 @@
 // Letter helpers shared by the Rosa screens: summaries for the server, dates and amounts from verified quotes.
 
+/** How each reader is named on screen. */
+export const READER_NAME = { meta: "Meta's reader", fireworks: "Spark Open on Fireworks" };
+export const readerName = (n) => READER_NAME[n] || n;
+
+/** Why a letter was read once: which reader was away, and who read it alone. */
+export function readOnceLine(readers) {
+  const away = (readers || []).find((r) => r.status !== "ok");
+  const alone = (readers || []).find((r) => r.status === "ok");
+  if (!away || !alone) return "One reader read it alone. Ana's page says so.";
+  const why = away.status === "timeout" ? "didn't answer in 10 seconds" : away.status === "unreadable" ? "couldn't make out the page" : "had an error";
+  return `${readerName(away.name)} ${why}. ${readerName(alone.name)} read it alone. Ana's page says so.`;
+}
+
 export function isoDate(us) {
   const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec((us || "").trim());
   if (!m) return null;
@@ -12,12 +25,14 @@ export function cents(money) {
   return Number(m[1].replace(/,/g, "")) * 100 + (m[2] ? Number(m[2]) : 0);
 }
 
-const verified = (facts, field) => facts.find((f) => f.field === field && f.verified)?.value ?? null;
+// A fact counts for a number only when its quote was verified and the agreement gate cleared it (`spoken`, absent on older entries).
+const clear = (f) => f.verified && f.spoken !== false;
+const verified = (facts, field) => facts.find((f) => f.field === field && clear(f))?.value ?? null;
 const norm = (s) => (s || "").normalize("NFKC").replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[\u2010-\u2015\u2212]/g, "-").replace(/\s+/g, " ").trim();
 
 /** What Biscuit may say for a fact: the value only when the quote prints it in that exact form. */
 export function spokenValue(fact) {
-  if (!fact || !fact.verified) return null;
+  if (!fact || !clear(fact)) return null;
   return norm(fact.quote).includes(norm(fact.value)) ? norm(fact.value) : null;
 }
 
@@ -35,7 +50,9 @@ export function summaryOf(entry) {
     dueOn: isoDate(verified(facts, "due_date")),
     quotes: facts.filter((f) => f.verified).map((f) => ({ field: f.field, quote: f.quote })),
     status: entry.status || "read",
-    needsReview: Boolean(entry.needsReview),
+    readBy: entry.readBy || "single",
+    checks: Array.isArray(entry.checks) ? entry.checks : [],
+    needsReview: Boolean(entry.needsReview) || (Array.isArray(entry.checks) && entry.checks.length > 0),
   };
 }
 

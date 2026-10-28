@@ -11,6 +11,12 @@ import { postEvent } from "../lib/api.js";
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const clock = (d) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
+/** Ana's latest open "another look", from the server's letter rows. */
+export function lookRequestOf(letters) {
+  const open = (letters || []).filter((l) => l.lookRequestedAt).sort((a, b) => new Date(b.lookRequestedAt) - new Date(a.lookRequestedAt))[0];
+  return open ? { id: open.id, sender: open.sender || "a letter", at: open.lookRequestedAt } : null;
+}
+
 export function greeting(now = new Date(), name = "Rosa") {
   const h = now.getHours();
   const part = h < 12 ? "morning" : h < 18 ? "afternoon" : "evening";
@@ -36,7 +42,7 @@ export default function Home() {
   useEffect(() => { if (!holding) setArmed(false); }, [holding]);
   useEffect(() => {
     if (!s.deviceToken) return;
-    const refresh = () => getDocket().then((d) => { if (d.lastMailSeen) store.set({ lastMailSeen: d.lastMailSeen }); }).catch(() => {});
+    const refresh = () => getDocket().then((d) => store.set({ ...(d.lastMailSeen ? { lastMailSeen: d.lastMailSeen } : {}), lookRequest: lookRequestOf(d.letters) })).catch(() => {});
     const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
     document.addEventListener("visibilitychange", onVisible);
     const t = setInterval(refresh, 60_000);
@@ -44,7 +50,7 @@ export default function Home() {
   }, [s.deviceToken]);
   useEffect(() => {
     if (!s.deviceToken) return;
-    getDocket().then((d) => { if (d.lastMailSeen) store.set({ lastMailSeen: d.lastMailSeen }); }).catch(() => {});
+    getDocket().then((d) => store.set({ ...(d.lastMailSeen ? { lastMailSeen: d.lastMailSeen } : {}), lookRequest: lookRequestOf(d.letters) })).catch(() => {});
   }, [s.deviceToken]);
   async function turnOnChime() {
     try { const ok = await subscribePush(); if (!ok) setChimeError("The phone said no to notifications. Allow them in Settings for Biscuit."); }
@@ -65,6 +71,13 @@ export default function Home() {
         <span className="label plain">Seen by the mailbox phone · no pictures kept</span>
         <a href="/mail?from=home" className="link" onClick={(e) => { e.preventDefault(); navigate("/mail?from=home"); }}>Mail came and I didn't say so? Tap here.</a>
       </section>
+      {s.lookRequest && (
+        <section className="card">
+          <span className="label">Ana asks</span>
+          <p className="lead small">Ana would like another look at the letter from {s.lookRequest.sender}. Show it to me again when you can.</p>
+          <button type="button" className="btn secondary" onClick={() => navigate("/letter")}>Show it</button>
+        </section>
+      )}
       {!s.pushSubscribed && pushSupported() && <button type="button" className="btn secondary" onClick={turnOnChime}>Turn on the mail chime</button>}
       {chimeError && <p className="foot bad">{chimeError}</p>}
       <button type="button" className="btn big" onClick={() => navigate("/talk")}>Talk to Biscuit</button>

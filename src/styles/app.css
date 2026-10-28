@@ -87,3 +87,9 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .dot.ok { background: #34D399; }
 .toggle { gap: 12px; } .toggle input { width: 28px; height: 28px; }
 .btn.danger.hold.armed { background: var(--bad); color: #fff; }
+/* Read twice: what the two readers made of a fact. */
+.fact.differ strong { color: var(--muted); }
+.fact .agree { font: 12px/1.5 var(--mono); color: var(--ok); }
+.fact .seen { font: 14px/1.45 var(--ui); color: var(--ink-2); }
+.fact .seen .quote { font-size: 14px; }
+.row.wrap { flex-wrap: wrap; }

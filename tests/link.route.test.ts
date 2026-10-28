@@ -7,7 +7,8 @@ import { device, household, linkCode } from "../server/schema.js";
 const TEST_EMAIL = "test-link@biscuit.local";
 
 describe.skipIf(!process.env.DATABASE_URL)("POST /api/biscuit/link/claim", () => {
-  const app = createApp();
+  // The live claim limiter is shared production state (10 per caller per 10 minutes); it has its own test below.
+  const app = createApp({ claimLimiter: async () => true });
   let householdId = "";
   beforeAll(async () => {
     const db = getDb();

@@ -17,10 +17,11 @@ Biscuit is a Kindred AI product, built for the Meta Global AI Developer Hackatho
 | `muse-spark-1.3` (Meta Model API, Chat Completions, Standard mode) | `server/meta/spark.ts` | Transcribes the letter picture, then extracts facts with verbatim quotes under a JSON schema; picks the follow-up questions from a fixed list. |
 | `sam-3.1` (Meta Model API, Responses API, `@meta-sam/parser`) | `server/meta/sam.ts` | Finds the mailbox at setup (text prompt "mailbox", or a point prompt where Ana taps); checks that a whole letter is in the frame ("document"); watches the box region for "mail carrier", "mailbox door", "envelope". |
 | `muse-voice-transcribe-1.0` (Meta Model API, `/v1/asr/transcribe`) | `server/meta/asr.ts` | Hears Rosa: each clip is a 16 kHz WAV the phone records itself; nothing is kept after the call. |
+| `accounts/fireworks/models/muse-spark-open` (Muse Spark Open, Meta open weights, served per token by Fireworks) | `server/fireworks/spark.ts` | The second reader: the same picture, prompts and schema as Spark 1.3, at the same time. Biscuit speaks a fact only when both readers read it the same way (`server/agree.ts`); a fact read two ways is shown, not spoken, and reaches Ana with both quotes. One reader away: the other reads alone, marked "read once". On when `READER_SECOND=fireworks` and `FIREWORKS_API_KEY` are set. |
 
 The phone's own `speechSynthesis` speaks. No model is on the Help path. The API key lives on the server only; phones talk to relays under `/api/biscuit/*`.
 
-Every number Biscuit speaks sits inside a quote the server verified as a verbatim substring of the transcription (`server/verify.ts`). A fact whose quote is not found is shown as unverified and never spoken.
+Every number Biscuit speaks sits inside a quote the server verified as a verbatim substring of the transcription (`server/verify.ts`). A fact whose quote is not found is shown as unverified and never spoken. With the second reader on, each reader's quotes are verified against its own transcription, and a number is spoken only when the two readings agree (digits for money, dates, accounts and phones; the same hospital record for names). Rules and decisions: [docs/2026-10-27-second-reader.md](docs/2026-10-27-second-reader.md).
 
 ## What was built when
 
@@ -51,11 +52,11 @@ English only. One family member told. The mailbox phone must stay on its page, p
 
 ```bash
 npm install
-cp .env.local.example .env.local   # MODEL_API_KEY, VAPID keys (node scripts/vapid.mjs >> .env.local), DATABASE_URL
+cp .env.local.example .env.local   # MODEL_API_KEY, FIREWORKS_API_KEY + READER_SECOND=fireworks, VAPID keys (node scripts/vapid.mjs >> .env.local), DATABASE_URL
 npm run db:migrate
 npm run dev                        # vercel dev on :3000 (KINDRED_AUTH_BYPASS=<email> stands in for Ana's session locally)
 npm test && npm run typecheck && npm run build
 ./deploy.sh                        # vercel --prod
 ```
 
-Tests run against the recorded Meta fixtures under `tests/fixtures/meta` (no key needed) and, when `DATABASE_URL` is set, against the database. Device QA: [docs/qa.md](docs/qa.md).
+Tests run against the recorded Meta fixtures under `tests/fixtures/meta` and `tests/fixtures/fireworks` (no key needed; `npx tsx scripts/record-fixtures.ts fireworks` re-records the second reader's) and, when `DATABASE_URL` is set, against the database. Device QA: [docs/qa.md](docs/qa.md).

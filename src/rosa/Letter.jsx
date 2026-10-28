@@ -30,12 +30,12 @@ export default function Letter() {
       const jpeg = await grabJpeg(video.current, 2000, 2_000_000);
       speak(["I've got it. One moment while I read."]);
       const r = await readLetter(jpeg);
-      const entry = { id: crypto.randomUUID(), readAt: new Date().toISOString(), kind: r.kind, sender: r.sender, facts: r.facts, transcription: r.transcription, hospital: r.hospital, status: "read" };
-      store.set((s) => ({ docket: [entry, ...s.docket], lastReading: { ...r, id: entry.id } }));
+      const entry = { id: crypto.randomUUID(), readAt: new Date().toISOString(), kind: r.kind, sender: r.sender, facts: r.facts, transcription: r.transcription, hospital: r.hospital, status: "read", readBy: r.readBy, checks: r.checks || [], readers: r.readers || [] };
+      store.set((s) => ({ docket: [entry, ...s.docket], lastReading: { ...r, id: entry.id }, lookRequest: s.lookRequest && s.lookRequest.sender === r.sender ? null : s.lookRequest }));
       if (store.get().household?.shareLetters !== false) postLetter(summaryOf(entry)).catch(() => {});
       navigate("/reading");
     } catch (err) {
-      const line = err?.status === 422 ? "I can't read this one. Keep it for Ana." : err?.status === 429 ? "I've read a lot this hour. Let's try again a little later." : "Something went wrong reading that. Let's try again.";
+      const line = err?.status === 422 ? "I can't read this one. Keep it for Ana." : err?.status === 503 ? "Both my readers are away. Let's try again in a minute." : err?.status === 429 ? "I've read a lot this hour. Let's try again a little later." : "Something went wrong reading that. Let's try again.";
       await speak([line]);
       navigate("/");
     } finally {
@@ -83,7 +83,7 @@ export default function Letter() {
       <section className="card status"><span className={`pill ${check?.ok ? "ok" : "warn"}`}>{phase === "reading" ? "Reading" : s.pill}</span><p className="lead small">{phase === "reading" ? "Reading it now." : s.text}</p></section>
       <div className="spacer" />
       {elapsed >= 10 && phase !== "reading" && <button type="button" className="btn secondary" onClick={capture}>Take it anyway</button>}
-      <p className="foot mono">Frame check: SAM 3.1 · letter read by Muse Spark on Kindred's server · nothing kept after reading</p>
+      <p className="foot mono">Frame check: SAM 3.1 · read by Muse Spark on Kindred's server, twice when the second reader is on · nothing kept after reading</p>
     </main>
   );
 }

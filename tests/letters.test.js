@@ -20,3 +20,22 @@ test("spokenValue speaks only what the quote prints", () => {
   expect(spokenValue({ value: "$1,850.00", quote: "Amount Due: $1,850.00", verified: true })).toBe("$1,850.00");
   expect(spokenValue({ value: "11/02/2026", quote: "Due Date: 11/02/2026", verified: false })).toBeNull();
 });
+
+// Read twice: a fact the two readers read two ways is never spoken, never summarised, and reaches Ana as a check.
+import { statusLine } from "../src/lib/letters.js";
+test("spokenValue is silent for a fact the gate did not clear", () => {
+  expect(spokenValue({ value: "$1,850.00", quote: "Amount Due: $1,850.00", verified: true, spoken: false })).toBeNull();
+  expect(spokenValue({ value: "$1,850.00", quote: "Amount Due: $1,850.00", verified: true, spoken: true })).toBe("$1,850.00");
+});
+
+test("summaryOf carries readBy and the checks, flags a review, and keeps a disputed amount out of the numbers", () => {
+  const checks = [{ field: "amount_due", quotes: [{ reader: "meta", value: "$1,850.00", quote: "Amount Due: $1,850.00" }, { reader: "fireworks", value: "$1,350.00", quote: "Amount Due: $1,350.00" }] }];
+  const sum = summaryOf({ id: "x", readAt: "2026-10-27T15:49:00Z", kind: "bill", sender: "MGH", readBy: "twice", checks, facts: [{ field: "amount_due", value: "$1,850.00", quote: "Amount Due: $1,850.00", verified: true, spoken: false, agreement: "differ" }, { field: "due_date", value: "11/02/2026", quote: "Due Date: 11/02/2026", verified: true, spoken: true, agreement: "agreed" }] });
+  expect(sum).toMatchObject({ readBy: "twice", checks, needsReview: true, amountCents: null, dueOn: "2026-11-02" });
+  expect(summaryOf({ id: "y", kind: "bill", sender: "MGH", facts: [] })).toMatchObject({ readBy: "single", checks: [], needsReview: false });
+});
+
+test("statusLine never says a disputed amount", () => {
+  expect(statusLine({ status: "read", facts: [{ field: "amount_due", value: "$1,850.00", quote: "Amount Due: $1,850.00", verified: true, spoken: false }] })).toBe("Read.");
+  expect(statusLine({ status: "handoff", facts: [{ field: "amount_due", value: "$1,850.00", quote: "Amount Due: $1,850.00", verified: true, spoken: true }] })).toMatch(/^\$1,850\.00\. Ana has the application/);
+});
