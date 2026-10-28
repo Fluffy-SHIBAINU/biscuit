@@ -9,6 +9,7 @@
   "scripts": {
     "test": "vitest run",
     "dev": "vercel dev --listen 3000",
+    "dev:local": "tsx scripts/dev.ts",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
