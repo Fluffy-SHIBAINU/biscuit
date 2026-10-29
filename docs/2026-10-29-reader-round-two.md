@@ -163,3 +163,38 @@ collection letters), before another adapter is judged.
 Cost of the round: training $0 (the promotion), in-session sampling for four dev snapshots, the holdout and the three
 comparison passes about $3.50, the production readers under $1.
 
+## 5. Round three: how to run it from hand-fetched documents
+
+Most hospital "understanding your bill" pages refuse an automated fetch and open fine in a browser. Download them and
+drop the files into `synth/real-drop/` (PDF, PNG or JPEG; the folder is ignored by git, and nothing in it is ever
+pushed). Worth fetching, one or two pages each: the Mayo Clinic itemized statement sample (mayoclinic.org, DOC-20079483),
+Dignity Health's sample billing statement (dignityhealth.org, "guide to reading your bill"), the Texas Oncology
+"Understanding Account Statements" handout, Southeast Iowa Regional Medical Center's "Understanding Your Bill", the
+Washington State Hospital Association's "Understanding Your Hospital Bill", the CMS Advance Beneficiary Notice sample
+form, any insurer's "how to read your EOB" sample (Aetna, Blue Cross, UnitedHealthcare), a utility's "understanding your
+bill" sample (PG&E, Con Edison, Duke Energy), New York City's sample water bill, the VA copay sample statement, the CFPB
+model debt validation notice (consumerfinance.gov), and any sample Medicare Advantage or hearing-aid mailer. Twenty to
+forty pages is the target.
+
+Then, from the repo (the training venv has pymupdf; `COOKBOOK` points at the Fireworks cookbook clone):
+
+```bash
+python scripts/eval/real-pages.py --in synth/real-drop --out synth/realpool2        # one JPEG per page, text alongside
+npx tsx scripts/eval/readers.ts --in synth/realpool2 --out synth/runs/realpool2 --readers meta,deepseek --jobs 3
+npx tsx scripts/eval/agree-label.ts --in synth/realpool2 --preds synth/runs/realpool2 --out synth/realpool2.jsonl
+```
+
+The dev set is the part that needs a person: a dozen or more of the new pages are labelled by hand in the truth shape
+(`synth/real/truth/*.json`, one file per page, the printed lines and every cited value with its quote), so that the
+real set can carry a confidence interval; pages used for the dev set are removed from the pool so the adapter never
+trains on them. Then the round itself, with snapshots scored on the bigger real set:
+
+```bash
+npx tsx scripts/synth/dataset.ts --in synth/real --out synth/real.jsonl
+COOKBOOK=/path/to/cookbook python scripts/train/glimmer_sft.py --train synth/r2/train.jsonl --extra-train synth/realpool2.jsonl --holdout synth/r2/holdout.jsonl --dev synth/real.jsonl --run oct30a --epochs 1 --snapshot-every 50 --skip-base
+npx tsx scripts/eval/score.ts --truth synth/real --preds synth/runs/oct30a --only dev_ --out synth/runs/oct30a/scores-dev
+```
+
+The seat rule decides: the adapter takes a live seat only when, on the real dev set, it has no more verified-but-wrong
+facts than either live reader.
+
