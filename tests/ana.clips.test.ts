@@ -138,8 +138,9 @@ describe.skipIf(!process.env.DATABASE_URL)("clips on Ana's page", () => {
     await insert("staleSkip", { at: ago(8), label: "skip", labelledAt: ago(1) });
     await insert("oldTap", { at: ago(40), label: "nothing", labelledAt: ago(31) });
     await insert("recentTap", { at: ago(40), label: "nothing", labelledAt: ago(5) });
+    // The count is global and the chime tick in another test file may have retired these rows first, so the rows are the check.
     const n = await retireClips(getDb(), new Date());
-    expect(n).toBeGreaterThanOrEqual(4);
+    expect(typeof n).toBe("number");
     const have = new Set((await left()).map((r) => r.id));
     for (const gone of ["stale", "staleSkip", "oldTap", "old"]) expect(have.has(ids[gone])).toBe(false);
     for (const kept of ["recentTap", "collect", "fresh1", "empty"]) expect(have.has(ids[kept])).toBe(true);
