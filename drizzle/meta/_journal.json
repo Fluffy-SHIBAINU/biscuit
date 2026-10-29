@@ -43,6 +43,13 @@
       "when": 1793295308951,
       "tag": "0005_medical_firestar",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793298870541,
+      "tag": "0006_dizzy_jamie_braddock",
+      "breakpoints": true
     }
   ]
 }

@@ -2,7 +2,7 @@ import { and, eq, gt, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 import type { AuthVars } from "../auth.js";
-import { allowSamCall, bestDetection, COLLECT_PROMPTS, collectAllowed, SAM_DAILY_CAP, TEST_PROMPTS, WATCH_PROMPTS } from "../cam.js";
+import { allowSamCall, bestDetection, COLLECT_PROMPTS, collectAllowed, regionSourceOf, SAM_DAILY_CAP, TEST_PROMPTS, WATCH_PROMPTS } from "../cam.js";
 import { CLIP_ATTACH_WINDOW_MS, CLIP_FRAMES, DEFAULT_FLOOR, MAX_CLIP_FRAME_BYTES } from "../clips.js";
 import type { Events } from "../events.js";
 import { MAIL_PAYLOAD, sendPush } from "../push.js";
@@ -57,9 +57,13 @@ export function camRoutes(deps: { auth: MiddlewareHandler<AuthVars>; sam?: SamDe
     .post("/cam/region", deps.auth, async (c) => {
       const b = await c.req.json().catch(() => ({}));
       if (!validRegion(b?.region)) return c.json({ error: "bad_region" }, 400);
+      // The box as the phone sent it: SAM's find padded on the phone, or the person's own drawing, unpadded. A new box
+      // of either kind sends the envelope test back to pending.
+      const source = regionSourceOf(b?.source);
+      if (source === undefined) return c.json({ error: "bad_source" }, 400);
       const h = c.var.household.id;
       const now = new Date();
-      await getDb().insert(cam).values({ householdId: h, region: b.region, setAt: now, testStatus: "pending" }).onConflictDoUpdate({ target: cam.householdId, set: { region: b.region, setAt: now, testStatus: "pending", paused: false } });
+      await getDb().insert(cam).values({ householdId: h, region: b.region, regionSource: source, setAt: now, testStatus: "pending" }).onConflictDoUpdate({ target: cam.householdId, set: { region: b.region, regionSource: source, setAt: now, testStatus: "pending", paused: false } });
       return c.json({ ok: true });
     })
     .post("/cam/frames", deps.auth, async (c) => {

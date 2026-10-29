@@ -1,5 +1,5 @@
 import type { Box, Detection } from "./meta/sam.js";
-import type { Region } from "./schema.js";
+import type { Region, RegionSource } from "./schema.js";
 
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
@@ -9,6 +9,12 @@ export function padRegion(box: Box, pad = 0.2): Region {
   const x = Math.max(0, box.x - px), y = Math.max(0, box.y - py);
   const right = Math.min(1, box.x + box.w + px), bottom = Math.min(1, box.y + box.h + py);
   return { x: r3(x), y: r3(y), w: r3(right - x), h: r3(bottom - y) };
+}
+
+/** The `source` a region save names: "sam" or "hand"; null when the phone sends none (the older page); undefined for anything else. */
+export function regionSourceOf(v: unknown): RegionSource | null | undefined {
+  if (v === undefined || v === null) return null;
+  return v === "sam" || v === "hand" ? v : undefined;
 }
 
 export function bestDetection(d: Detection[], minScore = 0.5): Detection | null {

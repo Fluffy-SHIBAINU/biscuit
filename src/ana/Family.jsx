@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
+import { cameraLine } from "../lib/camline.js";
 import { readerName } from "../lib/letters.js";
 import { navigate } from "../lib/navigate.js";
 import { pushSupported, subscribePush } from "../lib/push.js";
@@ -103,7 +104,7 @@ export default function Family() {
           </section>
           <section className="card">
             <span className="label">Mailbox phone</span>
-            <div className="row"><span className={`pill ${camera.status === "online" ? "ok" : camera.status === "not_set" ? "warn" : "bad"}`}>{CAMERA_LINE[camera.status]}</span><span className="lead small">{camera.status === "not_set" ? "No spare phone yet." : [camera.battery != null ? `${camera.charging ? "plugged in" : "on battery"}, ${camera.battery}%` : null, camera.lastMotionAt ? `last movement ${clock(camera.lastMotionAt)}` : "no movement seen yet", camera.testStatus === "pending" ? "test pending" : null].filter(Boolean).join(" · ")}</span></div>
+            <div className="row"><span className={`pill ${camera.status === "online" ? "ok" : camera.status === "not_set" ? "warn" : "bad"}`}>{CAMERA_LINE[camera.status]}</span><span className="lead small">{cameraLine(camera, clock)}</span></div>
             <div className="row wrap">
               {camera.status === "paused" ? <button type="button" className="btn ana small" onClick={act("/cam/resume", "Watching again.")}>Resume watching</button> : camera.status !== "not_set" && <button type="button" className="btn ana small" onClick={act("/cam/pause", "Paused. Nothing leaves the mailbox phone until you resume.")}>Pause watching</button>}
               <button type="button" className="btn ana small" onClick={() => navigate("/ana/link?kind=cam")}>{camera.status === "not_set" ? "Set up a spare phone" : "Find the mailbox again"}</button>

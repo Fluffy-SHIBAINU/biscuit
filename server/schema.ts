@@ -12,6 +12,9 @@ export type ReadBy = (typeof READ_BY)[number];
 export type Check = { field: string; quotes: { reader: string; value: string; quote: string }[] };
 export type EventKind = (typeof EVENT_KINDS)[number];
 export type Region = { x: number; y: number; w: number; h: number };
+/** Who set the watched box: "sam" for SAM 3.1's find (padded by a fifth on each side), "hand" for a box the person drew over the live preview. */
+export const REGION_SOURCES = ["sam", "hand"] as const;
+export type RegionSource = (typeof REGION_SOURCES)[number];
 /** What a household's taps on its clips taught its one mailbox (server/clips.ts): counts, the floor and gate applied (null keeps the default), and how the taps fare under them. */
 export type Tuning = { taps: number; positives: number; negatives: number; floor: number | null; gate: number | null; caught: number; falseAlarms: number; at: string };
 
@@ -97,6 +100,8 @@ export const cam = pgTable("biscuit_cam", {
   samCallsToday: integer("sam_calls_today").notNull().default(0),
   samDay: date("sam_day"),
   paused: boolean("paused").notNull().default(false),
+  /** Who set the box (REGION_SOURCES); null for a box set before this was recorded. */
+  regionSource: text("region_source", { enum: REGION_SOURCES }),
   /** Learned from Ana's taps on this one mailbox (server/clips.ts): the SAM score floor and the phone's motion gate, null until the taps support a number; `tuning` is the summary her page shows. */
   floor: doublePrecision("floor"),
   gate: doublePrecision("gate"),
