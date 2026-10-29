@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { makeLetter, TEMPLATES, type TemplateId } from "./letters.js";
-import { photoPage, type Frame } from "./photo.js";
+import { familyFor, photoPage, type Frame } from "./photo.js";
 import { mulberry32 } from "./rng.js";
 
 const run = promisify(execFile);
@@ -30,13 +30,14 @@ export async function renderOne(seed: number, split: "train" | "holdout", out: s
   const html = resolve(join(dir, "html", `${letter.id}.html`));
   const png = resolve(join(dir, "jpg", `${letter.id}.png`));
   const jpg = resolve(join(dir, "jpg", `${letter.id}.jpg`));
-  writeFileSync(html, photoPage(letter, seed, frame));
+  const family = familyFor(seed);
+  writeFileSync(html, photoPage(letter, seed, frame, family));
   const ud = join(tmpdir(), `biscuit-synth-ud${worker}`);
   await run(SHELL, ["--headless", "--disable-gpu", "--hide-scrollbars", "--no-sandbox", "--force-device-scale-factor=1", `--user-data-dir=${ud}`, `--window-size=${frame.w},${frame.h}`, `--screenshot=${png}`, `file://${html}`], { maxBuffer: 1 << 24 });
   await run("sips", ["-s", "format", "jpeg", "-s", "formatOptions", String(quality), png, "--out", jpg], { maxBuffer: 1 << 20 });
   rmSync(png, { force: true });
   const truthPath = resolve(join(dir, "truth", `${letter.id}.json`));
-  writeFileSync(truthPath, JSON.stringify({ id: letter.id, seed, split, template: letter.template, kind: letter.kind, hospital: letter.hospital, lines: letter.lines, transcription: letter.transcription, truth: letter.truth, quality, frame }, null, 1));
+  writeFileSync(truthPath, JSON.stringify({ id: letter.id, seed, split, template: letter.template, kind: letter.kind, hospital: letter.hospital, lines: letter.lines, transcription: letter.transcription, truth: letter.truth, redacted: letter.redacted, family, quality, frame }, null, 1));
   return { id: letter.id, seed, split, template: letter.template, kind: letter.kind, jpg, truthPath, quality };
 }
 

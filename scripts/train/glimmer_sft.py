@@ -204,11 +204,11 @@ def evaluate(label: str, service, snapshot: str, tokenizer, renderer, letters: d
     return summary
 
 
-def promote(service, base_url: str, api_key: str, run: str) -> str | None:
+def promote(service, base_url: str, api_key: str, run: str, checkpoint: str = "biscuit-tuned") -> str | None:
     from fireworks.training.sdk import FireworksClient
 
     fw = FireworksClient(api_key=api_key, base_url=base_url)
-    rows = [r for r in fw.list_training_session_checkpoints(service.training_session_name) if r.get("promotable") and "biscuit-tuned" in (r.get("checkpointName") or r.get("name") or "")]
+    rows = [r for r in fw.list_training_session_checkpoints(service.training_session_name) if r.get("promotable") and checkpoint in (r.get("checkpointName") or r.get("name") or "")]
     if not rows:
         print("no promotable tuned checkpoint; the adapter stays in the session", flush=True)
         return None
@@ -239,6 +239,9 @@ def main() -> int:
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--image-affixes", choices=("keep", "strip"), default="strip", help="whether the sampler prompt keeps the renderer's image boundary tokens")
     p.add_argument("--probe", action="store_true", help="sample one held-out letter with base weights both ways and exit")
+    p.add_argument("--dev", default=None, help="a small JSONL (real pages) sampled at every snapshot; each snapshot is promoted as <run>-s<step>")
+    p.add_argument("--snapshot-every", type=int, default=0, help="save, sample the dev set and promote every N steps (0: only at the end)")
+    p.add_argument("--extra-train", default=None, help="a second training JSONL mixed into the rows (agreement-labelled real pages)")
     p.add_argument("--eval-only", action="store_true", help="no training: score the base weights (or --adapter) on the holdout under --label, then exit")
     p.add_argument("--adapter", default=None, help="a promoted adapter to load before --eval-only sampling")
     p.add_argument("--label", default="glimmer_base", help="the reader name for --eval-only predictions")
@@ -258,6 +261,11 @@ def main() -> int:
 
     tokenizer, renderer = make_renderer()
     train_rows = load_rows(args.train)
+    if args.extra_train:
+        extra = load_rows(args.extra_train)
+        print(json.dumps({"extra_train_rows": len(extra)}), flush=True)
+        train_rows = train_rows + extra
+    dev = by_letter(load_rows(args.dev)) if args.dev else {}
     holdout = by_letter(load_rows(args.holdout))
     holdout = {k: holdout[k] for k in sorted(holdout)[: args.eval_n]}
     t0 = time.time()
@@ -323,10 +331,19 @@ def main() -> int:
                 row = {"step": step, "epoch": epoch + 1, "loss": round(loss, 4), "seconds": round(time.time() - started), **grad}
                 log.write(json.dumps(row) + "\n"); log.flush()
                 print(json.dumps(row), flush=True)
+                if args.snapshot_every and step % args.snapshot_every == 0 and dev:
+                    snap = client.save_weights_for_sampler(f"biscuit-s{step}").result().path
+                    summary.setdefault("snapshots", {})[str(step)] = evaluate(f"dev_s{step}", service, snap, tokenizer, renderer, dev, out_dir, args)
+                    try:
+                        summary.setdefault("promoted_snapshots", {})[str(step)] = promote(service, base_url, api_key, f"{args.run}-s{step}", f"biscuit-s{step}")
+                    except Exception as exc:  # noqa: BLE001
+                        print(json.dumps({"promote_failed": step, "error": str(exc)[:200]}), flush=True)
         summary["steps"] = step
         summary["train_seconds"] = round(time.time() - started)
         snapshot = client.save_weights_for_sampler("biscuit-tuned").result().path
         summary["tuned_snapshot"] = snapshot
+        if dev:
+            summary["dev_final"] = evaluate("dev_final", service, snapshot, tokenizer, renderer, dev, out_dir, args)
         summary["tuned"] = evaluate("glimmer_tuned", service, snapshot, tokenizer, renderer, holdout, out_dir, args)
         summary["promoted_model"] = None if args.no_promote else promote(service, base_url, api_key, args.run)
     finally:

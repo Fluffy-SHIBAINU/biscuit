@@ -42,13 +42,13 @@ test("bills come from a CMS hospital that the production matcher resolves to its
     bills++;
     expect(l.hospital).not.toBeNull();
     expect(l.truth.hospital_name?.value).toBe(l.hospital!.name);
-    expect(l.truth.sender?.value).toBe(l.hospital!.name);
-    expect(matchHospital(l.truth.hospital_name!.value, statesFromText(l.transcription))?.ccn).toBe(l.hospital!.ccn);
+    if (l.template !== "bill_collection") expect(l.truth.sender?.value).toBe(l.hospital!.name);
+    expect(matchHospital(l.truth.hospital_name!.value, l.template === "bill_collection" ? [l.hospital!.state] : statesFromText(l.transcription))?.ccn).toBe(l.hospital!.ccn);
     expect(l.truth.amount_due?.value).toMatch(/^\$\d{1,3}(,\d{3})*\.\d{2}$/);
-    expect(l.truth.account_last4?.value).toMatch(/^\d{4}$/);
-    expect(l.truth.statement_date?.value).toMatch(/^\d{2}\/\d{2}\/\d{4}$/);
-    expect(l.truth.due_date?.value).toMatch(/^\d{2}\/\d{2}\/\d{4}$/);
-    expect(us(l.truth.due_date!.value)).toBeGreaterThan(us(l.truth.statement_date!.value));
+    if (l.truth.account_last4) expect(l.truth.account_last4.value).toMatch(/^\d{4}$/);
+    if (l.truth.statement_date) expect(l.truth.statement_date.value).toMatch(/^\d{2}\/\d{2}\/\d{4}$/);
+    if (l.truth.due_date) expect(l.truth.due_date.value).toMatch(/^\d{2}\/\d{2}\/\d{4}$/);
+    if (l.truth.due_date && l.truth.statement_date) expect(us(l.truth.due_date.value)).toBeGreaterThan(us(l.truth.statement_date.value));
   }
   expect(bills).toBeGreaterThan(30);
 });
@@ -63,7 +63,6 @@ test("account_last4 is the last four digits of the printed account line; every p
     const l = makeLetter(s);
     const acct = l.truth.account_last4;
     if (acct) expect(acct.quote.replace(/\D/g, "").endsWith(acct.value)).toBe(true);
-    expect(l.truth.phone_numbers.length).toBeGreaterThan(0);
     for (const p of l.truth.phone_numbers) expect(l.transcription).toContain(p.value);
   }
 });
@@ -95,7 +94,7 @@ test("a template can be forced; letters that are not from a hospital name none",
 
 test("the photo page wraps the letter in a tilted, lit, noisy frame of the asked size, deterministically", () => {
   const l = makeLetter(5);
-  const page = photoPage(l, 5, { w: 1500, h: 2000 });
+  const page = photoPage(l, 5, { w: 1500, h: 2000 }, "photo");
   expect(page).toContain(l.html);
   expect(page).toMatch(/perspective\(/);
   expect(page).toMatch(/feTurbulence/);
@@ -104,6 +103,77 @@ test("the photo page wraps the letter in a tilted, lit, noisy frame of the asked
   const angles = [...page.matchAll(/rotate[XYZ]\((-?\d+(?:\.\d+)?)deg\)/g)].map((m) => Number(m[1]));
   expect(angles).toHaveLength(3);
   for (const a of angles) expect(Math.abs(a)).toBeLessThanOrEqual(7);
-  expect(photoPage(l, 5, { w: 1500, h: 2000 })).toBe(page);
-  expect(photoPage(l, 6, { w: 1500, h: 2000 })).not.toBe(page);
+  expect(photoPage(l, 5, { w: 1500, h: 2000 }, "photo")).toBe(page);
+  expect(photoPage(l, 6, { w: 1500, h: 2000 }, "photo")).not.toBe(page);
+});
+
+// Round two: letters that lack things, pages that are not letters, and more than one way to photograph a page.
+import { FAMILIES, familyFor } from "../scripts/synth/photo.js";
+
+const many = Array.from({ length: 600 }, (_, i) => i + 1).map((s) => makeLetter(s));
+
+test("twelve templates, and a letter can lack an account number, a due date, a date or a phone number", () => {
+  expect(TEMPLATES).toHaveLength(12);
+  for (const t of ["bill_collection", "notice_not_bill", "notice_msn", "ad_flyer", "other_page"]) expect(TEMPLATES).toContain(t);
+  const bills = many.filter((l) => l.template === "bill_statement");
+  expect(bills.filter((l) => !l.truth.account_last4).length).toBeGreaterThan(5);
+  expect(bills.filter((l) => !l.truth.due_date).length).toBeGreaterThan(5);
+  expect(bills.filter((l) => !l.truth.statement_date).length).toBeGreaterThan(3);
+  expect(many.filter((l) => l.truth.phone_numbers.length === 0).length).toBeGreaterThan(20);
+  for (const l of many) for (const f of verifyFacts(normalizeExtraction(l.truth), l.transcription)) expect(f.verified, `${l.template} ${l.seed} ${f.field}`).toBe(true);
+});
+
+test("every amount on every page is money, never NaN", () => {
+  for (const l of many) {
+    for (const line of l.lines) expect(line, `${l.template} ${l.seed}`).not.toMatch(/NaN|undefined|null/);
+    if (l.truth.amount_due) expect(l.truth.amount_due.value).toMatch(/^\$\d{1,3}(,\d{3})*\.\d{2}$/);
+  }
+});
+
+test("a page that is not a letter names its sender and nothing else", () => {
+  const pages = many.filter((l) => l.template === "other_page" || l.template === "ad_flyer");
+  expect(pages.length).toBeGreaterThan(20);
+  for (const l of pages) {
+    expect(l.truth.sender).not.toBeNull();
+    expect(l.truth.amount_due).toBeNull();
+    expect(l.truth.due_date).toBeNull();
+    expect(l.truth.account_last4).toBeNull();
+    expect(l.truth.hospital_name).toBeNull();
+    expect(l.transcription.split(/\s+/).length).toBeGreaterThanOrEqual(MIN_WORDS);
+  }
+});
+
+test("a statement that is not a bill lists charges but owes nothing; a Medicare notice names the facility and what may be billed", () => {
+  const nb = many.filter((l) => l.template === "notice_not_bill");
+  expect(nb.length).toBeGreaterThan(15);
+  for (const l of nb) { expect(l.kind).toBe("notice"); expect(l.truth.amount_due).toBeNull(); expect(l.transcription).toMatch(/THIS IS NOT A BILL/); expect(l.truth.hospital_name).not.toBeNull(); }
+  const msn = many.filter((l) => l.template === "notice_msn");
+  expect(msn.length).toBeGreaterThan(15);
+  for (const l of msn) { expect(l.kind).toBe("notice"); expect(l.truth.sender?.value).toBe("Centers for Medicare & Medicaid Services"); expect(l.truth.hospital_name).not.toBeNull(); expect(l.truth.amount_due?.quote).toMatch(/^Total You May Be Billed/); expect(l.hospital).not.toBeNull(); }
+  const col = many.filter((l) => l.template === "bill_collection");
+  expect(col.length).toBeGreaterThan(15);
+  for (const l of col) { expect(l.kind).toBe("bill"); expect(l.truth.sender?.value).not.toBe(l.truth.hospital_name?.value); expect(l.hospital).not.toBeNull(); expect(l.truth.amount_due).not.toBeNull(); }
+});
+
+test("a redacted line is a black bar on the page and absent from the transcription", () => {
+  const redacted = many.filter((l) => l.redacted.length > 0);
+  expect(redacted.length).toBeGreaterThan(20);
+  for (const l of redacted) {
+    expect(l.html).toContain('class="bar"');
+    for (const line of l.redacted) expect(l.lines).not.toContain(line);
+    for (const f of verifyFacts(normalizeExtraction(l.truth), l.transcription)) expect(f.verified).toBe(true);
+  }
+});
+
+test("three photo families, chosen by seed, each a different page", () => {
+  expect(FAMILIES).toEqual(["photo", "scan", "fax"]);
+  const seen = new Set(Array.from({ length: 200 }, (_, i) => familyFor(i + 1)));
+  expect(seen.size).toBe(3);
+  const l = makeLetter(5);
+  const photo = photoPage(l, 5, { w: 1500, h: 2000 }, "photo"), scan = photoPage(l, 5, { w: 1500, h: 2000 }, "scan"), fax = photoPage(l, 5, { w: 1500, h: 2000 }, "fax");
+  expect(new Set([photo, scan, fax]).size).toBe(3);
+  expect(scan).toMatch(/grayscale\(/);
+  expect(scan).not.toMatch(/perspective\(/);
+  expect(fax).toMatch(/Courier/);
+  for (const page of [photo, scan, fax]) expect(page).toContain(l.html.slice(-80));
 });

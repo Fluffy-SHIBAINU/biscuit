@@ -3,7 +3,7 @@
 // Each reader gets the same JPEG and the same two prompts as production: transcribe the picture, then extract from its
 // own transcription. Nothing is verified here; scripts/eval/score.ts does that against the truth files.
 import { config } from "dotenv";
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { extractFacts, transcribeLetter } from "../../server/meta/spark.js";
 import { DEFAULT_MODEL, extractFactsFw, readerLabel, transcribeLetterFw } from "../../server/fireworks/spark.js";
@@ -42,7 +42,9 @@ export async function predict(reader: Reader, id: string, jpeg: Buffer): Promise
 
 async function runReader(name: string, model: string, dir: string, out: string, jobs: number, limit: number) {
   const { label, reader } = readerNamed(name, model);
-  const ids = readdirSync(join(dir, "truth")).filter((n) => n.endsWith(".json")).map((n) => n.replace(/\.json$/, "")).sort().slice(0, limit);
+  // Pages without truth files (a pool for agreement labelling) are listed from their pictures.
+  const truthIds = existsSync(join(dir, "truth")) ? readdirSync(join(dir, "truth")).filter((n) => n.endsWith(".json")).map((n) => n.replace(/\.json$/, "")) : [];
+  const ids = (truthIds.length ? truthIds : readdirSync(join(dir, "jpg")).filter((n) => n.endsWith(".jpg")).map((n) => n.replace(/\.jpg$/, ""))).sort().slice(0, limit);
   const preds: Prediction[] = [];
   let next = 0;
   const started = Date.now();
