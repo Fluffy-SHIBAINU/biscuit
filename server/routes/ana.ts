@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 import { anaAuth, type AnaVars } from "../auth.js";
@@ -8,7 +8,7 @@ import { cam, camSample, device, event, household, letter, linkCode } from "../s
 import { dropClips, isLabel, tuneHousehold } from "../clips.js";
 import { dbEvents, type Events } from "../events.js";
 import { LOOK_PAYLOAD, sendPush, type Sender } from "../push.js";
-import { validTz } from "../chime.js";
+import { DEFAULT_TZ, localParts, validTz } from "../chime.js";
 
 const LIVING = ["alone", "with_family", "with_care"];
 const CLEAN = (v: unknown, max = 80) => (typeof v === "string" ? v.trim().slice(0, max) : "");
@@ -75,14 +75,6 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
       const rows = await getDb().update(cam).set({ paused: false }).where(eq(cam.householdId, c.var.household.id)).returning({ id: cam.householdId });
       return rows.length ? c.json({ ok: true }) : c.json({ error: "not_set" }, 404);
     })
-    .post("/cam/test/request", auth, async (c) => {
-      // Ana asks the mailbox phone to run the envelope test; the phone learns it at its next heartbeat and its result closes the request.
-      const h = c.var.household;
-      const [row] = await getDb().select({ id: cam.householdId }).from(cam).where(eq(cam.householdId, h.id)).limit(1);
-      if (!row) return c.json({ error: "not_set" }, 404);
-      await events.record(h.id, null, "cam_test_requested");
-      return c.json({ ok: true });
-    })
     .post("/family/letter/:id/again", auth, async (c) => {
       const db = getDb();
       const h = c.var.household;
@@ -146,7 +138,11 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
       const now = new Date();
       const devices = await db.select().from(device).where(eq(device.householdId, h.id));
       const letters = await db.select().from(letter).where(and(eq(letter.householdId, h.id), ne(letter.status, "hidden"))).orderBy(desc(letter.readAt)).limit(50);
-      const events = await db.select().from(event).where(and(eq(event.householdId, h.id), inArray(event.kind, ["said", "mail_seen", "mail_due", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack", "consent", "look_requested", "cam_test_run"]))).orderBy(desc(event.at)).limit(60);
+      const events = await db.select().from(event).where(and(eq(event.householdId, h.id), inArray(event.kind, ["said", "mail_seen", "mail_due", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack", "consent", "look_requested", "cam_motion"]))).orderBy(desc(event.at)).limit(60);
+      // Movements the phone sent today, in the household's own day.
+      const tz = validTz(h.tz) ?? DEFAULT_TZ;
+      const today = localParts(now, tz).day;
+      const movementsToday = (await db.select({ at: event.at }).from(event).where(and(eq(event.householdId, h.id), eq(event.kind, "cam_motion"), gt(event.at, new Date(now.getTime() - 36 * 3600_000))))).filter((e) => localParts(e.at, tz).day === today).length;
       const [camRow] = await db.select().from(cam).where(eq(cam.householdId, h.id)).limit(1);
       const [clipCount] = await db.select({ total: sql<string>`count(*) filter (where jsonb_array_length(${camSample.frames}) > 0)`, pending: sql<string>`count(*) filter (where jsonb_array_length(${camSample.frames}) > 0 and ${camSample.label} is null)` }).from(camSample).where(eq(camSample.householdId, h.id));
       const [lastRead] = await db.select().from(event).where(and(eq(event.householdId, h.id), eq(event.kind, "letter_read"))).orderBy(desc(event.at)).limit(1);
@@ -167,7 +163,7 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
         letters,
         said: events.filter((e) => e.kind === "said").map((e) => ({ at: e.at, text: (e.data as any)?.text ?? "" })),
         events: events.filter((e) => e.kind !== "said").map((e) => ({ id: e.id, kind: e.kind, at: e.at, data: e.data })),
-        camera: { status: cameraStatus(camRow ?? null, camDevice?.lastSeenAt ?? null, now), testStatus: camRow?.testStatus ?? null, paused: camRow?.paused ?? false, battery: camDevice?.battery ?? null, charging: camDevice?.charging ?? null, lastMotionAt: camRow?.lastMotionAt ?? null, setAt: camRow?.setAt ?? null, regionSource: camRow?.regionSource ?? null, floor: camRow?.floor ?? null, gate: camRow?.gate ?? null, tuning: camRow?.tuning ?? null, clips: { pending: Number(clipCount?.pending ?? 0), total: Number(clipCount?.total ?? 0) } },
+        camera: { status: cameraStatus(camRow ?? null, camDevice?.lastSeenAt ?? null, now), movementsToday, paused: camRow?.paused ?? false, battery: camDevice?.battery ?? null, charging: camDevice?.charging ?? null, lastMotionAt: camRow?.lastMotionAt ?? null, setAt: camRow?.setAt ?? null, regionSource: camRow?.regionSource ?? null, floor: camRow?.floor ?? null, gate: camRow?.gate ?? null, tuning: camRow?.tuning ?? null, clips: { pending: Number(clipCount?.pending ?? 0), total: Number(clipCount?.total ?? 0) } },
         help: { lastTestAt: lastTest?.at ?? null, acked, openHelpAt: closed ? null : openHelp?.at ?? null },
         readers: lastRead ? { at: lastRead.at, readBy: readData.readBy ?? "single", list: [...(Array.isArray(readData.readers) ? readData.readers : []), ...shadowEntry] } : null,
       });

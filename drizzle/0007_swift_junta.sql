@@ -1,0 +1,1 @@
+ALTER TABLE "biscuit_cam" DROP COLUMN "test_status";

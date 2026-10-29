@@ -44,16 +44,14 @@ describe.skipIf(!process.env.DATABASE_URL)("the watched box on the household's c
     const r = await row();
     expect(r.region).toEqual({ x: 0.312, y: 0.45, w: 0.25, h: 0.2 });
     expect(r.regionSource).toBe("hand");
-    expect(r.testStatus).toBe("pending");
     const fam = await family();
     expect(fam.camera.regionSource).toBe("hand");
-    expect(fam.camera.testStatus).toBe("pending");
   });
 
-  test("a new box from SAM's find replaces it, sends the test back to pending and unpauses", async () => {
-    await getDb().update(cam).set({ testStatus: "works", paused: true }).where(eq(cam.householdId, householdId));
+  test("a new box from SAM's find replaces it and unpauses", async () => {
+    await getDb().update(cam).set({ paused: true }).where(eq(cam.householdId, householdId));
     expect((await send({ region: { x: 0.1, y: 0.1, w: 0.5, h: 0.4 }, source: "sam" })).status).toBe(200);
-    expect(await row()).toMatchObject({ region: { x: 0.1, y: 0.1, w: 0.5, h: 0.4 }, regionSource: "sam", testStatus: "pending", paused: false });
+    expect(await row()).toMatchObject({ region: { x: 0.1, y: 0.1, w: 0.5, h: 0.4 }, regionSource: "sam", paused: false });
     expect((await family()).camera.regionSource).toBe("sam");
   });
 

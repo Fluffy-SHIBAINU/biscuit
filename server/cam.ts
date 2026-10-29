@@ -32,7 +32,6 @@ export function allowSamCall(row: { samCallsToday: number; samDay: string | null
 
 /** What the watcher asks SAM 3.1 for, in order: the carrier first, then a person at the box, the mail truck, an envelope. The chime fires on any. */
 export const WATCH_PROMPTS = ["mail carrier", "person", "mail truck", "envelope"] as const;
-export const TEST_PROMPTS = ["mailbox door"] as const;
 
 /** The prompts scored on a kept frame, so calibration can compare them; the watch prompts first. */
 export const COLLECT_PROMPTS = [...WATCH_PROMPTS, "mailbox door", "hand", "package"] as const;

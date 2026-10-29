@@ -14,8 +14,8 @@ Production has no household yet, so this is the whole setup. Fifteen minutes wit
 3. **Laptop:** Next: the mailbox phone; read its code.
 4. **Android (the mailbox phone):** open https://biscuit.kindred-ai.dev/cam?collect=1, type the code, allow the
    camera, prop it on the sill facing the box, Find my mailbox, Yes, that's it (or Draw the box myself). The phone goes
-   straight to Watching, which must say "Collecting". The envelope test is optional since October 29: Test it on the
-   Watching screen, open and close the lid once, "Works." within 60 seconds, Back to watching.
+   straight to Watching, which must say "Collecting". The envelope test is gone since October 29: the box set, the phone
+   watches, and every movement it sends shows on Ana's page.
 5. **Leave it:** plugged in, screen on (the page holds a wake lock; turn off the phone's auto-lock to be sure), the
    box lit if a porch light exists. Headlights on a window are the main false alarm; each movement costs six SAM calls
    in collect mode and the day's cap is 800 (the day turns at 8 PM Eastern). If the screen says "Paused" in the
@@ -61,8 +61,8 @@ Before the run, from the repo: `npm run db:migrate` (adds the sample table; the 
 
 1. Laptop: `/ana`, Next: the mailbox phone; read the code.
 2. Second phone: open `https://biscuit.kindred-ai.dev/cam?collect=1`, type the code, allow the camera, point it at the
-   mailbox, Find my mailbox, Yes, that's it (or Draw the box myself); it watches at once. The envelope test is optional:
-   Test it, open and close the lid (QA steps 6 and 7).
+   mailbox, Find my mailbox, Yes, that's it (or Draw the box myself); it watches at once (QA step 7 is a wave at the
+   box).
 3. Watching: the screen must show "Collecting" and "kept for calibration" next to the frame count.
 4. Make the mailbox move, with a pause between events for the motion cooldown (since October 29: 5 seconds after a sighting, backing off to 15, 30 and 60 seconds while sends see nothing, reset by a sighting or two quiet minutes; before that a flat 90 seconds):
    - open the lid, put an envelope in, close it: 5 times (the "mail" label);

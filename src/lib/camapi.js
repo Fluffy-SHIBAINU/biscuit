@@ -17,7 +17,6 @@ export const sendFrames = (blobs, test = false, extra = {}) => {
   for (const [k, v] of Object.entries(extra)) form.set(k, v);
   return api("/cam/frames", { method: "POST", form });
 };
-export const setTest = (result) => api("/cam/test", { method: "POST", json: { result } });
 /** The small frames of a clip, for the row the frames reply named (clipId). */
 export const sendClip = (clipId, blobs) => {
   const form = new FormData();

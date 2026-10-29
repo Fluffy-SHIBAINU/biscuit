@@ -26,7 +26,7 @@ at the box that passes the phone's motion gate keeps one row in `biscuit_cam_sam
 | The tap | Ana's label (`carrier`, `nothing`, `other`, or `skip`) and when she tapped. |
 
 Not kept: anything outside the box region, the full frame, the 640-pixel detection frames (checked and discarded as
-before), the envelope test's frames, audio (the phone records none), and anything at all for a household that has not
+before), audio (the phone records none), and anything at all for a household that has not
 turned this on. The chime never waits for the clip: the three detection frames go first and the clip follows.
 
 **Help improve Biscuit for everyone.** Can be turned on only while clips are kept. The clips Ana tapped may then be
@@ -126,7 +126,6 @@ Either way the frames stay what they are: the box region, seconds long, from hou
   fill the row the reply named. The chime is not delayed for opted-in households.
 - Only the three watch prompts are scored for clips (collect mode scores six): the taps tune a floor and a gate, and
   three calls a movement is the cost that fits an 800-a-day cap.
-- The envelope test keeps no clip.
 - "Mail carrier" stores `carrier`, "Not mail" stores `nothing`, "Someone else" stores `other`, so the contact sheet and
   `calibrate.ts` read Ana's taps unchanged; "Skip" stores `skip` and counts as unchecked everywhere.
 - The strip shows at most 8 clips, unchecked first, newest first, and skipped ones never; it loads apart from the

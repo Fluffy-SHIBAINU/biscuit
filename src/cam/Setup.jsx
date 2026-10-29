@@ -62,13 +62,12 @@ export default function Setup() {
   }
 
   // The box as it will be watched: SAM's find padded by a fifth, or the person's own drawing as drawn. Either way the phone
-  // goes straight to watching; the envelope test is optional from there (Test it), and Ana's page shows it as pending until
-  // it runs or the first real delivery. The rest of the camera settings on this phone (collect mode) stay.
+  // goes straight to watching. The rest of the camera settings on this phone (collect mode) stay.
   async function save(region, source) {
     setBusy(true); setFailed(false);
     try {
       await setRegion(region, source);
-      store.set((st) => ({ cam: { ...(st.cam || {}), region, regionSource: source, setAt: new Date().toISOString(), testStatus: "pending", skipped: false } }));
+      store.set((st) => ({ cam: { ...(st.cam || {}), region, regionSource: source, setAt: new Date().toISOString(), skipped: false } }));
       speak(["Set. I'll watch only this box."]);
       navigate("/cam");
     } catch {

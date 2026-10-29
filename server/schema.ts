@@ -4,7 +4,7 @@ export const DEVICE_KINDS = ["rosa", "cam", "ana"] as const;
 export type DeviceKind = (typeof DEVICE_KINDS)[number];
 export const EVENT_KINDS = [
   "mail_seen", "mail_due", "mail_tapped", "letter_read", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack",
-  "cam_online", "cam_offline", "cam_battery", "cam_paused", "cam_test_requested", "cam_test_run", "consent", "said", "delete", "look_requested", "shadow_read",
+  "cam_online", "cam_offline", "cam_battery", "cam_paused", "cam_motion", "consent", "said", "delete", "look_requested", "shadow_read",
 ] as const;
 export const READ_BY = ["single", "twice", "once"] as const;
 export type ReadBy = (typeof READ_BY)[number];
@@ -95,7 +95,6 @@ export const cam = pgTable("biscuit_cam", {
   householdId: uuid("household_id").primaryKey().references(() => household.id, { onDelete: "cascade" }),
   region: jsonb("region").$type<Region>().notNull(),
   setAt: ts("set_at").notNull(),
-  testStatus: text("test_status").notNull().default("pending"),
   lastMotionAt: ts("last_motion_at"),
   samCallsToday: integer("sam_calls_today").notNull().default(0),
   samDay: date("sam_day"),

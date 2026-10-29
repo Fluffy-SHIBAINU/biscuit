@@ -79,7 +79,7 @@ export function startWatcher(video, region, { onFrames, onClip, clip, onLevel, i
     const ctx = small.getContext("2d");
     const gray = toGray(ctx.getImageData(0, 0, small.width, small.height).data, small.width, small.height, { x: 0, y: 0, w: 1, h: 1 }, 160);
     const state = detector.sample(gray, Date.now());
-    if (onLevel) onLevel(state);
+    if (onLevel) onLevel(state, detector.lastDiff, detector.threshold);
     if (state !== "motion") return;
     if (isPaused && isPaused()) return;
     busy = true;

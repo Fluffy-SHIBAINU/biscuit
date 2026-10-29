@@ -1,15 +1,15 @@
-import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 import type { AuthVars } from "../auth.js";
-import { allowSamCall, bestDetection, COLLECT_PROMPTS, collectAllowed, regionSourceOf, SAM_DAILY_CAP, TEST_PROMPTS, WATCH_PROMPTS } from "../cam.js";
+import { allowSamCall, bestDetection, COLLECT_PROMPTS, collectAllowed, regionSourceOf, SAM_DAILY_CAP, WATCH_PROMPTS } from "../cam.js";
 import { CLIP_ATTACH_WINDOW_MS, CLIP_FRAMES, DEFAULT_FLOOR, MAX_CLIP_FRAME_BYTES } from "../clips.js";
 import type { Events } from "../events.js";
 import { MAIL_PAYLOAD, sendPush } from "../push.js";
 import { getDb, type Db } from "../db.js";
 import { detect } from "../meta/sam.js";
 import type { SamDeps } from "./letter.js";
-import { cam, camSample, device, event, type Region } from "../schema.js";
+import { cam, camSample, device, type Region } from "../schema.js";
 
 export const MAX_FIND_BYTES = 600_000;
 export const MAX_FRAME_BYTES = 300_000;
@@ -19,15 +19,6 @@ const dataUrl = (f: Buffer) => `data:image/jpeg;base64,${f.toString("base64")}`;
 function validRegion(r: any): r is Region {
   const ok = (n: unknown) => typeof n === "number" && n >= 0 && n <= 1;
   return r && ok(r.x) && ok(r.y) && ok(r.w) && ok(r.h) && r.w > 0 && r.h > 0 && r.x + r.w <= 1.001 && r.y + r.h <= 1.001;
-}
-
-/** Ana's request for the envelope test reaches the phone for ten minutes, until the phone reports a result. */
-export const TEST_REQUEST_WINDOW_MS = 10 * 60_000;
-/** True when the newest test event in the window is Ana's request rather than a result from the phone. */
-export async function testRequested(db: Db, householdId: string, now = new Date()): Promise<boolean> {
-  const since = new Date(now.getTime() - TEST_REQUEST_WINDOW_MS);
-  const [latest] = await db.select({ kind: event.kind }).from(event).where(and(eq(event.householdId, householdId), inArray(event.kind, ["cam_test_requested", "cam_test_run"]), gt(event.at, since))).orderBy(desc(event.at)).limit(1);
-  return latest?.kind === "cam_test_requested";
 }
 
 type CamRow = typeof cam.$inferSelect;
@@ -66,13 +57,12 @@ export function camRoutes(deps: { auth: MiddlewareHandler<AuthVars>; sam?: SamDe
     .post("/cam/region", deps.auth, async (c) => {
       const b = await c.req.json().catch(() => ({}));
       if (!validRegion(b?.region)) return c.json({ error: "bad_region" }, 400);
-      // The box as the phone sent it: SAM's find padded on the phone, or the person's own drawing, unpadded. A new box
-      // of either kind sends the envelope test back to pending.
+      // The box as the phone sent it: SAM's find padded on the phone, or the person's own drawing, unpadded.
       const source = regionSourceOf(b?.source);
       if (source === undefined) return c.json({ error: "bad_source" }, 400);
       const h = c.var.household.id;
       const now = new Date();
-      await getDb().insert(cam).values({ householdId: h, region: b.region, regionSource: source, setAt: now, testStatus: "pending" }).onConflictDoUpdate({ target: cam.householdId, set: { region: b.region, regionSource: source, setAt: now, testStatus: "pending", paused: false } });
+      await getDb().insert(cam).values({ householdId: h, region: b.region, regionSource: source, setAt: now }).onConflictDoUpdate({ target: cam.householdId, set: { region: b.region, regionSource: source, setAt: now, paused: false } });
       return c.json({ ok: true });
     })
     .post("/cam/frames", deps.auth, async (c) => {
@@ -86,12 +76,11 @@ export function camRoutes(deps: { auth: MiddlewareHandler<AuthVars>; sam?: SamDe
         }
       }
       if (!frames.length) return c.json({ error: "no_frames" }, 400);
-      const isTest = form.get("test") === "1";
       const db = getDb();
       const h = c.var.household;
       const row = await store.get(h.id);
       if (!row) return c.json({ error: "not_set" }, 409);
-      if (row.paused && !isTest) return c.json({ error: "paused" }, 409);
+      if (row.paused) return c.json({ error: "paused" }, 409);
       const day = today();
       let calls = row.samDay === day ? row.samCallsToday : 0;
       if (!allowSamCall({ samCallsToday: calls, samDay: row.samDay === day ? day : null }, day)) {
@@ -101,12 +90,12 @@ export function camRoutes(deps: { auth: MiddlewareHandler<AuthVars>; sam?: SamDe
       }
       // The score at which an answer counts: the household's own, learned from Ana's taps, or the default.
       const floor = row.floor ?? DEFAULT_FLOOR;
-      const prompts: readonly string[] = isTest ? TEST_PROMPTS : WATCH_PROMPTS;
+      const prompts: readonly string[] = WATCH_PROMPTS;
       // Collect mode (the founder's household) scores every prompt on the first frame and keeps the full frames. A household
       // that opted into clips scores the watch prompts on the first frame and keeps a clip row the phone then fills with small
-      // frames; the envelope test keeps nothing. Everyone else: the cascade, prompt by prompt, frame by frame, and nothing kept.
+      // frames. Everyone else: the cascade, prompt by prompt, frame by frame, and nothing kept.
       const collecting = collectAllowed(env, h.ownerEmail, String(form.get("collect") ?? ""));
-      const clipping = !collecting && !isTest && Boolean(h.keepClips);
+      const clipping = !collecting && Boolean(h.keepClips);
       const firstFrame: readonly string[] = collecting ? COLLECT_PROMPTS : clipping ? prompts : [];
       let seen: string | null = null;
       const scores: Record<string, number> = {};
@@ -129,7 +118,9 @@ export function camRoutes(deps: { auth: MiddlewareHandler<AuthVars>; sam?: SamDe
       await store.update(h.id, { samCallsToday: calls, samDay: day, lastMotionAt: new Date() });
       const levelField = form.get("level");
       const level = typeof levelField === "string" && levelField !== "" ? Number(levelField) : NaN;
-      const sample = { householdId: h.id, deviceId: c.var.device.id, test: isTest, level: Number.isFinite(level) ? level : null, seen, scores };
+      const sample = { householdId: h.id, deviceId: c.var.device.id, test: false, level: Number.isFinite(level) ? level : null, seen, scores };
+      // Every movement the phone sent shows on Ana's page: when, what SAM saw, the motion level; never an image here.
+      try { await deps.events.record(h.id, c.var.device.id, "cam_motion", { seen, level: sample.level }); } catch (err: any) { console.warn(JSON.stringify({ cam: "motion_event_failed", error: String(err?.message ?? err).slice(0, 200) })); }
       let kept = false;
       let clipId: number | null = null;
       // Keeping a sample never breaks the watch: a missing table or a full disk only means this one is not kept.
@@ -138,7 +129,7 @@ export function camRoutes(deps: { auth: MiddlewareHandler<AuthVars>; sam?: SamDe
       } else if (clipping) {
         try { clipId = await store.keep({ ...sample, clip: true, frames: [] }); } catch (err: any) { console.warn(JSON.stringify({ cam: "clip_failed", error: String(err?.message ?? err).slice(0, 200) })); }
       }
-      if (seen && !isTest) {
+      if (seen) {
         const id = await deps.events.record(h.id, c.var.device.id, "mail_seen", { seen });
         await sendPush(db, h.id, ["rosa"], MAIL_PAYLOAD(h.called, id)).catch(() => ({ sent: 0 }));
       }
@@ -160,25 +151,13 @@ export function camRoutes(deps: { auth: MiddlewareHandler<AuthVars>; sam?: SamDe
       const ok = await store.attach(id, c.var.household.id, frames);
       return ok ? c.json({ ok: true, frames: frames.length }) : c.json({ error: "not_found" }, 404);
     })
-    .post("/cam/test", deps.auth, async (c) => {
-      const b = await c.req.json().catch(() => ({}));
-      const result = b?.result === "works" ? "works" : b?.result === "pending" ? "pending" : null;
-      if (!result) return c.json({ error: "bad_result" }, 400);
-      const rows = await getDb().update(cam).set({ testStatus: result }).where(eq(cam.householdId, c.var.household.id)).returning({ id: cam.householdId });
-      if (!rows.length) return c.json({ error: "not_set" }, 409);
-      // The result is information: Ana's page lists it, and it closes any request she made. Nothing waits on it.
-      await deps.events.record(c.var.household.id, c.var.device.id, "cam_test_run", { result });
-      return c.json({ ok: true });
-    })
     .post("/cam/heartbeat", deps.auth, async (c) => {
       const b = await c.req.json().catch(() => ({}));
       const battery = Number.isInteger(b?.battery) && b.battery >= 0 && b.battery <= 100 ? b.battery : null;
       const charging = typeof b?.charging === "boolean" ? b.charging : null;
       await getDb().update(device).set({ lastSeenAt: new Date(), battery, charging }).where(eq(device.id, c.var.device.id));
-      const [row] = await getDb().select({ paused: cam.paused, testStatus: cam.testStatus, gate: cam.gate }).from(cam).where(eq(cam.householdId, c.var.household.id)).limit(1);
-      // The gate the taps set, whether Ana keeps clips, and whether she asked for the envelope test: the phone raises or lowers its
-      // motion threshold, says on screen what is kept, and opens the test when asked.
-      const requested = await testRequested(getDb(), c.var.household.id);
-      return c.json({ ok: true, paused: row?.paused ?? false, testStatus: row?.testStatus ?? null, gate: row?.gate ?? null, clips: Boolean(c.var.household.keepClips), testRequested: requested });
+      const [row] = await getDb().select({ paused: cam.paused, gate: cam.gate }).from(cam).where(eq(cam.householdId, c.var.household.id)).limit(1);
+      // The gate the taps set and whether Ana keeps clips: the phone raises or lowers its motion threshold and says on screen what is kept.
+      return c.json({ ok: true, paused: row?.paused ?? false, gate: row?.gate ?? null, clips: Boolean(c.var.household.keepClips) });
     });
 }

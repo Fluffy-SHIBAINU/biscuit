@@ -10,7 +10,7 @@ const camRow = (extra: Record<string, unknown> = {}) => ({ householdId: "h1", re
 const blob = (bytes = 1000) => new Blob([Buffer.alloc(bytes, 1) as unknown as BlobPart], { type: "image/jpeg" });
 
 function harness(o: { household?: Record<string, unknown>; cam?: Record<string, unknown>; scores?: Record<string, number>; env?: Record<string, string>; keepFails?: boolean } = {}) {
-  const kept: any[] = [], attached: any[] = [], prompts: string[] = [];
+  const kept: any[] = [], attached: any[] = [], prompts: string[] = [], recorded: any[] = [];
   const app = createApp({
     lookup: linked(o.household), camEnv: o.env ?? {},
     camStore: {
@@ -19,11 +19,11 @@ function harness(o: { household?: Record<string, unknown>; cam?: Record<string, 
       attach: async (id: number, householdId: string, frames: string[]) => { attached.push({ id, householdId, frames }); return id === 41; },
     },
     sam: { detect: async (_j, p) => { if (!("text" in p)) return []; prompts.push(p.text); const score = o.scores?.[p.text]; return score ? [{ box: { x: 0.1, y: 0.1, w: 0.3, h: 0.2 }, score }] : []; } },
-    events: { count: async () => 0, record: async () => 1 }, pushSend: async () => {},
+    events: { count: async () => 0, record: async (_h: string, _d: string | null, kind: string, data?: Record<string, unknown>) => { recorded.push({ kind, data }); return 1; } }, pushSend: async () => {},
   });
   const frames = (fields: Record<string, string> = {}, n = 2) => { const form = new FormData(); for (let i = 1; i <= n; i++) form.set(`frame${i}`, blob(), `f${i}.jpg`); for (const [k, v] of Object.entries(fields)) form.set(k, v); return app.request("/api/biscuit/cam/frames", { method: "POST", body: form, headers: { authorization: "Bearer x" } }); };
   const clip = (id: string, blobs: Blob[]) => { const form = new FormData(); blobs.forEach((b, i) => form.set(`frame${i + 1}`, b, `c${i + 1}.jpg`)); return app.request(`/api/biscuit/cam/clip/${id}`, { method: "POST", body: form, headers: { authorization: "Bearer x" } }); };
-  return { app, kept, attached, prompts, frames, clip };
+  return { app, kept, attached, prompts, frames, clip, recorded };
 }
 
 test("an opted-in household: the watch prompts are scored on the first frame, a clip row is kept, and the reply carries its id and the gate", async () => {
@@ -32,6 +32,8 @@ test("an opted-in household: the watch prompts are scored on the first frame, a 
   expect(res.status).toBe(200);
   expect(await res.json()).toEqual({ seen: "envelope", callsToday: 4, gate: 14, clipId: 41 });
   expect(h.prompts).toEqual([...WATCH_PROMPTS]);
+  // Every movement the phone sent shows on Ana's page, with what SAM saw and the motion level, image or no image.
+  expect(h.recorded).toContainEqual({ kind: "cam_motion", data: { seen: "envelope", level: 17.5 } });
   expect(h.kept).toHaveLength(1);
   expect(h.kept[0]).toEqual({ householdId: "h1", deviceId: "d1", test: false, clip: true, level: 17.5, seen: "envelope", scores: { "mail carrier": 0, person: 0.2, "mail truck": 0, envelope: 0.71 }, frames: [] });
 });
@@ -51,10 +53,7 @@ test("a household that has not opted in keeps nothing: the usual cascade runs an
   expect(h.kept).toEqual([]);
 });
 
-test("the envelope test keeps no clip, and the founder's collect mode keeps its full frames instead of a clip", async () => {
-  const t = harness({ household: { keepClips: true }, scores: { "mailbox door": 0.9 } });
-  expect(await (await t.frames({ test: "1" })).json()).toEqual({ seen: "mailbox door", callsToday: 1, gate: null });
-  expect(t.kept).toEqual([]);
+test("the founder's collect mode keeps its full frames instead of a clip", async () => {
   const c = harness({ household: { keepClips: true }, env: { CAM_COLLECT_OWNER: "ana@example.org" }, scores: { envelope: 0.7 } });
   const body = await (await c.frames({ collect: "1", level: "9" })).json();
   expect(body).toMatchObject({ seen: "envelope", kept: true });

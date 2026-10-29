@@ -12,7 +12,6 @@ import Docket from "./rosa/Docket.jsx";
 import Mail from "./rosa/Mail.jsx";
 import CamSetup from "./cam/Setup.jsx";
 import CamRest from "./cam/Rest.jsx";
-import CamTest from "./cam/Test.jsx";
 import CamWatching from "./cam/Watching.jsx";
 import Help from "./rosa/Help.jsx";
 import AfterHelp from "./rosa/AfterHelp.jsx";
@@ -49,7 +48,6 @@ export default function App() {
   if (path === "/link" || !s.deviceToken) return <EnterCode />;
   if (path === "/cam") return s.cam?.region ? <CamWatching /> : <CamSetup />;
   if (path === "/cam/setup") return <CamSetup />;
-  if (path === "/cam/test") return <CamTest />;
   if (path === "/cam/rest") return <CamRest />;
   if (path === "/talk") return <Talk />;
   if (path === "/letter") return <Letter />;

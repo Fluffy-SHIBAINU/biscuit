@@ -41,7 +41,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   app.use("/api/biscuit/help/test", auth, rosaOnly);
   app.use("/api/biscuit/help/test/:id", auth, rosaOnly);
   app.use("/api/biscuit/push/subscribe", auth, rosaOnly);
-  for (const path of ["find", "region", "heartbeat", "frames", "test", "clip/:id"]) app.use(`/api/biscuit/cam/${path}`, auth, requireKind("cam"));
+  for (const path of ["find", "region", "heartbeat", "frames", "clip/:id"]) app.use(`/api/biscuit/cam/${path}`, auth, requireKind("cam"));
   app.on(["DELETE", "PATCH"], "/api/biscuit/household", auth, rosaOnly);
   const events = opts.events ?? dbEvents;
   app.get("/api/biscuit/health", (c) => c.json({ ok: true, version: VERSION }));

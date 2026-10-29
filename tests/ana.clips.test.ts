@@ -37,7 +37,7 @@ describe.skipIf(!process.env.DATABASE_URL)("clips on Ana's page", () => {
     await db.delete(household).where(eq(household.ownerEmail, EMAIL));
     const [h] = await db.insert(household).values({ ownerEmail: EMAIL, seniorName: "Rosa Clips", called: "Rosa" }).returning();
     householdId = h.id;
-    await db.insert(cam).values({ householdId, region: { x: 0.1, y: 0.1, w: 0.3, h: 0.2 }, setAt: new Date(), testStatus: "works" });
+    await db.insert(cam).values({ householdId, region: { x: 0.1, y: 0.1, w: 0.3, h: 0.2 }, setAt: new Date() });
     const t = newToken(); camToken = t.token;
     await db.insert(device).values({ householdId, kind: "cam", tokenHash: t.hash, label: "sill" });
     await insert("fresh1", { level: 18, seen: "envelope", scores: { envelope: 0.8, "mailbox door": 0.2, "mail carrier": 0 } });
@@ -61,7 +61,7 @@ describe.skipIf(!process.env.DATABASE_URL)("clips on Ana's page", () => {
     expect(fam.household.keepClips).toBe(true);
     expect(fam.household.keepClipsAt).toBeTruthy();
     const hb = await (await app.request("/api/biscuit/cam/heartbeat", { method: "POST", headers: { ...camHeaders(), "content-type": "application/json" }, body: JSON.stringify({ battery: 80, charging: true }) })).json();
-    expect(hb).toEqual({ ok: true, paused: false, testStatus: "works", gate: null, clips: true, testRequested: false });
+    expect(hb).toEqual({ ok: true, paused: false, gate: null, clips: true });
     expect((await req("/api/biscuit/family/clips", { method: "PATCH", body: "{}" })).status).toBe(400);
   });
 

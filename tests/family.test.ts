@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { createApp } from "../server/app.js";
 import { getDb } from "../server/db.js";
 import { cameraStatus } from "../server/routes/ana.js";
-import { cam, device, household } from "../server/schema.js";
+import { cam, device, event, household } from "../server/schema.js";
 
 test("cameraStatus", () => {
   const now = new Date("2026-10-27T12:00:00Z");
@@ -22,7 +22,7 @@ describe.skipIf(!process.env.DATABASE_URL)("pause and resume the mailbox phone",
     const db = getDb();
     await db.delete(household).where(eq(household.ownerEmail, EMAIL));
     const [h] = await db.insert(household).values({ ownerEmail: EMAIL, seniorName: "Rosa", called: "Rosa" }).returning();
-    await db.insert(cam).values({ householdId: h.id, region: { x: 0.1, y: 0.1, w: 0.3, h: 0.2 }, setAt: new Date(), testStatus: "works" });
+    await db.insert(cam).values({ householdId: h.id, region: { x: 0.1, y: 0.1, w: 0.3, h: 0.2 }, setAt: new Date() });
   });
   afterAll(async () => { await getDb().delete(household).where(eq(household.ownerEmail, EMAIL)); });
 
@@ -32,7 +32,6 @@ describe.skipIf(!process.env.DATABASE_URL)("pause and resume the mailbox phone",
     expect((await req("/api/biscuit/cam/resume", { method: "POST" })).status).toBe(200);
     const fam = await (await req("/api/biscuit/family")).json();
     expect(fam.camera.status).toBe("offline");
-    expect(fam.camera.testStatus).toBe("works");
   });
 });
 
@@ -43,7 +42,7 @@ describe.skipIf(!process.env.DATABASE_URL)("a re-linked mailbox phone", () => {
     const db = getDb();
     await db.delete(household).where(eq(household.ownerEmail, EMAIL2));
     const [h] = await db.insert(household).values({ ownerEmail: EMAIL2, seniorName: "Rosa", called: "Rosa" }).returning();
-    await db.insert(cam).values({ householdId: h.id, region: { x: 0.1, y: 0.1, w: 0.3, h: 0.2 }, setAt: new Date(), testStatus: "pending" });
+    await db.insert(cam).values({ householdId: h.id, region: { x: 0.1, y: 0.1, w: 0.3, h: 0.2 }, setAt: new Date() });
     // The first phone linked this morning and fell silent; the second was linked later and is alive now.
     await db.insert(device).values({ householdId: h.id, kind: "cam", label: "Mailbox phone", lastSeenAt: new Date(Date.now() - 2 * 3600_000), battery: 40, charging: false });
     await db.insert(device).values({ householdId: h.id, kind: "cam", label: "Mailbox phone", lastSeenAt: new Date(), battery: 90, charging: true });
@@ -55,5 +54,17 @@ describe.skipIf(!process.env.DATABASE_URL)("a re-linked mailbox phone", () => {
     expect(fam.camera.status).toBe("online");
     expect(fam.camera.battery).toBe(90);
     expect(fam.camera.charging).toBe(true);
+  });
+
+  test("every movement the phone sent shows on Ana's page: in Recent and as today's count", async () => {
+    const [h] = await getDb().select({ id: household.id }).from(household).where(eq(household.ownerEmail, EMAIL2));
+    await getDb().insert(event).values([
+      { householdId: h.id, kind: "cam_motion", data: { seen: null, level: 17.5 } },
+      { householdId: h.id, kind: "cam_motion", data: { seen: "mail truck", level: 31 }, at: new Date(Date.now() - 3 * 24 * 3600_000) },
+    ]);
+    const fam = await (await app.request("/api/biscuit/family", { headers: { "content-type": "application/json" } })).json();
+    expect(fam.events.filter((e: any) => e.kind === "cam_motion")).toHaveLength(2);
+    expect(fam.events.find((e: any) => e.kind === "cam_motion" && e.data.seen === null).data.level).toBe(17.5);
+    expect(fam.camera.movementsToday).toBe(1);
   });
 });

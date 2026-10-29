@@ -21,6 +21,8 @@ export default function Watching() {
   const video = useRef(null);
   const stream = useRef(null);
   const [status, setStatus] = useState("starting");
+  // What the motion gate sees right now, so the phone can say why it is or is not sending.
+  const [motion, setMotion] = useState(null);
   const [battery, setBattery] = useState(null);
   const [charging, setCharging] = useState(null);
   const [events, setEvents] = useState([]);
@@ -63,8 +65,6 @@ export default function Watching() {
           setGate({ paused: Boolean(r.paused) });
           clipsRef.current = Boolean(r.clips); setClips(clipsRef.current);
           applyGate(detector, r.gate);
-          // Ana asked for the envelope test from her page: open it; this screen's camera stops on the way out.
-          if (r.testRequested) { navigate("/cam/test"); return; }
         } catch { /* keep the last known gate */ }
       };
       await beat();
@@ -76,6 +76,7 @@ export default function Watching() {
       stopWatch = startWatcher(video.current, region, {
         detector,
         isPaused: () => !shouldSend(gate.current),
+        onLevel: (state, diff, threshold) => setMotion({ state, diff, threshold }),
         clip: () => clipsRef.current && shouldSend(gate.current),
         onFrames: async (frames) => {
           if (!shouldSend(gate.current)) { pending = Promise.resolve(null); return; }
@@ -109,6 +110,7 @@ export default function Watching() {
       <section className="card night">
         <div className="row between"><span>Plugged in</span><span className="label plain">{battery === null ? "unknown" : `${charging ? "yes" : "no"} · ${battery}%`}</span></div>
         <div className="row between"><span>Frames sent today</span><span className="label plain">{sentToday} · {collect ? `${kept} kept for calibration` : clips ? `${clipsKept} ${clipsKept === 1 ? "clip" : "clips"} kept for Ana` : "all discarded"}</span></div>
+        <div className="row between"><span>Movement now</span><span className="label plain">{motion ? `${motion.diff.toFixed(1)} of ${motion.threshold}${motion.state === "motion" ? " · sending" : motion.state === "cooldown" ? " · cooling down" : ""}` : "…"}</span></div>
         {events.map((e, i) => <div key={i} className="row between"><span>{e.text}</span><span className="label plain">{e.at}</span></div>)}
       </section>
       {clips && <section className="card night"><span className="pill signal">Clips</span><p className="lead small">Keeping short clips of the box for Ana to check: when something moves, 8 small frames of the box region over 6 seconds go to her page. Ana turned this on; she can turn it off there.</p></section>}
@@ -117,7 +119,6 @@ export default function Watching() {
       <div className="spacer" />
       <div className="row pair">
         <button type="button" className="btn secondary night" onClick={() => navigate("/cam/setup?draw=1")}>Adjust the box</button>
-        <button type="button" className="btn secondary night" onClick={() => navigate("/cam/test")}>Test it</button>
       </div>
       <button type="button" className="btn secondary night" onClick={() => navigate("/cam/setup")}>Find the mailbox again</button>
       <p className="foot mono">Keep this page open and plugged in. Closing it stops the camera; Rosa's phone still works, she can tap Mail came.</p>
