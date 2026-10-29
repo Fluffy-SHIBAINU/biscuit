@@ -1,5 +1,13 @@
 import { MotionDetector, toGray } from "./motion.js";
 
+/** The phone's default motion gate, the same as the detector's; the household's own gate (learned from Ana's taps) replaces it. */
+export const DEFAULT_GATE = 12;
+/** A clip: eight small crops of the box over six seconds, each under about 60 KB. */
+export const CLIP_FRAMES = 8;
+export const CLIP_SPAN_MS = 6000;
+export const CLIP_WIDTH = 320;
+export const CLIP_MAX_BYTES = 60_000;
+
 /** Draws the region crop of the video into a canvas; returns the canvas. */
 export function cropRegion(video, region, outW) {
   const vw = video.videoWidth || 1280, vh = video.videoHeight || 960;
@@ -26,15 +34,35 @@ export function shouldSend({ paused = false, battery = null, charging = null } =
   return true;
 }
 
-/** The extra fields a send carries in collect mode: the flag and the motion level that tripped the gate. Nothing otherwise. */
+/** The extra fields a send carries: the motion level that tripped the gate (Ana's taps tune the gate from it), and the collect flag in collect mode. */
 export function frameFields(collect, detector) {
-  if (!collect) return {};
   const level = detector && Number.isFinite(detector.lastDiff) ? detector.lastDiff : null;
-  return level === null ? { collect: "1" } : { collect: "1", level: level.toFixed(1) };
+  return { ...(collect ? { collect: "1" } : {}), ...(level === null ? {} : { level: level.toFixed(1) }) };
 }
 
-/** Samples the region every 500 ms; on motion grabs three crops 500 ms apart and hands them to onFrames with the motion level. Returns a stop function. */
-export function startWatcher(video, region, { onFrames, onLevel, isPaused, detector = new MotionDetector(), intervalMs = 500 } = {}) {
+/** The motion threshold from the household's gate; anything but a positive number means the default. Returns the threshold. */
+export function applyGate(detector, gate) {
+  const threshold = typeof gate === "number" && Number.isFinite(gate) && gate > 0 ? gate : DEFAULT_GATE;
+  if (detector) detector.threshold = threshold;
+  return threshold;
+}
+
+/** count grabs, gapMs apart, in order. */
+export async function captureBurst(grab, count, gapMs) {
+  const frames = [];
+  for (let i = 0; i < count; i++) {
+    frames.push(await grab());
+    if (i < count - 1) await new Promise((r) => setTimeout(r, gapMs));
+  }
+  return frames;
+}
+
+/**
+ * Samples the region every 500 ms; on motion grabs three crops 500 ms apart and hands them to onFrames with the motion
+ * level. When `clip()` says the household keeps clips, it also grabs eight small crops over six seconds and hands them
+ * to onClip once complete, so the chime never waits for the clip. Returns a stop function.
+ */
+export function startWatcher(video, region, { onFrames, onClip, clip, onLevel, isPaused, detector = new MotionDetector(), intervalMs = 500 } = {}) {
   let busy = false;
   let stopped = false;
   const timer = setInterval(async () => {
@@ -49,12 +77,11 @@ export function startWatcher(video, region, { onFrames, onLevel, isPaused, detec
     busy = true;
     const level = detector.lastDiff;
     try {
-      const frames = [];
-      for (let i = 0; i < 3; i++) {
-        frames.push(await cropJpeg(video, region));
-        if (i < 2) await new Promise((r) => setTimeout(r, 500));
-      }
-      await onFrames(frames, { level });
+      const detection = captureBurst(() => cropJpeg(video, region), 3, 500).then((frames) => onFrames(frames, { level }));
+      const clipping = onClip && clip && clip()
+        ? captureBurst(() => cropJpeg(video, region, CLIP_WIDTH, CLIP_MAX_BYTES), CLIP_FRAMES, Math.round(CLIP_SPAN_MS / (CLIP_FRAMES - 1))).then((frames) => onClip(frames, { level }))
+        : null;
+      await Promise.allSettled([detection, clipping]);
     } finally { busy = false; }
   }, intervalMs);
   return () => { stopped = true; clearInterval(timer); };

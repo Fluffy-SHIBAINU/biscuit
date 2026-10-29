@@ -93,3 +93,8 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .fact .seen { font: 14px/1.45 var(--ui); color: var(--ink-2); }
 .fact .seen .quote { font-size: 14px; }
 .row.wrap { flex-wrap: wrap; }
+/* Who was at the box: a clip as a filmstrip, the taps under it. */
+.film { display: flex; gap: 4px; overflow-x: auto; padding: 2px 0; scrollbar-width: thin; }
+.film img { height: 84px; flex: none; border-radius: 4px; border: 1px solid var(--rule); background: var(--night); }
+.clip.fact { gap: 8px; }
+.label.plain.signal { color: var(--signal); }

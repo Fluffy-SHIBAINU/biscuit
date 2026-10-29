@@ -3,6 +3,7 @@ import { api } from "../lib/api.js";
 import { readerName } from "../lib/letters.js";
 import { navigate } from "../lib/navigate.js";
 import { pushSupported, subscribePush } from "../lib/push.js";
+import { ClipConsent, ClipStrip } from "./Clips.jsx";
 import MailTime from "./MailTime.jsx";
 import SignIn from "./SignIn.jsx";
 
@@ -73,6 +74,7 @@ export default function Family() {
             </div>
           ))}
         </section>
+        {(h.keepClips || camera.clips?.total > 0) && <ClipStrip household={h} camera={camera} onLabelled={load} />}
         <div className="stack">
           <section className="card night">
             <span className="label night">Needs you</span>
@@ -107,7 +109,8 @@ export default function Family() {
               <button type="button" className="btn ana small" onClick={() => navigate("/ana/link?kind=cam")}>{camera.status === "not_set" ? "Set up a spare phone" : "Find the mailbox again"}</button>
             </div>
             <MailTime initial={h.mailMinutes ?? null} onSaved={load} />
-            <span className="label plain">Watches the box region only · frames checked, then discarded · nothing stored, nothing streamed · with no spare phone, {h.called}'s own phone chimes at the usual hour</span>
+            <ClipConsent household={h} camera={camera} onSaved={load} />
+            <span className="label plain">{h.keepClips ? "Watches the box region only · frames checked · a 6-second clip of the box kept for you to check, 7 days unchecked, 30 days after a tap · nothing streamed" : "Watches the box region only · frames checked, then discarded · nothing stored, nothing streamed"} · with no spare phone, {h.called}'s own phone chimes at the usual hour</span>
           </section>
           <section className="card">
             <span className="label">Help</span>

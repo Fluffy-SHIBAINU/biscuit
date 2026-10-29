@@ -17,6 +17,12 @@ export const sendFrames = (blobs, test = false, extra = {}) => {
   return api("/cam/frames", { method: "POST", form });
 };
 export const setTest = (result) => api("/cam/test", { method: "POST", json: { result } });
+/** The small frames of a clip, for the row the frames reply named (clipId). */
+export const sendClip = (clipId, blobs) => {
+  const form = new FormData();
+  blobs.forEach((b, i) => form.set(`frame${i + 1}`, b, `c${i + 1}.jpg`));
+  return api(`/cam/clip/${clipId}`, { method: "POST", form });
+};
 
 /** The watched region grown by 20 percent on each side, as the server stores it. */
 export function padRegion(box, pad = 0.2) {
