@@ -147,7 +147,8 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
       const shadows = lastRead ? await db.select().from(event).where(and(eq(event.householdId, h.id), eq(event.kind, "shadow_read"))).orderBy(desc(event.at)).limit(5) : [];
       const shadowData = shadows.map((e) => e.data as any).find((d) => d?.letterEventId === lastRead!.id);
       const shadowEntry = shadowData ? [{ name: "shadow", label: shadowData.label, status: shadowData.status, ms: shadowData.ms, shadow: true, agreed: shadowData.agreed ?? 0, of: shadowData.of ?? 0, ...(shadowData.error ? { error: shadowData.error } : {}) }] : [];
-      const camDevice = devices.find((d) => d.kind === "cam");
+      // A re-linked mailbox phone leaves an older row behind: the one seen last is the one on the sill.
+      const camDevice = devices.filter((d) => d.kind === "cam").sort((a, b) => (b.lastSeenAt?.getTime() ?? 0) - (a.lastSeenAt?.getTime() ?? 0))[0];
       const lastTest = events.find((e) => e.kind === "help_test");
       const acked = lastTest ? events.some((e) => e.kind === "help_test_ack" && (e.data as any)?.eventId === lastTest.id) : false;
       const openHelp = events.find((e) => e.kind === "help");

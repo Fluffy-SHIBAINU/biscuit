@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { createApp } from "../server/app.js";
 import { getDb } from "../server/db.js";
 import { cameraStatus } from "../server/routes/ana.js";
-import { cam, household } from "../server/schema.js";
+import { cam, device, household } from "../server/schema.js";
 
 test("cameraStatus", () => {
   const now = new Date("2026-10-27T12:00:00Z");
@@ -33,5 +33,27 @@ describe.skipIf(!process.env.DATABASE_URL)("pause and resume the mailbox phone",
     const fam = await (await req("/api/biscuit/family")).json();
     expect(fam.camera.status).toBe("offline");
     expect(fam.camera.testStatus).toBe("works");
+  });
+});
+
+describe.skipIf(!process.env.DATABASE_URL)("a re-linked mailbox phone", () => {
+  const EMAIL2 = "family-relink-test@biscuit.local";
+  const app = createApp({ anaEnv: { KINDRED_AUTH_BYPASS: EMAIL2 } });
+  beforeAll(async () => {
+    const db = getDb();
+    await db.delete(household).where(eq(household.ownerEmail, EMAIL2));
+    const [h] = await db.insert(household).values({ ownerEmail: EMAIL2, seniorName: "Rosa", called: "Rosa" }).returning();
+    await db.insert(cam).values({ householdId: h.id, region: { x: 0.1, y: 0.1, w: 0.3, h: 0.2 }, setAt: new Date(), testStatus: "pending" });
+    // The first phone linked this morning and fell silent; the second was linked later and is alive now.
+    await db.insert(device).values({ householdId: h.id, kind: "cam", label: "Mailbox phone", lastSeenAt: new Date(Date.now() - 2 * 3600_000), battery: 40, charging: false });
+    await db.insert(device).values({ householdId: h.id, kind: "cam", label: "Mailbox phone", lastSeenAt: new Date(), battery: 90, charging: true });
+  });
+  afterAll(async () => { await getDb().delete(household).where(eq(household.ownerEmail, EMAIL2)); });
+
+  test("the status and battery come from the phone seen last, not the first row", async () => {
+    const fam = await (await app.request("/api/biscuit/family", { headers: { "content-type": "application/json" } })).json();
+    expect(fam.camera.status).toBe("online");
+    expect(fam.camera.battery).toBe(90);
+    expect(fam.camera.charging).toBe(true);
   });
 });
