@@ -63,43 +63,89 @@ they are numbers, not pictures.
 (`tuneHousehold`, `server/clips.ts`); the result lives on its `biscuit_cam` row (`floor`, `gate`, `tuning`). Rules, the
 same as the offline calibration script's, with the guards a self-applied setting needs:
 
-- Nothing changes below 8 taps. A skipped clip is not a tap.
+- Nothing changes below 8 taps. A skipped clip is not a tap; a Not right is.
 - **Floor** (the SAM score at which an answer counts, default 0.50): needs at least 3 deliveries and 3 non-deliveries.
-  The lowest floor on the grid 0.30 to 0.90 at which the three watch prompts, scored together on the first frame, raise
-  a false alarm on at most one non-delivery in ten. Not applied if it would catch fewer than half the deliveries.
+  The lowest floor on the grid 0.30 to 0.90 at which the watch prompts, scored together on the first frame, raise a
+  false alarm on at most one non-delivery in ten. Not applied if it would catch fewer than half the deliveries.
 - **Gate** (the motion the phone needs before any frame leaves it, default 12): needs at least 3 deliveries. The level
   nine deliveries in ten still clear, rounded to a tenth, never below 12.
 - Where a rule is not met, the default stays and the result line says so.
 
-Applied where it acts: `POST /api/biscuit/cam/frames` judges every prompt at the household's floor, and both it and the
-heartbeat return the gate, which `applyGate` in `src/cam/watch.js` sets as the phone's motion threshold (raised or
-lowered back to 12 when the gate is gone). Ana sees one line, for example "From your 14 taps: the carrier shows at score
-0.62 or more; 3 of 3 deliveries caught, 1 of 11 false alarms left." "Caught" means a tapped delivery that would chime
-under the settings in force: its level clears the gate and its best first-frame score clears the floor.
+Applied where it acts: `POST /api/biscuit/cam/frames` judges every prompt at its floor, and both it and the heartbeat
+return the gate, which `applyGate` in `src/cam/watch.js` sets as the phone's motion threshold (raised or lowered back to
+12 when the gate is gone). Ana sees one line, for example "From your 14 taps: the carrier shows at score 0.62 or more;
+3 of 3 deliveries caught, 1 of 11 false alarms left." "Caught" means a tapped delivery that would chime under the
+settings in force: its level clears the gate and its best first-frame score clears the floor.
+
+### 4.1 The guess on every clip (October 29, later)
+
+As a clip is made, `guessLabel(scores, tuning)` in `server/clips.ts` says what Biscuit thinks it shows, and the row
+keeps it (`guess`: label, confidence, the prompt it rests on, the rule's version). The card says it in words, "Biscuit
+thinks: Mail carrier · 80%", and makes that answer the dark button, so one tap confirms and another corrects.
+
+- The mapping, before the taps say otherwise: "mail carrier", "mail truck" or "envelope" above its floor means the
+  carrier, the strongest of them carrying the guess; "person" alone above the floor means someone else; nothing above
+  the floor means not mail.
+- The confidence is the margin: a score at the floor is 50 percent, at 1.0 it is 100 percent, scaled between; for a
+  quiet clip, how far under the floor the best score sits. It is multiplied by the prompt's record at this box (below)
+  and never shown above 95 percent, because a score is not a certainty.
+
+### 4.2 What each prompt has earned here
+
+With the taps, `tuning.prompts` keeps a record per prompt, and one for the quiet clips ("none"): how many of the clips
+whose guess rested on it Ana checked (a tap, or Not right), how many she tapped as the prompt predicted, the precision
+that gives, and two things it can change:
+
+- **The mapping follows the taps.** From 8 taps, when at least 3 of her taps on clips that rested on a non-carrier
+  prompt agree by a strict majority on another answer, that is what the prompt means at this box: "person" at a box
+  where the carrier walks up means the carrier; at a box where a neighbour passes it means someone else, or no mail.
+  Carrier prompts keep their meaning; their failures are score problems, handled by the floor. A prompt whose learned
+  meaning is not the carrier no longer chimes "mail came" on its own; the default meaning of a person is a guess, not a
+  lesson, so until the taps say otherwise a person at the box still chimes.
+- **A prompt Ana keeps correcting gets a higher floor and a lower confidence.** Right less than half the time over 3 or
+  more clips: its own floor becomes the lowest grid value above the household's at which it is right at least half the
+  time, else 0.90; and every guess on it is multiplied by (agreed + 1) / (checked + 1).
+
+Only Ana's taps teach. Clips Biscuit classified itself are counted apart (`tuning.auto`: how many, how many she
+corrected) and never raise a prompt's own record. A Not right counts against the prompt; a tap after it is the final
+word.
+
+### 4.3 When Biscuit classifies a clip itself
+
+`autoClassifies(guess, tuning)`: the household has at least 20 taps, the prompt the guess rests on has been right at
+least nine times in ten over at least 10 checked clips, and the guess is at 90 percent or more. Then the clip is made
+with the label already on it and `labelledBy = "biscuit"`, and goes straight to "Already classified · by Biscuit", where
+a single Not right takes the label off, marks the guess rejected, hands the clip back to "Needs your attention" and counts
+as a tap against the prompt; "Yes, right" is a tap for it. Everything else waits for Ana.
+
+This is a decision layer tuned on one mailbox, not a trained model: four scores from SAM 3.1 read through a handful of
+numbers on the household's camera row. It can be wrong in the ways those numbers allow, and the record says how often.
 
 Honest limits: the scores are the first detection frame's, so a delivery SAM only saw on the second or third frame
-counts as missed here even though it chimed. The prompt set is fixed; the taps move the floor and the gate, not the
-words. Lowering the floor below 0.50 needs the same evidence as raising it (three non-deliveries that stay quiet at the
-lower floor), so a household with no false alarms at all gets a floor of 0.30 from its first eight taps, which is what
-the data says and what a label at 0.30 would correct.
+counts as missed here even though it chimed. The prompt set is fixed; the taps move floors, meanings and confidence, not
+the words. Lowering the household floor below 0.50 needs the same evidence as raising it (three non-deliveries that stay
+quiet at the lower floor), so a household with no false alarms at all gets a floor of 0.30 from its first eight taps,
+which is what the data says and what a label at 0.30 would correct.
 
-SAM cost: an opted-in household scores the three watch prompts on the first frame of every movement (three calls, where
-an immediate hit used to cost one), then the usual cascade on the other frames if nothing fired. The daily cap of 800
-and the pause above it are unchanged.
+SAM cost: an opted-in household scores the four watch prompts on the first frame of every movement (four calls, where an
+immediate hit used to cost one), then the usual cascade on the other frames if nothing fired. The daily cap of 800 and
+the pause above it are unchanged.
 
 ## 5. The overall model: the export, and what it becomes later
 
 `npx tsx scripts/cam/export.ts [--out synth/cam-labels]` writes, for every household with "Help improve Biscuit" on,
-every tapped, real (not test-run) movement:
+every labelled, real (not test-run) movement: Ana's taps, and the classifications Biscuit made that she did not correct,
+each row saying which:
 
 - `<hash>/<sample>-<n>.jpg`: the box-region crops, as the phone sent them;
 - `labels.jsonl`: one line per movement: `household` (sixteen hex characters of a salted SHA-256 of the household id;
   stable across exports, not the id, not reversible), `sample`, `at` (the hour, UTC), `label`, `positive` (mail or
-  carrier), `level`, `seen`, `scores`, `frames` (the file paths);
+  carrier), `labelledBy` ("ana" or "biscuit"), `guess` (Biscuit's label and confidence as the clip was made, or null),
+  `level`, `seen`, `scores`, `frames` (the file paths);
 - `manifest.json`: counts by label, households, movements, frames, the export time.
 
 Not in it: the household id, the device, any name, any address (Biscuit stores none), the minute, the full frame,
-anything from a household without the second choice, anything unchecked or skipped. `/synth/` is ignored by git; the
+anything from a household without the second choice, anything unchecked, skipped or rejected and not relabelled. `/synth/` is ignored by git; the
 export is never committed.
 
 How it becomes training data, later and not here: the set is small images of one kind of scene with a three-way label.
@@ -119,6 +165,23 @@ households, never on the household it was fitted to:
 Either way the frames stay what they are: the box region, seconds long, from households that said yes twice.
 
 ## 6. Rulings made in this work
+
+Later on October 29, the guess and the carousel:
+
+- The guess rests on one prompt: the strongest carrier prompt above its floor, else the strongest other fired prompt,
+  else none. A prompt's record is kept over the clips whose guess rested on it, not over every clip on which it fired,
+  so a person co-firing beside the carrier does not count against "person".
+- Only non-carrier prompts can learn a new meaning; carrier prompts keep theirs and lose the floor instead.
+- A learned meaning away from the carrier stops that prompt's chime; the default meaning of a person does not.
+- Confidence is capped at 95 percent; the auto-classification needs 90.
+- Not right is a single tap: Biscuit's label comes off, the guess is marked rejected, the clip returns to Ana with the
+  three taps, and the rejection counts against the prompt until she labels it.
+- The carousel lists the newest 20 of each group with a poster and a frame count; the frames of the clip on stage are
+  fetched once and kept for the page's life, so a tap costs one small request, not a reload of every clip.
+- "Yes, right" on a clip Biscuit classified is Ana's tap of the same label: it counts for the prompt and makes the
+  label hers.
+- The founder's collect-mode rows carry the guess but are never classified by Biscuit, so the contact sheet and
+  `calibrate.ts` keep reading only the founder's labels.
 
 - Clips are a second, separate row from collect mode. The founder's household keeps full frames under collect mode and
   gets no clip row for the same movement; the strip still shows those frames and the taps still label them.
@@ -141,6 +204,7 @@ Either way the frames stay what they are: the box region, seconds long, from hou
 Tests: `tests/clips.test.ts` (the rules), `tests/cam.clips.test.ts` (the frames and clip routes with a fake store),
 `tests/ana.clips.test.ts` (the consents, the strip, the taps, the real store, retention, against the database),
 `tests/watch.test.js` (the burst and the gate on the phone), `tests/clips.lib.test.js` (the words), `tests/export.test.ts`
-(de-identification). The migration is `drizzle/0005_medical_firestar.sql`: nine added columns, nothing dropped. It was
-generated and not applied; apply it before deploying (`npm run db:migrate`, then `./deploy.sh`), since the family page
-and the frames route select the new columns.
+(de-identification). The migrations are `drizzle/0005_medical_firestar.sql` (nine added columns) and
+`drizzle/0008_amusing_stardust.sql` (`guess` and `labelled_by` on the sample row), nothing dropped. Each was generated
+and not applied; apply before deploying (`npm run db:migrate`, then `./deploy.sh`), since the family page and the frames
+route select the new columns.
