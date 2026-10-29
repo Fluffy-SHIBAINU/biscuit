@@ -80,8 +80,9 @@ settings in force: its level clears the gate and its best first-frame score clea
 ### 4.1 The guess on every clip (October 29, later)
 
 As a clip is made, `guessLabel(scores, tuning)` in `server/clips.ts` says what Biscuit thinks it shows, and the row
-keeps it (`guess`: label, confidence, the prompt it rests on, the rule's version). The card says it in words, "Biscuit
-thinks: Mail carrier · 80%", and makes that answer the dark button, so one tap confirms and another corrects.
+keeps it (`guess`: label, confidence, the prompt it rests on, the rule's version). The card says it in her words,
+"Biscuit thinks it was the mail carrier.", and makes that answer the dark button, so one tap confirms and another
+corrects; the number ("Guess: carrier · 80% · rests on “envelope”") is under the card's Details.
 
 - The mapping, before the taps say otherwise: "mail carrier", "mail truck" or "envelope" above its floor means the
   carrier, the strongest of them carrying the guess; "person" alone above the floor means someone else; nothing above
@@ -182,6 +183,19 @@ Later on October 29, the guess and the carousel:
   label hers.
 - The founder's collect-mode rows carry the guess but are never classified by Biscuit, so the contact sheet and
   `calibrate.ts` keep reading only the founder's labels.
+
+Later again on October 29, two voices on Ana's page:
+
+- The daughter's side of every card is a title, one plain line (`clipsSummary`, `cameraSummary` in `src/lib`), the
+  buttons in her words (The mail carrier, A car or the wind, Someone else, Skip; the stored labels are unchanged) and
+  Biscuit's guess as a sentence without a number. Everything with a number, a floor, a prompt name or the full consent
+  and retention words sits under a `<details>` disclosure labelled Details, one per card.
+- The disclosures open by default for the household whose owner `CAM_COLLECT_OWNER` names (`household.admin` on
+  `GET /api/biscuit/family`, from `isCollectOwner`) and stay closed for everyone else. Nothing is hidden behind a route.
+- The consent toggles keep one sentence each; the first says "gone within 30 days", which is the upper bound (unchecked
+  clips go after 7), and adds the exception when the second choice keeps tapped clips longer.
+- The mailbox phone's screen keeps "Watching Rosa's mailbox." and one plain line (the last movement, whether clips are
+  kept); its counts, the movement level, the events and the collect-mode card are under Details, open in collect mode.
 
 - Clips are a second, separate row from collect mode. The founder's household keeps full frames under collect mode and
   gets no clip row for the same movement; the strip still shows those frames and the taps still label them.
