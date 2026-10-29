@@ -1,8 +1,9 @@
 // Writes the labelled clips of every household that chose "Help improve Biscuit for everyone" into synth/cam-labels/
-// (ignored by git): the box-region crops as JPEG files, labels.jsonl with one line per movement, and a manifest. It is
-// de-identified: the household id is hashed, there is no device, no name and no address (Biscuit stores none), and the
-// time is the hour. This is the dataset a later classifier or SAM prompt set would be fitted and measured on
-// (docs/2026-10-29-mailbox-clips.md); nothing is trained here.
+// (ignored by git): the box-region crops as JPEG files, labels.jsonl with one line per movement, and a manifest. Ana's
+// taps and the classifications Biscuit made that she did not correct, each row saying which (`labelledBy`), with the
+// guess Biscuit made as the clip was kept. It is de-identified: the household id is hashed, there is no device, no name
+// and no address (Biscuit stores none), and the time is the hour. This is the dataset a later classifier or SAM prompt
+// set would be fitted and measured on (docs/2026-10-29-mailbox-clips.md); nothing is trained here.
 //   npx tsx scripts/cam/export.ts [--out synth/cam-labels]
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -12,7 +13,7 @@ import { isLabelled, POSITIVE } from "../../server/clips.js";
 import { camSample, household } from "../../server/schema.js";
 
 export type ExportSample = typeof camSample.$inferSelect;
-export type ExportRow = { household: string; sample: number; at: string; label: string; positive: boolean; level: number | null; seen: string | null; scores: Record<string, number>; frames: string[] };
+export type ExportRow = { household: string; sample: number; at: string; label: string; positive: boolean; labelledBy: "ana" | "biscuit"; guess: { label: string; confidence: number } | null; level: number | null; seen: string | null; scores: Record<string, number>; frames: string[] };
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -23,7 +24,7 @@ function arg(name: string, fallback: string): string {
 export const deidentify = (householdId: string): string => createHash("sha256").update(`biscuit-cam-labels:${householdId}`).digest("hex").slice(0, 16);
 const hour = (d: Date | string): string => { const t = new Date(d); t.setUTCMinutes(0, 0, 0); return t.toISOString(); };
 
-/** Tapped, real movements only (no skipped, unchecked or test-run samples) as rows and crop files. */
+/** Labelled, real movements only (no skipped, unchecked, rejected or test-run samples) as rows and crop files; an older tap without a record of who labelled it was Ana's. */
 export function exportRows(samples: ExportSample[]): { rows: ExportRow[]; files: { path: string; data: Buffer }[] } {
   const rows: ExportRow[] = [];
   const files: { path: string; data: Buffer }[] = [];
@@ -35,7 +36,7 @@ export function exportRows(samples: ExportSample[]): { rows: ExportRow[]; files:
       files.push({ path, data: Buffer.from(f.replace(/^data:image\/\w+;base64,/, ""), "base64") });
       return path;
     });
-    rows.push({ household: h, sample: s.id, at: hour(s.at), label: s.label!, positive: POSITIVE.has(s.label!), level: s.level, seen: s.seen, scores: s.scores, frames: paths });
+    rows.push({ household: h, sample: s.id, at: hour(s.at), label: s.label!, positive: POSITIVE.has(s.label!), labelledBy: s.labelledBy === "biscuit" ? "biscuit" : "ana", guess: s.guess ? { label: s.guess.label, confidence: s.guess.confidence } : null, level: s.level, seen: s.seen, scores: s.scores, frames: paths });
   }
   return { rows, files };
 }
@@ -55,7 +56,8 @@ async function main() {
   const labels: Record<string, number> = {};
   for (const r of rows) labels[r.label] = (labels[r.label] ?? 0) + 1;
   const households = new Set(rows.map((r) => r.household)).size;
-  writeFileSync(join(out, "manifest.json"), JSON.stringify({ exportedAt: new Date().toISOString(), households, movements: rows.length, positives: rows.filter((r) => r.positive).length, frames: files.length, labels }, null, 1));
+  const byBiscuit = rows.filter((r) => r.labelledBy === "biscuit").length;
+  writeFileSync(join(out, "manifest.json"), JSON.stringify({ exportedAt: new Date().toISOString(), households, movements: rows.length, positives: rows.filter((r) => r.positive).length, byAna: rows.length - byBiscuit, byBiscuit, frames: files.length, labels }, null, 1));
   console.log(`${rows.length} labelled movements from ${households} household${households === 1 ? "" : "s"} that opted in, ${files.length} crops → ${out}`);
   process.exit(0);
 }

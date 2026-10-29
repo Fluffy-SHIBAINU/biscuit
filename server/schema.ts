@@ -15,8 +15,16 @@ export type Region = { x: number; y: number; w: number; h: number };
 /** Who set the watched box: "sam" for SAM 3.1's find (padded by a fifth on each side), "hand" for a box the person drew over the live preview. */
 export const REGION_SOURCES = ["sam", "hand"] as const;
 export type RegionSource = (typeof REGION_SOURCES)[number];
-/** What a household's taps on its clips taught its one mailbox (server/clips.ts): counts, the floor and gate applied (null keeps the default), and how the taps fare under them. */
-export type Tuning = { taps: number; positives: number; negatives: number; floor: number | null; gate: number | null; caught: number; falseAlarms: number; at: string };
+export type GuessLabel = "carrier" | "nothing" | "other";
+/** Biscuit's guess on a clip as it was made (server/clips.ts guessLabel): the label, how sure, the prompt it rests on (null when nothing fired), the rule's version; `auto` when Biscuit classified the clip itself, `rejected` when Ana said Not right. */
+export type Guess = { label: GuessLabel; confidence: number; prompt: string | null; version: number; auto?: boolean; rejected?: boolean };
+/** One prompt's record at this box: what it means here (the default mapping, or one learned from the taps), its own floor when raised, and how often a clip whose guess rested on it was tapped as it predicted. */
+export type PromptStat = { label: GuessLabel; learned: boolean; floor: number | null; fired: number; agreed: number; precision: number | null };
+/** What a household's taps on its clips taught its one mailbox (server/clips.ts): counts, the floor and gate applied (null keeps the default), how the taps fare under them, each prompt's record, and what Biscuit classified itself. */
+export type Tuning = { taps: number; positives: number; negatives: number; floor: number | null; gate: number | null; caught: number; falseAlarms: number; at: string; prompts?: Record<string, PromptStat>; auto?: { classified: number; corrected: number } };
+/** Who put the label on a clip: Ana's tap, or Biscuit at a well-taught box. */
+export const LABELLED_BY = ["ana", "biscuit"] as const;
+export type LabelledBy = (typeof LABELLED_BY)[number];
 
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 
@@ -121,6 +129,9 @@ export const camSample = pgTable("biscuit_cam_sample", {
   label: text("label"),
   clip: boolean("clip").notNull().default(false),
   labelledAt: ts("labelled_at"),
+  /** Biscuit's guess as the clip was made, and who labelled it (null for a tap recorded before this was kept: Ana's). */
+  guess: jsonb("guess").$type<Guess>(),
+  labelledBy: text("labelled_by", { enum: LABELLED_BY }),
 });
 
 export const rate = pgTable("biscuit_rate", {

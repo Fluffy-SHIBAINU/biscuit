@@ -3,13 +3,13 @@ import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 import type { AuthVars } from "../auth.js";
 import { allowSamCall, bestDetection, COLLECT_PROMPTS, collectAllowed, regionSourceOf, SAM_DAILY_CAP, WATCH_PROMPTS } from "../cam.js";
-import { CLIP_ATTACH_WINDOW_MS, CLIP_FRAMES, DEFAULT_FLOOR, MAX_CLIP_FRAME_BYTES } from "../clips.js";
+import { autoClassifies, chimesOn, CLIP_ATTACH_WINDOW_MS, CLIP_FRAMES, DEFAULT_FLOOR, floorFor, guessLabel, MAX_CLIP_FRAME_BYTES } from "../clips.js";
 import type { Events } from "../events.js";
 import { MAIL_PAYLOAD, sendPush } from "../push.js";
 import { getDb, type Db } from "../db.js";
 import { detect } from "../meta/sam.js";
 import type { SamDeps } from "./letter.js";
-import { cam, camSample, device, type Region } from "../schema.js";
+import { cam, camSample, device, type Guess, type LabelledBy, type Region } from "../schema.js";
 
 export const MAX_FIND_BYTES = 600_000;
 export const MAX_FRAME_BYTES = 300_000;
@@ -22,7 +22,7 @@ function validRegion(r: any): r is Region {
 }
 
 type CamRow = typeof cam.$inferSelect;
-export type CamSampleRow = { householdId: string; deviceId: string | null; test: boolean; clip: boolean; level: number | null; seen: string | null; scores: Record<string, number>; frames: string[] };
+export type CamSampleRow = { householdId: string; deviceId: string | null; test: boolean; clip: boolean; level: number | null; seen: string | null; scores: Record<string, number>; frames: string[]; guess?: Guess | null; label?: string | null; labelledBy?: LabelledBy | null; labelledAt?: Date | null };
 /** The watcher's rows: read, update, keep a sample (a collect-mode frame set or a clip row) and fill a clip with its frames. The live store is the database; tests pass their own. */
 export type CamStore = { get(householdId: string): Promise<CamRow | null>; update(householdId: string, patch: Partial<CamRow>): Promise<void>; keep(row: CamSampleRow): Promise<number>; attach(id: number, householdId: string, frames: string[]): Promise<boolean> };
 
@@ -88,15 +88,18 @@ export function camRoutes(deps: { auth: MiddlewareHandler<AuthVars>; sam?: SamDe
         await deps.events.record(h.id, c.var.device.id, "cam_paused", { reason: "cap", cap: SAM_DAILY_CAP });
         return c.json({ error: "cap" }, 429);
       }
-      // The score at which an answer counts: the household's own, learned from Ana's taps, or the default.
-      const floor = row.floor ?? DEFAULT_FLOOR;
-      const prompts: readonly string[] = WATCH_PROMPTS;
+      // The score at which an answer counts: the prompt's own raised floor, else the household's, learned from Ana's taps, else
+      // the default. A prompt the taps taught means something other than the carrier at this box no longer chimes.
+      const tuning = row.tuning ?? null;
+      const base = row.floor ?? DEFAULT_FLOOR;
+      const floorOf = (prompt: string) => floorFor(prompt, tuning, base);
+      const prompts: readonly string[] = WATCH_PROMPTS.filter((prompt) => chimesOn(prompt, tuning));
       // Collect mode (the founder's household) scores every prompt on the first frame and keeps the full frames. A household
       // that opted into clips scores the watch prompts on the first frame and keeps a clip row the phone then fills with small
       // frames. Everyone else: the cascade, prompt by prompt, frame by frame, and nothing kept.
       const collecting = collectAllowed(env, h.ownerEmail, String(form.get("collect") ?? ""));
       const clipping = !collecting && Boolean(h.keepClips);
-      const firstFrame: readonly string[] = collecting ? COLLECT_PROMPTS : clipping ? prompts : [];
+      const firstFrame: readonly string[] = collecting ? COLLECT_PROMPTS : clipping ? WATCH_PROMPTS : [];
       let seen: string | null = null;
       const scores: Record<string, number> = {};
       for (const prompt of firstFrame) {
@@ -104,14 +107,14 @@ export function camRoutes(deps: { auth: MiddlewareHandler<AuthVars>; sam?: SamDe
         calls++;
         const best = bestDetection(await sam.detect(frames[0], { text: prompt }), 0);
         scores[prompt] = best ? Math.round(best.score * 1000) / 1000 : 0;
-        if (!seen && best && best.score >= floor && prompts.includes(prompt)) seen = prompt;
+        if (!seen && best && best.score >= floorOf(prompt) && prompts.includes(prompt)) seen = prompt;
       }
       outer: for (const prompt of prompts) {
         if (seen) break;
         for (const frame of firstFrame.length ? frames.slice(1) : frames) {
           if (calls >= SAM_DAILY_CAP) break outer;
           calls++;
-          const best = bestDetection(await sam.detect(frame, { text: prompt }), floor);
+          const best = bestDetection(await sam.detect(frame, { text: prompt }), floorOf(prompt));
           if (best) { seen = prompt; break outer; }
         }
       }
@@ -123,17 +126,25 @@ export function camRoutes(deps: { auth: MiddlewareHandler<AuthVars>; sam?: SamDe
       try { await deps.events.record(h.id, c.var.device.id, "cam_motion", { seen, level: sample.level }); } catch (err: any) { console.warn(JSON.stringify({ cam: "motion_event_failed", error: String(err?.message ?? err).slice(0, 200) })); }
       let kept = false;
       let clipId: number | null = null;
+      // Biscuit's guess rides on every kept row. At a well-taught box a sure guess on a trusted prompt becomes the clip's label,
+      // Biscuit's; the founder's collect-mode rows get the guess only, their labels come from the sheet.
+      let guess: Guess | null = null;
+      if (collecting || clipping) {
+        guess = guessLabel(scores, tuning, base);
+        if (clipping && autoClassifies(guess, tuning)) guess = { ...guess, auto: true };
+      }
       // Keeping a sample never breaks the watch: a missing table or a full disk only means this one is not kept.
       if (collecting) {
-        try { await store.keep({ ...sample, clip: false, frames: frames.map(dataUrl) }); kept = true; } catch (err: any) { console.warn(JSON.stringify({ cam: "keep_failed", error: String(err?.message ?? err).slice(0, 200) })); }
+        try { await store.keep({ ...sample, clip: false, frames: frames.map(dataUrl), guess }); kept = true; } catch (err: any) { console.warn(JSON.stringify({ cam: "keep_failed", error: String(err?.message ?? err).slice(0, 200) })); }
       } else if (clipping) {
-        try { clipId = await store.keep({ ...sample, clip: true, frames: [] }); } catch (err: any) { console.warn(JSON.stringify({ cam: "clip_failed", error: String(err?.message ?? err).slice(0, 200) })); }
+        const classified = guess?.auto ? { label: guess.label, labelledBy: "biscuit" as const, labelledAt: new Date() } : {};
+        try { clipId = await store.keep({ ...sample, clip: true, frames: [], guess, ...classified }); } catch (err: any) { console.warn(JSON.stringify({ cam: "clip_failed", error: String(err?.message ?? err).slice(0, 200) })); }
       }
       if (seen) {
         const id = await deps.events.record(h.id, c.var.device.id, "mail_seen", { seen });
         await sendPush(db, h.id, ["rosa"], MAIL_PAYLOAD(h.called, id)).catch(() => ({ sent: 0 }));
       }
-      return c.json({ seen, callsToday: calls, gate: row.gate ?? null, ...(collecting ? { kept } : {}), ...(clipId !== null ? { clipId } : {}) });
+      return c.json({ seen, callsToday: calls, gate: row.gate ?? null, ...(collecting ? { kept } : {}), ...(clipId !== null ? { clipId } : {}), ...(clipping && guess ? { guess } : {}) });
     })
     .post("/cam/clip/:id", deps.auth, async (c) => {
       // The small frames of a clip whose row the frames reply named: up to eight, each under the limit, this household's, once.

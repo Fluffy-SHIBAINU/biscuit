@@ -1,11 +1,11 @@
-import { and, desc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 import { anaAuth, type AnaVars } from "../auth.js";
 import { CODE_TTL_MS, newCode } from "../codes.js";
 import { getDb } from "../db.js";
 import { cam, camSample, device, event, household, letter, linkCode } from "../schema.js";
-import { dropClips, isLabel, tuneHousehold } from "../clips.js";
+import { asGuessLabel, dropClips, isLabel, isLabelled, tuneHousehold } from "../clips.js";
 import { dbEvents, type Events } from "../events.js";
 import { LOOK_PAYLOAD, sendPush, type Sender } from "../push.js";
 import { DEFAULT_TZ, localParts, validTz } from "../chime.js";
@@ -13,8 +13,23 @@ import { DEFAULT_TZ, localParts, validTz } from "../chime.js";
 const LIVING = ["alone", "with_family", "with_care"];
 const CLEAN = (v: unknown, max = 80) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
-/** How many clips the strip shows at once: the unchecked ones first, newest first. */
-export const CLIP_STRIP = 8;
+/** How many clips each group of the carousel carries at once, newest first. */
+export const CLIP_PAGE = 20;
+
+/** A clip as the carousel lists it: the first frame as a poster and the count instead of the frames, Biscuit's guess, the label, who put it there, and whether the guess agreed. */
+export function clipItem(r: { id: number; at: Date; test: boolean; seen: string | null; level: number | null; scores: Record<string, number>; label: string | null; labelledAt: Date | null; labelledBy: string | null; guess: any; poster?: string | null; frameCount?: number | string | null; frames?: string[] }) {
+  const labelled = isLabelled(r.label);
+  const guess = r.guess ?? null;
+  return {
+    id: r.id, at: r.at, test: r.test, seen: r.seen, level: r.level, scores: r.scores,
+    poster: r.poster ?? r.frames?.[0] ?? null, frameCount: Number(r.frameCount ?? r.frames?.length ?? 0),
+    label: r.label, labelledAt: r.labelledAt, labelledBy: r.labelledBy ?? (labelled ? "ana" : null),
+    guess, agreed: labelled && guess ? asGuessLabel(r.label) === guess.label : null,
+    ...(r.frames ? { frames: r.frames } : {}),
+  };
+}
+const CLIP_COLS = { id: camSample.id, at: camSample.at, test: camSample.test, seen: camSample.seen, level: camSample.level, scores: camSample.scores, label: camSample.label, labelledAt: camSample.labelledAt, labelledBy: camSample.labelledBy, guess: camSample.guess, poster: sql<string | null>`${camSample.frames}->>0`, frameCount: sql<number>`jsonb_array_length(${camSample.frames})` };
+const WITH_FRAMES = sql`jsonb_array_length(${camSample.frames}) > 0`;
 
 export type CameraStatus = "online" | "offline" | "paused" | "not_set";
 export const HEARTBEAT_MS = 60_000;
@@ -97,25 +112,41 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
       return c.json({ ok: true, mailMinutes: minutes, tz: tz ?? null });
     })
     .get("/family/clips", auth, async (c) => {
-      // "Who was at the box": every kept movement with frames, the unchecked ones first, newest first, skipped ones left out.
+      // "Who was at the box" in two groups: the clips that need Ana (no label yet, a Not right included), and the classified
+      // ones, by her or by Biscuit; each newest first, frames left for the clip on stage; skipped clips in neither.
+      const db = getDb();
       const h = c.var.household;
-      const rows = await getDb().select().from(camSample)
-        .where(and(eq(camSample.householdId, h.id), sql`jsonb_array_length(${camSample.frames}) > 0`, or(isNull(camSample.label), ne(camSample.label, "skip"))))
-        .orderBy(sql`(${camSample.label} is null) desc`, desc(camSample.at)).limit(CLIP_STRIP);
-      return c.json(rows.map((r) => ({ id: r.id, at: r.at, test: r.test, seen: r.seen, level: r.level, scores: r.scores, frames: r.frames, label: r.label, labelledAt: r.labelledAt })));
+      const mine = eq(camSample.householdId, h.id);
+      const attention = await db.select(CLIP_COLS).from(camSample).where(and(mine, WITH_FRAMES, isNull(camSample.label))).orderBy(desc(camSample.at)).limit(CLIP_PAGE);
+      const classified = await db.select(CLIP_COLS).from(camSample).where(and(mine, WITH_FRAMES, isNotNull(camSample.label), ne(camSample.label, "skip"))).orderBy(desc(sql`coalesce(${camSample.labelledAt}, ${camSample.at})`)).limit(CLIP_PAGE);
+      const [counts] = await db.select({ attention: sql<string>`count(*) filter (where ${WITH_FRAMES} and ${camSample.label} is null)`, classified: sql<string>`count(*) filter (where ${WITH_FRAMES} and ${camSample.label} is not null and ${camSample.label} <> 'skip')` }).from(camSample).where(mine);
+      return c.json({ attention: attention.map(clipItem), classified: classified.map(clipItem), counts: { attention: Number(counts?.attention ?? 0), classified: Number(counts?.classified ?? 0) } });
+    })
+    .get("/family/clip/:id", auth, async (c) => {
+      // One clip with its frames, for the stage.
+      const id = Number(c.req.param("id"));
+      if (!Number.isInteger(id) || id <= 0) return c.json({ error: "bad_id" }, 400);
+      const [row] = await getDb().select().from(camSample).where(and(eq(camSample.id, id), eq(camSample.householdId, c.var.household.id), WITH_FRAMES)).limit(1);
+      return row ? c.json(clipItem(row)) : c.json({ error: "not_found" }, 404);
     })
     .patch("/family/clip/:id", auth, async (c) => {
-      // A tap: the label goes on the clip and the household's floor and gate are recomputed from every tap it has.
+      // A tap: Ana's label goes on the clip. Not right (`reject`) takes Biscuit's label off, marks the guess rejected and hands
+      // the clip back to her. Either way the household's floor, gate and prompt records are recomputed from every tap it has.
       const id = Number(c.req.param("id"));
       if (!Number.isInteger(id) || id <= 0) return c.json({ error: "bad_id" }, 400);
       const b = await c.req.json().catch(() => ({}));
-      if (!isLabel(b?.label)) return c.json({ error: "bad_label" }, 400);
+      const reject = b?.reject === true;
+      if (!reject && !isLabel(b?.label)) return c.json({ error: "bad_label" }, 400);
       const db = getDb();
       const h = c.var.household;
-      const rows = await db.update(camSample).set({ label: b.label, labelledAt: new Date() }).where(and(eq(camSample.id, id), eq(camSample.householdId, h.id))).returning({ id: camSample.id });
+      const now = new Date();
+      const patch = reject
+        ? { label: null, labelledBy: "ana" as const, labelledAt: now, guess: sql`coalesce(${camSample.guess}, '{}'::jsonb) || '{"rejected": true}'::jsonb` as any }
+        : { label: b.label as string, labelledBy: "ana" as const, labelledAt: now };
+      const rows = await db.update(camSample).set(patch).where(and(eq(camSample.id, id), eq(camSample.householdId, h.id))).returning({ id: camSample.id });
       if (!rows.length) return c.json({ error: "not_found" }, 404);
       const tuning = await tuneHousehold(db, h.id);
-      return c.json({ ok: true, id, label: b.label, tuning });
+      return c.json({ ok: true, id, label: reject ? null : b.label, ...(reject ? { rejected: true } : {}), tuning });
     })
     .patch("/family/clips", auth, async (c) => {
       // Ana's two choices. "Help improve Biscuit" can only be turned on while clips are kept. Keeping clips turned off: the
@@ -144,7 +175,7 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
       const today = localParts(now, tz).day;
       const movementsToday = (await db.select({ at: event.at }).from(event).where(and(eq(event.householdId, h.id), eq(event.kind, "cam_motion"), gt(event.at, new Date(now.getTime() - 36 * 3600_000))))).filter((e) => localParts(e.at, tz).day === today).length;
       const [camRow] = await db.select().from(cam).where(eq(cam.householdId, h.id)).limit(1);
-      const [clipCount] = await db.select({ total: sql<string>`count(*) filter (where jsonb_array_length(${camSample.frames}) > 0)`, pending: sql<string>`count(*) filter (where jsonb_array_length(${camSample.frames}) > 0 and ${camSample.label} is null)` }).from(camSample).where(eq(camSample.householdId, h.id));
+      const [clipCount] = await db.select({ total: sql<string>`count(*) filter (where ${WITH_FRAMES})`, pending: sql<string>`count(*) filter (where ${WITH_FRAMES} and ${camSample.label} is null)`, classified: sql<string>`count(*) filter (where ${WITH_FRAMES} and ${camSample.label} is not null and ${camSample.label} <> 'skip')` }).from(camSample).where(eq(camSample.householdId, h.id));
       const [lastRead] = await db.select().from(event).where(and(eq(event.householdId, h.id), eq(event.kind, "letter_read"))).orderBy(desc(event.at)).limit(1);
       const readData = (lastRead?.data ?? {}) as { readBy?: string; readers?: unknown[] };
       // The shadow reader's entry for that same read, when one was logged after the reply.
@@ -163,7 +194,7 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
         letters,
         said: events.filter((e) => e.kind === "said").map((e) => ({ at: e.at, text: (e.data as any)?.text ?? "" })),
         events: events.filter((e) => e.kind !== "said").map((e) => ({ id: e.id, kind: e.kind, at: e.at, data: e.data })),
-        camera: { status: cameraStatus(camRow ?? null, camDevice?.lastSeenAt ?? null, now), movementsToday, paused: camRow?.paused ?? false, battery: camDevice?.battery ?? null, charging: camDevice?.charging ?? null, lastMotionAt: camRow?.lastMotionAt ?? null, setAt: camRow?.setAt ?? null, regionSource: camRow?.regionSource ?? null, floor: camRow?.floor ?? null, gate: camRow?.gate ?? null, tuning: camRow?.tuning ?? null, clips: { pending: Number(clipCount?.pending ?? 0), total: Number(clipCount?.total ?? 0) } },
+        camera: { status: cameraStatus(camRow ?? null, camDevice?.lastSeenAt ?? null, now), movementsToday, paused: camRow?.paused ?? false, battery: camDevice?.battery ?? null, charging: camDevice?.charging ?? null, lastMotionAt: camRow?.lastMotionAt ?? null, setAt: camRow?.setAt ?? null, regionSource: camRow?.regionSource ?? null, floor: camRow?.floor ?? null, gate: camRow?.gate ?? null, tuning: camRow?.tuning ?? null, clips: { pending: Number(clipCount?.pending ?? 0), total: Number(clipCount?.total ?? 0), attention: Number(clipCount?.pending ?? 0), classified: Number(clipCount?.classified ?? 0) } },
         help: { lastTestAt: lastTest?.at ?? null, acked, openHelpAt: closed ? null : openHelp?.at ?? null },
         readers: lastRead ? { at: lastRead.at, readBy: readData.readBy ?? "single", list: [...(Array.isArray(readData.readers) ? readData.readers : []), ...shadowEntry] } : null,
       });

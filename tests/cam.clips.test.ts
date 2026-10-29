@@ -30,20 +30,21 @@ test("an opted-in household: the watch prompts are scored on the first frame, a 
   const h = harness({ household: { keepClips: true }, cam: { gate: 14 }, scores: { envelope: 0.71, person: 0.2 } });
   const res = await h.frames({ level: "17.5" });
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ seen: "envelope", callsToday: 4, gate: 14, clipId: 41 });
+  expect(await res.json()).toEqual({ seen: "envelope", callsToday: 4, gate: 14, clipId: 41, guess: { label: "carrier", confidence: 0.71, prompt: "envelope", version: 1 } });
   expect(h.prompts).toEqual([...WATCH_PROMPTS]);
   // Every movement the phone sent shows on Ana's page, with what SAM saw and the motion level, image or no image.
   expect(h.recorded).toContainEqual({ kind: "cam_motion", data: { seen: "envelope", level: 17.5 } });
   expect(h.kept).toHaveLength(1);
-  expect(h.kept[0]).toEqual({ householdId: "h1", deviceId: "d1", test: false, clip: true, level: 17.5, seen: "envelope", scores: { "mail carrier": 0, person: 0.2, "mail truck": 0, envelope: 0.71 }, frames: [] });
+  // Biscuit's guess rides on the row from the start; no label until Ana taps or the box is well taught.
+  expect(h.kept[0]).toEqual({ householdId: "h1", deviceId: "d1", test: false, clip: true, level: 17.5, seen: "envelope", scores: { "mail carrier": 0, person: 0.2, "mail truck": 0, envelope: 0.71 }, frames: [], guess: { label: "carrier", confidence: 0.71, prompt: "envelope", version: 1 } });
 });
 
 test("the household's own floor decides what counts as seen", async () => {
   const h = harness({ household: { keepClips: true }, cam: { floor: 0.8 }, scores: { envelope: 0.71 } });
-  expect(await (await h.frames()).json()).toEqual({ seen: null, callsToday: 8, gate: null, clipId: 41 });
+  expect(await (await h.frames()).json()).toEqual({ seen: null, callsToday: 8, gate: null, clipId: 41, guess: { label: "nothing", confidence: 0.56, prompt: null, version: 1 } });
   expect(h.kept[0]).toMatchObject({ seen: null, scores: { envelope: 0.71 } });
   const low = harness({ household: { keepClips: true }, cam: { floor: 0.4 }, scores: { person: 0.45 } });
-  expect(await (await low.frames()).json()).toMatchObject({ seen: "person", callsToday: 4 });
+  expect(await (await low.frames()).json()).toMatchObject({ seen: "person", callsToday: 4, guess: { label: "other", prompt: "person" } });
 });
 
 test("a household that has not opted in keeps nothing: the usual cascade runs and the reply has no clip id", async () => {
@@ -84,5 +85,35 @@ test("a clip row that cannot be kept does not break the watch", async () => {
   const h = harness({ household: { keepClips: true }, keepFails: true, scores: { envelope: 0.7 } });
   const res = await h.frames();
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ seen: "envelope", callsToday: 4, gate: null });
+  expect(await res.json()).toEqual({ seen: "envelope", callsToday: 4, gate: null, guess: { label: "carrier", confidence: 0.7, prompt: "envelope", version: 1 } });
+});
+
+test("at a well-taught box a clip whose guess rests on a trusted prompt is classified by Biscuit as it is made", async () => {
+  const tuning = { taps: 25, positives: 15, negatives: 10, floor: null, gate: null, caught: 15, falseAlarms: 0, at: "", prompts: { envelope: { label: "carrier", learned: false, floor: null, fired: 12, agreed: 12, precision: 1 } } };
+  const h = harness({ household: { keepClips: true }, cam: { tuning }, scores: { envelope: 0.95 } });
+  const body = await (await h.frames({ level: "20" })).json();
+  expect(body).toMatchObject({ seen: "envelope", clipId: 41, guess: { label: "carrier", confidence: 0.95, prompt: "envelope", auto: true } });
+  expect(h.kept[0]).toMatchObject({ label: "carrier", labelledBy: "biscuit", guess: { label: "carrier", prompt: "envelope", auto: true } });
+  expect(h.kept[0].labelledAt).toBeInstanceOf(Date);
+  // The same score at a box with fewer taps, or on a prompt without the record, waits for Ana.
+  const young = harness({ household: { keepClips: true }, cam: { tuning: { ...tuning, taps: 19 } }, scores: { envelope: 0.95 } });
+  await young.frames();
+  expect(young.kept[0].label).toBeUndefined();
+  expect(young.kept[0].guess.auto).toBeUndefined();
+  const otherPrompt = harness({ household: { keepClips: true }, cam: { tuning }, scores: { "mail truck": 0.95 } });
+  await otherPrompt.frames();
+  expect(otherPrompt.kept[0].label).toBeUndefined();
+});
+
+test("a mapping learned away from the carrier stops the chime on that prompt, and the prompt's own floor is the one that counts", async () => {
+  const tuning = { taps: 12, positives: 6, negatives: 6, floor: null, gate: null, caught: 6, falseAlarms: 0, at: "", prompts: { person: { label: "other", learned: true, floor: 0.8, fired: 6, agreed: 6, precision: 1 } } };
+  const under = harness({ household: { keepClips: true }, cam: { tuning }, scores: { person: 0.7 } });
+  expect(await (await under.frames()).json()).toMatchObject({ seen: null, guess: { label: "nothing", prompt: null } });
+  const over = harness({ household: { keepClips: true }, cam: { tuning }, scores: { person: 0.9 } });
+  const body = await (await over.frames()).json();
+  expect(body).toMatchObject({ seen: null, guess: { label: "other", prompt: "person" } });
+  expect(over.recorded.some((r) => r.kind === "mail_seen")).toBe(false);
+  // A household that has not opted in gets the same judgement: a neighbour at the box is not mail here.
+  const plain = harness({ cam: { tuning }, scores: { person: 0.9 } });
+  expect(await (await plain.frames()).json()).toEqual({ seen: null, callsToday: 6, gate: null });
 });
