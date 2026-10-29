@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { createApp } from "../server/app.js";
-import { COLLECT_PROMPTS, collectAllowed, WATCH_PROMPTS } from "../server/cam.js";
+import { COLLECT_PROMPTS, collectAllowed, isCollectOwner, WATCH_PROMPTS } from "../server/cam.js";
 
 // Collect mode: a household whose owner is named by CAM_COLLECT_OWNER may keep its mailbox frames for calibration.
 // The phone asks for it on every send; nothing is kept for anyone else, and nothing is kept when the phone does not ask.
@@ -14,6 +14,15 @@ const post = (app: any, fields: Record<string, string>) => {
   for (const [k, v] of Object.entries(fields)) form.set(k, v);
   return app.request("/api/biscuit/cam/frames", { method: "POST", body: form, headers: { authorization: "Bearer x" } });
 };
+
+test("isCollectOwner: the founder's household, by owner email, case aside; Ana's page opens its Details for it", () => {
+  expect(isCollectOwner({ CAM_COLLECT_OWNER: "ana@example.org" }, "ana@example.org")).toBe(true);
+  expect(isCollectOwner({ CAM_COLLECT_OWNER: " Ana@Example.org " }, "ana@example.org")).toBe(true);
+  expect(isCollectOwner({ CAM_COLLECT_OWNER: "ana@example.org" }, "someone@example.org")).toBe(false);
+  expect(isCollectOwner({}, "ana@example.org")).toBe(false);
+  expect(isCollectOwner({ CAM_COLLECT_OWNER: "" }, "")).toBe(false);
+  expect(isCollectOwner({ CAM_COLLECT_OWNER: "ana@example.org" }, null)).toBe(false);
+});
 
 test("collectAllowed: only the named owner, only when the phone asks", () => {
   expect(collectAllowed({ CAM_COLLECT_OWNER: "ana@example.org" }, "ana@example.org", "1")).toBe(true);

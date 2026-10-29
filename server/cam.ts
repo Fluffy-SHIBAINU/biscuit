@@ -36,8 +36,13 @@ export const WATCH_PROMPTS = ["mail carrier", "person", "mail truck", "envelope"
 /** The prompts scored on a kept frame, so calibration can compare them; the watch prompts first. */
 export const COLLECT_PROMPTS = [...WATCH_PROMPTS, "mailbox door", "hand", "package"] as const;
 
+/** The founder's household: the one whose owner CAM_COLLECT_OWNER names. Collect mode is allowed for it, and Ana's page opens its Details for it. */
+export function isCollectOwner(env: Record<string, string | undefined>, ownerEmail: string | null | undefined): boolean {
+  const owner = env.CAM_COLLECT_OWNER?.trim().toLowerCase();
+  return Boolean(owner && ownerEmail && ownerEmail.trim().toLowerCase() === owner);
+}
+
 /** Frames may be kept only for the household whose owner CAM_COLLECT_OWNER names, and only when the phone asks on that send. */
 export function collectAllowed(env: Record<string, string | undefined>, ownerEmail: string | null | undefined, asked: string | null | undefined): boolean {
-  const owner = env.CAM_COLLECT_OWNER?.trim().toLowerCase();
-  return Boolean(owner && ownerEmail && ownerEmail.trim().toLowerCase() === owner && asked === "1");
+  return isCollectOwner(env, ownerEmail) && asked === "1";
 }

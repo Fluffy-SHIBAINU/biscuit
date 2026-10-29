@@ -26,6 +26,15 @@ describe.skipIf(!process.env.DATABASE_URL)("pause and resume the mailbox phone",
   });
   afterAll(async () => { await getDb().delete(household).where(eq(household.ownerEmail, EMAIL)); });
 
+  test("the page says whether this is the founder's household (the admin view opens for it) and how many SAM calls the phone made today", async () => {
+    const fam = await (await req("/api/biscuit/family")).json();
+    expect(fam.household.admin).toBe(false);
+    expect(fam.camera).toMatchObject({ samCallsToday: 0 });
+    const admin = createApp({ anaEnv: { KINDRED_AUTH_BYPASS: EMAIL, CAM_COLLECT_OWNER: EMAIL.toUpperCase() } });
+    const mine = await (await admin.request("/api/biscuit/family", { headers: { "content-type": "application/json" } })).json();
+    expect(mine.household.admin).toBe(true);
+  });
+
   test("pause marks it paused, resume brings it back to offline until a heartbeat", async () => {
     expect((await req("/api/biscuit/cam/pause", { method: "POST" })).status).toBe(200);
     expect((await (await req("/api/biscuit/family")).json()).camera.status).toBe("paused");

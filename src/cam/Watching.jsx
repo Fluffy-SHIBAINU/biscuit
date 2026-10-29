@@ -110,15 +110,19 @@ export default function Watching() {
       <div className="row between"><span className="label night">Biscuit · mailbox phone</span><span className={`pill ${paused ? "warn" : "ok"}`}>{paused ? "Paused" : status === "watching" ? "Watching" : "Starting"}</span></div>
       <h1 className="display small">Watching Rosa's mailbox.</h1>
       <div className="frame"><video ref={video} autoPlay playsInline muted />{region && <div className="region" style={regionStyle(region, videoSizeOf(video.current))} />}</div>
-      <section className="card night">
-        <div className="row between"><span>Plugged in</span><span className="label plain">{battery === null ? "unknown" : `${charging ? "yes" : "no"} · ${battery}%`}</span></div>
-        <div className="row between"><span>Frames sent today</span><span className="label plain">{sentToday} · {collect ? `${kept} kept for calibration` : clips ? `${clipsKept} ${clipsKept === 1 ? "clip" : "clips"} kept for Ana` : "all discarded"}</span></div>
-        <div className="row between"><span>Movement now</span><span className="label plain">{motion ? `${motion.diff.toFixed(1)} of ${motion.threshold}${motion.state === "motion" ? " · sending" : motion.state === "cooldown" ? " · cooling down" : ""}` : "…"}</span></div>
-        {events.map((e, i) => <div key={i} className="row between"><span>{e.text}</span><span className="label plain">{e.at}</span></div>)}
-      </section>
-      {clips && <section className="card night"><span className="pill signal">Clips</span><p className="lead small">Keeping short clips of the box for Ana to check: when something moves, 8 small frames of the box region over 6 seconds go to her page. Ana turned this on; she can turn it off there.</p></section>}
-      {collect && <section className="card night"><span className="pill warn">Collecting</span><p className="lead small">Calibration mode, this phone only: each movement's frames and SAM's scores are kept for Ana's household to label. Open this page with ?collect=0 to stop.</p></section>}
-      <p className="lead small">{paused && battery !== null && battery < 10 ? "Plug me in. Watching pauses under 10%." : paused ? "Paused from Ana's page, or today's limit reached." : collect ? "Something moves at the box: 3 frames go to SAM 3.1 and are kept with their scores." : clips ? "Something moves at the box: 3 frames go to SAM 3.1, and a 6-second clip of the box is kept for Ana to check." : "Nothing moves, nothing is sent. Something moves at the box: 3 frames go to SAM 3.1, then they're gone. Checks again 5 seconds after a sighting, more slowly after false alarms."}</p>
+      <p className="lead small">{paused && battery !== null && battery < 10 ? "Plug me in. Watching pauses under 10%." : paused ? "Paused from Ana's page, or today's limit reached." : `${events.length ? `Last movement ${events[0].at}.` : "Nothing has moved yet."} ${clips ? "Keeping short clips for Ana." : collect ? "Collecting frames for calibration." : "Frames are checked and gone."}`}</p>
+      <details className="details night" open={collect}>
+        <summary className="label night">Details</summary>
+        <section className="card night">
+          <div className="row between"><span>Plugged in</span><span className="label plain">{battery === null ? "unknown" : `${charging ? "yes" : "no"} · ${battery}%`}</span></div>
+          <div className="row between"><span>Frames sent today</span><span className="label plain">{sentToday} · {collect ? `${kept} kept for calibration` : clips ? `${clipsKept} ${clipsKept === 1 ? "clip" : "clips"} kept for Ana` : "all discarded"}</span></div>
+          <div className="row between"><span>Movement now</span><span className="label plain">{motion ? `${motion.diff.toFixed(1)} of ${motion.threshold}${motion.state === "motion" ? " · sending" : motion.state === "cooldown" ? " · cooling down" : ""}` : "…"}</span></div>
+          {events.map((e, i) => <div key={i} className="row between"><span>{e.text}</span><span className="label plain">{e.at}</span></div>)}
+        </section>
+        {clips && <section className="card night"><span className="pill signal">Clips</span><p className="lead small">Keeping short clips of the box for Ana to check: when something moves, 8 small frames of the box region over 6 seconds go to her page. Ana turned this on; she can turn it off there.</p></section>}
+        {collect && <section className="card night"><span className="pill warn">Collecting</span><p className="lead small">Calibration mode, this phone only: each movement's frames and SAM's scores are kept for Ana's household to label. Open this page with ?collect=0 to stop.</p></section>}
+        <p className="lead small">{collect ? "Something moves at the box: 3 frames go to SAM 3.1 and are kept with their scores." : clips ? "Something moves at the box: 3 frames go to SAM 3.1, and a 6-second clip of the box is kept for Ana to check." : "Nothing moves, nothing is sent. Something moves at the box: 3 frames go to SAM 3.1, then they're gone. Checks again 5 seconds after a sighting, more slowly after false alarms."}</p>
+      </details>
       <div className="spacer" />
       <div className="row pair">
         <button type="button" className="btn secondary night" onClick={() => navigate("/cam/setup?draw=1")}>Adjust the box</button>

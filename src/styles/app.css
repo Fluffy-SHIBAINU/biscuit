@@ -115,3 +115,12 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .row.pair { align-items: stretch; }
 .row.pair .btn { height: auto; min-height: 76px; min-width: 0; padding: 12px 10px; font-size: 19px; line-height: 1.2; }
 .handle.nw { left: 0; top: 0; } .handle.ne { left: 100%; top: 0; } .handle.sw { left: 0; top: 100%; } .handle.se { left: 100%; top: 100%; }
+/* Details: the technical side of a card, closed for a daughter, open for the founder's household. */
+.details { border-top: 1px solid var(--rule); padding-top: 8px; }
+.details > summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px; }
+.details > summary::-webkit-details-marker { display: none; }
+.details > summary::before { content: "▸"; font-size: 11px; }
+.details[open] > summary::before { content: "▾"; }
+.details > div { margin-top: 8px; }
+.details.night { border-top-color: var(--night-border); }
+.details.night > summary { color: var(--night-muted); }

@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
-import { cameraLine } from "../lib/camline.js";
+import { cameraLine, cameraSummary } from "../lib/camline.js";
+import { seenWords } from "../lib/clips.js";
 import { readerName } from "../lib/letters.js";
 import { navigate } from "../lib/navigate.js";
 import { pushSupported, subscribePush } from "../lib/push.js";
-import { ClipCarousel, ClipConsent } from "./Clips.jsx";
+import { ClipCarousel, ClipConsent, ClipConsentDetails, Details } from "./Clips.jsx";
 import MailTime from "./MailTime.jsx";
 import SignIn from "./SignIn.jsx";
 
@@ -94,38 +95,49 @@ export default function Family() {
           </section>
           <section className="card">
             <span className="label">Readers</span>
-            {readers ? (
-              <>
-                <span className="label plain">Last letter {when(readers.at)} · {readers.readBy === "twice" ? "read twice" : readers.readBy === "once" ? "read once" : "read by one reader"}</span>
-                {readers.list.map((r) => <div key={r.name} className="row"><span className={`pill ${r.shadow ? "signal" : (READER_STATE[r.status] || READER_STATE.failed)[0]}`}>{r.shadow ? "Shadow" : (READER_STATE[r.status] || READER_STATE.failed)[1]}</span><span className="lead small">{readerName(r)}{r.shadow ? ` · ${r.status === "ok" ? `agreed on ${r.agreed} of ${r.of}` : (READER_STATE[r.status] || READER_STATE.failed)[1].toLowerCase()}` : ""}{Number.isFinite(r.ms) ? ` · ${(r.ms / 1000).toFixed(1)} s` : ""}</span></div>)}
-              </>
-            ) : <p className="lead small muted">No letter read yet.</p>}
-            <span className="label plain">Meta's reader is Spark 1.3 on Meta Model API; the second reader is DeepSeek V4.1 Flash on Fireworks. Both read every letter; {h.called} hears only what both read the same way. Kindred's reader, Meta's Glimmer 30B trained on synthetic letters, reads in the shadow: logged here, never spoken.</span>
+            <p className="lead small">{readers ? `Last letter ${when(readers.at)}, ${readers.readBy === "twice" ? "read twice: two readers, and " + h.called + " heard only what both agreed on." : readers.readBy === "once" ? "read once: one reader was away, so what she heard is marked Read once." : "read by one reader."}` : "No letter read yet. Two readers read every letter; " + h.called + " hears only what both agree on."}</p>
+            <Details open={Boolean(h.admin)}>
+              {readers && readers.list.map((r) => <div key={r.name} className="row"><span className={`pill ${r.shadow ? "signal" : (READER_STATE[r.status] || READER_STATE.failed)[0]}`}>{r.shadow ? "Shadow" : (READER_STATE[r.status] || READER_STATE.failed)[1]}</span><span className="label plain">{readerName(r)}{r.shadow ? ` · ${r.status === "ok" ? `agreed on ${r.agreed} of ${r.of}` : (READER_STATE[r.status] || READER_STATE.failed)[1].toLowerCase()}` : ""}{Number.isFinite(r.ms) ? ` · ${(r.ms / 1000).toFixed(1)} s` : ""}</span></div>)}
+              <span className="label plain">Meta's reader is Spark 1.3 on Meta Model API; the second reader is DeepSeek V4.1 Flash on Fireworks. Both read every letter; {h.called} hears only what both read the same way. Kindred's reader, Meta's Glimmer 30B trained on synthetic letters, reads in the shadow: logged here, never spoken.</span>
+            </Details>
           </section>
           <section className="card">
             <span className="label">Mailbox phone</span>
-            <div className="row wrap"><span className={`pill ${camera.status === "online" ? "ok" : camera.status === "not_set" ? "warn" : "bad"}`}>{CAMERA_LINE[camera.status]}</span>{(camera.clips?.attention > 0 || camera.clips?.classified > 0) && <span className="pill signal">{camera.clips.attention} to check · {camera.clips.classified} classified</span>}<span className="lead small">{cameraLine(camera, clock)}</span></div>
+            <div className="row wrap"><span className={`pill ${camera.status === "online" ? "ok" : camera.status === "not_set" ? "warn" : "bad"}`}>{CAMERA_LINE[camera.status]}</span><span className="lead small">{cameraSummary(camera, h, clock)}</span></div>
             <div className="row wrap">
               {camera.status === "paused" ? <button type="button" className="btn ana small" onClick={act("/cam/resume", "Watching again.")}>Resume watching</button> : camera.status !== "not_set" && <button type="button" className="btn ana small" onClick={act("/cam/pause", "Paused. Nothing leaves the mailbox phone until you resume.")}>Pause watching</button>}
               <button type="button" className="btn ana small" onClick={() => navigate("/ana/link?kind=cam")}>{camera.status === "not_set" ? "Set up a spare phone" : "Find the mailbox again"}</button>
             </div>
             <MailTime initial={h.mailMinutes ?? null} onSaved={load} />
             <ClipConsent household={h} camera={camera} onSaved={load} />
-            <span className="label plain">{h.keepClips ? "Watches the box region only · frames checked · a 6-second clip of the box kept for you to check, 7 days unchecked, 30 days after a tap · nothing streamed" : "Watches the box region only · frames checked, then discarded · nothing stored, nothing streamed"} · with no spare phone, {h.called}'s own phone chimes at the usual hour</span>
+            <Details open={Boolean(h.admin)}>
+              <span className="label plain">{cameraLine(camera, clock)}</span>
+              <span className="label plain">SAM calls today: {camera.samCallsToday ?? 0} of 800 · {camera.clips?.attention ?? 0} clips to check · {camera.clips?.classified ?? 0} classified{camera.floor != null ? ` · floor ${Number(camera.floor).toFixed(2)}` : ""}{camera.gate != null ? ` · gate ${camera.gate}` : ""}</span>
+              <ClipConsentDetails />
+              <span className="label plain">{h.keepClips ? "Watches the box region only · frames checked · a 6-second clip of the box kept for you to check, 7 days unchecked, 30 days after a tap · nothing streamed" : "Watches the box region only · frames checked, then discarded · nothing stored, nothing streamed"} · with no spare phone, {h.called}'s own phone chimes at the usual hour</span>
+            </Details>
           </section>
           <section className="card">
             <span className="label">Help</span>
-            <div className="row"><span className={`pill ${help.acked ? "ok" : "warn"}`}>{help.acked ? "Tested" : "Untested"}</span><span className="lead small">{h.called}'s phone calls 911 · this page is told at once{help.lastTestAt ? ` · last test ${when(help.lastTestAt)}` : ""}</span></div>
+            <div className="row"><span className={`pill ${help.acked ? "ok" : "warn"}`}>{help.acked ? "Tested" : "Untested"}</span><span className="lead small">{h.called}'s phone calls 911, and this page is told at once.{help.acked ? "" : " Send a test so you know it reaches you."}</span></div>
             {help.openHelpAt && <p className="lead small bad">{h.called} pressed Help at {clock(help.openHelpAt)}. Her phone called 911.</p>}
             <div className="row wrap">
               <button type="button" className="btn ana small" onClick={act("/help/test/self", "Test sent. If this device buzzes, Help will reach you.")}>Send a test to this page</button>
               {pushSupported() && <button type="button" className="btn ana small" onClick={() => subscribePush({ ana: true }).then(() => setNote("This device will buzz when Rosa presses Help.")).catch(() => setNote("Notifications were not allowed."))}>Get notified on this device</button>}
               <button type="button" className="btn ana small" onClick={() => navigate("/ana/link")}>{rosaPhone ? "Link another phone" : "Link Rosa's phone"}</button>
             </div>
+            <Details open={Boolean(h.admin)}>
+              <span className="label plain">{help.lastTestAt ? `Last test ${when(help.lastTestAt)} · ${help.acked ? "reached this page" : "not acknowledged by this page"}` : "No test sent yet"}{help.openHelpAt ? ` · Help open since ${when(help.openHelpAt)}` : ""} · Help opens the phone's own 911 call; Biscuit never dials by itself and tells family by notification only.</span>
+            </Details>
           </section>
           <section className="card">
             <span className="label">Recent</span>
-            {events.slice(0, 8).map((e) => <p key={e.id} className="said"><span className="label plain">{when(e.at)}</span> {({ mail_seen: "Mail came.", mail_due: "Chimed: the mail usually comes about now.", handoff: "Waive case started.", help: "Help pressed.", help_cancel: "Help cancelled.", help_ok: `${h.called} said she's OK.`, help_test: "Help test sent.", help_test_ack: "Help test reached this page.", consent: `${h.called} said yes to Biscuit.`, look_requested: `Asked ${h.called} for another look at the letter from ${e.data?.sender || "a sender"}.`, cam_motion: e.data?.seen ? `Movement at the box · saw ${e.data.seen}.` : "Movement at the box · nothing recognised." })[e.kind] || e.kind}</p>)}
+            {events.length === 0 && <p className="lead small muted">Nothing yet.</p>}
+            {events.slice(0, 8).map((e) => <p key={e.id} className="said"><span className="label plain">{when(e.at)}</span> {({ mail_seen: "Mail came.", mail_due: "Chimed: the mail usually comes about now.", handoff: "Waive case started.", help: "Help pressed.", help_cancel: "Help cancelled.", help_ok: `${h.called} said she's OK.`, help_test: "Help test sent.", help_test_ack: "Help test reached this page.", consent: `${h.called} said yes to Biscuit.`, look_requested: `Asked ${h.called} for another look at the letter from ${e.data?.sender || "a sender"}.`, cam_motion: e.data?.seen ? `Movement at the box · saw ${seenWords(e.data.seen)}.` : "Movement at the box · nothing recognised." })[e.kind] || e.kind}</p>)}
+            <Details open={Boolean(h.admin)}>
+              {events.filter((e) => e.kind === "cam_motion").slice(0, 8).map((e) => <span key={e.id} className="label plain">{when(e.at)} · movement · level {e.data?.level ?? "unknown"} · seen: {e.data?.seen ?? "nothing"}</span>)}
+              <span className="label plain">Events kept: when, what kind, what SAM saw and the motion level for a movement; never an image here.</span>
+            </Details>
           </section>
         </div>
       </div>

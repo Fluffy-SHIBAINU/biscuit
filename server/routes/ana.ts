@@ -9,6 +9,7 @@ import { asGuessLabel, dropClips, isLabel, isLabelled, tuneHousehold } from "../
 import { dbEvents, type Events } from "../events.js";
 import { LOOK_PAYLOAD, sendPush, type Sender } from "../push.js";
 import { DEFAULT_TZ, localParts, validTz } from "../chime.js";
+import { isCollectOwner } from "../cam.js";
 
 const LIVING = ["alone", "with_family", "with_care"];
 const CLEAN = (v: unknown, max = 80) => (typeof v === "string" ? v.trim().slice(0, max) : "");
@@ -189,12 +190,13 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
       const openHelp = events.find((e) => e.kind === "help");
       const closed = openHelp ? events.some((e) => (e.kind === "help_ok" || e.kind === "help_cancel") && e.at > openHelp.at) : true;
       return c.json({
-        household: { id: h.id, seniorName: h.seniorName, called: h.called, relation: h.relation, living: h.living, language: h.language, shareLetters: h.shareLetters, consentedAt: h.consentedAt, mailMinutes: h.mailMinutes ?? null, tz: h.tz ?? null, keepClips: h.keepClips, keepClipsAt: h.keepClipsAt, shareClips: h.shareClips, shareClipsAt: h.shareClipsAt },
+        // `admin`: the founder's household; Ana's page opens every Details disclosure for it and keeps them closed for everyone else.
+        household: { id: h.id, seniorName: h.seniorName, called: h.called, relation: h.relation, living: h.living, language: h.language, shareLetters: h.shareLetters, consentedAt: h.consentedAt, mailMinutes: h.mailMinutes ?? null, tz: h.tz ?? null, keepClips: h.keepClips, keepClipsAt: h.keepClipsAt, shareClips: h.shareClips, shareClipsAt: h.shareClipsAt, admin: isCollectOwner(o.env ?? process.env, h.ownerEmail) },
         devices: devices.map((d) => ({ id: d.id, kind: d.kind, label: d.label, lastSeenAt: d.lastSeenAt, hasPush: Boolean(d.pushSubscription), battery: d.battery, charging: d.charging })),
         letters,
         said: events.filter((e) => e.kind === "said").map((e) => ({ at: e.at, text: (e.data as any)?.text ?? "" })),
         events: events.filter((e) => e.kind !== "said").map((e) => ({ id: e.id, kind: e.kind, at: e.at, data: e.data })),
-        camera: { status: cameraStatus(camRow ?? null, camDevice?.lastSeenAt ?? null, now), movementsToday, paused: camRow?.paused ?? false, battery: camDevice?.battery ?? null, charging: camDevice?.charging ?? null, lastMotionAt: camRow?.lastMotionAt ?? null, setAt: camRow?.setAt ?? null, regionSource: camRow?.regionSource ?? null, floor: camRow?.floor ?? null, gate: camRow?.gate ?? null, tuning: camRow?.tuning ?? null, clips: { pending: Number(clipCount?.pending ?? 0), total: Number(clipCount?.total ?? 0), attention: Number(clipCount?.pending ?? 0), classified: Number(clipCount?.classified ?? 0) } },
+        camera: { status: cameraStatus(camRow ?? null, camDevice?.lastSeenAt ?? null, now), movementsToday, paused: camRow?.paused ?? false, battery: camDevice?.battery ?? null, charging: camDevice?.charging ?? null, lastMotionAt: camRow?.lastMotionAt ?? null, setAt: camRow?.setAt ?? null, regionSource: camRow?.regionSource ?? null, samCallsToday: camRow?.samDay === now.toISOString().slice(0, 10) ? camRow.samCallsToday : 0, floor: camRow?.floor ?? null, gate: camRow?.gate ?? null, tuning: camRow?.tuning ?? null, clips: { pending: Number(clipCount?.pending ?? 0), total: Number(clipCount?.total ?? 0), attention: Number(clipCount?.pending ?? 0), classified: Number(clipCount?.classified ?? 0) } },
         help: { lastTestAt: lastTest?.at ?? null, acked, openHelpAt: closed ? null : openHelp?.at ?? null },
         readers: lastRead ? { at: lastRead.at, readBy: readData.readBy ?? "single", list: [...(Array.isArray(readData.readers) ? readData.readers : []), ...shadowEntry] } : null,
       });
