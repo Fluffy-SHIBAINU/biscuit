@@ -47,6 +47,13 @@ export function applyGate(detector, gate) {
   return threshold;
 }
 
+/** Tells the detector what a send found (the frames reply, or nothing when the send failed or was skipped); returns whether something was seen. */
+export function noteOutcome(detector, result) {
+  const seen = Boolean(result && typeof result === "object" && result.seen);
+  if (detector) detector.outcome(seen);
+  return seen;
+}
+
 /** count grabs, gapMs apart, in order. */
 export async function captureBurst(grab, count, gapMs) {
   const frames = [];
@@ -59,7 +66,8 @@ export async function captureBurst(grab, count, gapMs) {
 
 /**
  * Samples the region every 500 ms; on motion grabs three crops 500 ms apart and hands them to onFrames with the motion
- * level. When `clip()` says the household keeps clips, it also grabs eight small crops over six seconds and hands them
+ * level; what onFrames resolves to (the frames reply) sets the detector's cooldown (motion.js: 5 s after a sighting, backing off
+ * while sends see nothing). When `clip()` says the household keeps clips, it also grabs eight small crops over six seconds and hands them
  * to onClip once complete, so the chime never waits for the clip. Returns a stop function.
  */
 export function startWatcher(video, region, { onFrames, onClip, clip, onLevel, isPaused, detector = new MotionDetector(), intervalMs = 500 } = {}) {
@@ -77,7 +85,7 @@ export function startWatcher(video, region, { onFrames, onClip, clip, onLevel, i
     busy = true;
     const level = detector.lastDiff;
     try {
-      const detection = captureBurst(() => cropJpeg(video, region), 3, 500).then((frames) => onFrames(frames, { level }));
+      const detection = captureBurst(() => cropJpeg(video, region), 3, 500).then((frames) => onFrames(frames, { level })).then((r) => noteOutcome(detector, r), () => noteOutcome(detector, undefined));
       const clipping = onClip && clip && clip()
         ? captureBurst(() => cropJpeg(video, region, CLIP_WIDTH, CLIP_MAX_BYTES), CLIP_FRAMES, Math.round(CLIP_SPAN_MS / (CLIP_FRAMES - 1))).then((frames) => onClip(frames, { level }))
         : null;

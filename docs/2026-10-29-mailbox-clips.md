@@ -18,7 +18,7 @@ at the box that passes the phone's motion gate keeps one row in `biscuit_cam_sam
 
 | Kept | Exactly |
 |---|---|
-| Scores | SAM 3.1's score for each watch prompt ("mail carrier", "mailbox door", "envelope") on the first detection frame, three decimals; 0 where nothing was found. |
+| Scores | SAM 3.1's score for each watch prompt (since October 29 "mail carrier", "person", "mail truck", "envelope"; before that "mail carrier", "mailbox door", "envelope") on the first detection frame, three decimals; 0 where nothing was found. |
 | Seen | The prompt that fired at the household's floor, or none. |
 | Level | The motion level that tripped the gate (mean absolute grey difference over the region, the phone's own number). |
 | Frames | Up to 8 crops of the confirmed box region, 320 pixels wide, each under 60 KB on the phone (the server refuses more than 64 KB or more than 8), taken over 6 seconds from the moment of motion by `startWatcher` in `src/cam/watch.js`, uploaded once to `POST /api/biscuit/cam/clip/:id` within ten minutes of the movement. |

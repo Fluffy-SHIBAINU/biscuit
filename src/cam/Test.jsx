@@ -62,8 +62,8 @@ export default function Test() {
 
   return (
     <main className="screen">
-      <div className="row between"><span className="label">Camera · 4 of 4 · {phase === "works" ? "works" : phase === "missed" ? "not seen" : "test"}</span><span className="label plain">Spare phone</span></div>
-      <h1 className="display small">{phase === "waiting" ? "Open the mailbox, then close it." : phase === "works" ? "Works." : phase === "pending" ? "Set anyway. Test pending." : "I didn't see the lid move."}</h1>
+      <div className="row between"><span className="label">Camera · envelope test · {phase === "works" ? "works" : phase === "missed" ? "not seen" : phase === "pending" ? "skipped" : "running"}</span><span className="label plain">Spare phone</span></div>
+      <h1 className="display small">{phase === "waiting" ? "Open the mailbox, then close it." : phase === "works" ? "Works." : phase === "pending" ? "Test pending. Watching anyway." : "I didn't see the lid move."}</h1>
       <div className="frame"><video ref={video} autoPlay playsInline muted />{region && <div className="region" style={regionStyle(region, videoSizeOf(video.current))} />}</div>
       <section className="card">
         <span className="label">{phase === "waiting" ? `Watching the box · ${left} s` : phase === "missed" ? "60 seconds · no change" : "What happened"}</span>
@@ -71,9 +71,9 @@ export default function Test() {
       </section>
       <div className="spacer" />
       {phase === "missed" && tries < 2 && <button type="button" className="btn" onClick={() => { cleanup.current(); run(); }}>Try again <span className="hint">try {tries + 1} of 2</span></button>}
-      {phase === "missed" && <button type="button" className="btn secondary" onClick={() => finish("pending")}>Set it anyway</button>}
-      {(phase === "works" || phase === "pending") && <button type="button" className="btn" onClick={() => navigate("/cam")}>Done. Watch the box</button>}
-      <p className="foot mono">Frames of the box region checked by SAM 3.1 for “mailbox door”, then discarded. Set anyway: Ana's page shows “test pending” until the first real delivery.</p>
+      {phase === "missed" && <button type="button" className="btn secondary" onClick={() => finish("pending")}>Skip the test</button>}
+      {(phase === "works" || phase === "pending") && <button type="button" className="btn" onClick={() => navigate("/cam")}>Back to watching</button>}
+      <p className="foot mono">Optional. Frames of the box region checked by SAM 3.1 for “mailbox door”, then discarded. Skipped or not seen: Ana's page shows “test pending” until the first real delivery; nothing waits on it.</p>
     </main>
   );
 }

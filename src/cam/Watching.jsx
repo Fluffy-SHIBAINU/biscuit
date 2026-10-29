@@ -44,6 +44,7 @@ export default function Watching() {
     let stopWatch = () => {};
     let hb = null;
     let bat = null;
+    let gone = false;
     (async () => {
       try { stream.current = await openCamera(video.current); } catch { navigate("/cam/setup"); return; }
       try { await navigator.wakeLock?.request("screen"); } catch { /* optional */ }
@@ -62,9 +63,12 @@ export default function Watching() {
           setGate({ paused: Boolean(r.paused) });
           clipsRef.current = Boolean(r.clips); setClips(clipsRef.current);
           applyGate(detector, r.gate);
+          // Ana asked for the envelope test from her page: open it; this screen's camera stops on the way out.
+          if (r.testRequested) { navigate("/cam/test"); return; }
         } catch { /* keep the last known gate */ }
       };
       await beat();
+      if (gone) return;
       hb = setInterval(beat, 60_000);
       setStatus("watching");
       // The clip follows the frames it belongs to: the frames reply names the row, the small frames fill it.
@@ -82,6 +86,7 @@ export default function Watching() {
             applyGate(detector, r.gate);
             if (r.kept) setKept((k) => k + 1);
             setEvents((e) => [{ at: clock(), text: r.seen ? `“${r.seen}” · mail seen · Rosa's phone told` : "movement · nothing recognised" }, ...e].slice(0, 6));
+            return r;
           } catch (err) {
             if (err?.status === 429 || err?.status === 409) setGate({ paused: true });
           }
@@ -93,7 +98,7 @@ export default function Watching() {
         },
       });
     })();
-    return () => { if (hb) clearInterval(hb); stopWatch(); stopCamera(stream.current); };
+    return () => { gone = true; if (hb) clearInterval(hb); stopWatch(); stopCamera(stream.current); };
   }, []);
 
   return (
@@ -108,12 +113,13 @@ export default function Watching() {
       </section>
       {clips && <section className="card night"><span className="pill signal">Clips</span><p className="lead small">Keeping short clips of the box for Ana to check: when something moves, 8 small frames of the box region over 6 seconds go to her page. Ana turned this on; she can turn it off there.</p></section>}
       {collect && <section className="card night"><span className="pill warn">Collecting</span><p className="lead small">Calibration mode, this phone only: each movement's frames and SAM's scores are kept for Ana's household to label. Open this page with ?collect=0 to stop.</p></section>}
-      <p className="lead small">{paused && battery !== null && battery < 10 ? "Plug me in. Watching pauses under 10%." : paused ? "Paused from Ana's page, or today's limit reached." : collect ? "Something moves at the box: 3 frames go to SAM 3.1 and are kept with their scores." : clips ? "Something moves at the box: 3 frames go to SAM 3.1, and a 6-second clip of the box is kept for Ana to check." : "Nothing moves, nothing is sent. Something moves at the box: 3 frames go to SAM 3.1, then they're gone."}</p>
+      <p className="lead small">{paused && battery !== null && battery < 10 ? "Plug me in. Watching pauses under 10%." : paused ? "Paused from Ana's page, or today's limit reached." : collect ? "Something moves at the box: 3 frames go to SAM 3.1 and are kept with their scores." : clips ? "Something moves at the box: 3 frames go to SAM 3.1, and a 6-second clip of the box is kept for Ana to check." : "Nothing moves, nothing is sent. Something moves at the box: 3 frames go to SAM 3.1, then they're gone. Checks again 5 seconds after a sighting, more slowly after false alarms."}</p>
       <div className="spacer" />
       <div className="row pair">
         <button type="button" className="btn secondary night" onClick={() => navigate("/cam/setup?draw=1")}>Adjust the box</button>
-        <button type="button" className="btn secondary night" onClick={() => navigate("/cam/setup")}>Find the mailbox again</button>
+        <button type="button" className="btn secondary night" onClick={() => navigate("/cam/test")}>Test it</button>
       </div>
+      <button type="button" className="btn secondary night" onClick={() => navigate("/cam/setup")}>Find the mailbox again</button>
       <p className="foot mono">Keep this page open and plugged in. Closing it stops the camera; Rosa's phone still works, she can tap Mail came.</p>
     </main>
   );

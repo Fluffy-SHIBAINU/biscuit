@@ -33,3 +33,16 @@ test("captureBurst grabs n frames gapMs apart", async () => {
   expect(at[3] - at[0]).toBeGreaterThanOrEqual(50);
   expect(await captureBurst(async () => "x", 1, 1000)).toEqual(["x"]);
 });
+
+// The watcher tells the detector what each send found, so the cooldown can back off or come back to five seconds.
+import { noteOutcome } from "../src/cam/watch.js";
+test("noteOutcome reads a send's reply and sets the detector's cadence", () => {
+  const d = new MotionDetector();
+  expect(noteOutcome(d, { seen: null, callsToday: 3 })).toBe(false);
+  expect(d.cooldownMs).toBe(15_000);
+  expect(noteOutcome(d, undefined)).toBe(false);
+  expect(d.cooldownMs).toBe(30_000);
+  expect(noteOutcome(d, { seen: "mail carrier" })).toBe(true);
+  expect(d.cooldownMs).toBe(5_000);
+  expect(noteOutcome(null, { seen: "envelope" })).toBe(true);
+});

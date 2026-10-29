@@ -38,3 +38,70 @@ test("the detector keeps the last difference it measured", () => {
   expect(d.sample(b, 2000)).toBe("motion");
   expect(d.lastDiff).toBe(20);
 });
+
+// Cadence: the phone samples every 500 ms and needs two samples in a row; after a send, a cooldown. The cooldown is
+// 5 seconds after a send that saw something or after a quiet spell, and backs off while sends see nothing (5, 15, 30,
+// 60 seconds) so a windy day cannot burn the SAM cap in minutes. The numbers live in one place.
+import { COOLDOWN_MS, QUIET_RESET_MS } from "../src/cam/motion.js";
+const still = new Uint8Array(100).fill(10), moved = new Uint8Array(100).fill(40);
+
+test("the cadence numbers: 5, 15, 30, 60 seconds, two quiet minutes, 5 seconds to start", () => {
+  expect(COOLDOWN_MS).toEqual([5_000, 15_000, 30_000, 60_000]);
+  expect(QUIET_RESET_MS).toBe(120_000);
+  expect(new MotionDetector().cooldownMs).toBe(5_000);
+  expect(new MotionDetector({ cooldownMs: 0 }).cooldownMs).toBe(0);
+});
+
+test("sends that saw nothing back the cooldown off, 5 then 15, 30, 60 seconds; a sighting brings it back to 5", () => {
+  const d = new MotionDetector({ consecutive: 1 });
+  // A send fires at 500 under the first cooldown, 5 s.
+  d.sample(still, 0);
+  expect(d.sample(moved, 500)).toBe("motion");
+  d.outcome(false);
+  expect(d.cooldownMs).toBe(15_000);
+  expect(d.sample(still, 5_400)).toBe("cooldown");
+  expect(d.sample(moved, 5_600)).toBe("motion");
+  d.outcome(false);
+  expect(d.cooldownMs).toBe(30_000);
+  expect(d.sample(still, 20_000)).toBe("cooldown");
+  expect(d.sample(moved, 20_700)).toBe("motion");
+  d.outcome(false);
+  expect(d.cooldownMs).toBe(60_000);
+  expect(d.sample(still, 50_000)).toBe("cooldown");
+  expect(d.sample(moved, 50_800)).toBe("motion");
+  d.outcome(false);
+  expect(d.cooldownMs).toBe(60_000);
+  expect(d.sample(still, 110_000)).toBe("cooldown");
+  expect(d.sample(moved, 111_000)).toBe("motion");
+  // The carrier: the cooldown in force drops to 5 s at once, and the next send gets 5 s too.
+  d.outcome(true);
+  expect(d.cooldownMs).toBe(5_000);
+  expect(d.sample(still, 115_000)).toBe("cooldown");
+  expect(d.sample(moved, 116_500)).toBe("motion");
+});
+
+test("two quiet minutes reset the cooldown to 5 seconds", () => {
+  const d = new MotionDetector({ consecutive: 1 });
+  d.sample(still, 0);
+  expect(d.sample(moved, 500)).toBe("motion");
+  d.outcome(false); d.outcome(false);
+  expect(d.cooldownMs).toBe(30_000);
+  expect(d.sample(still, 1_000)).toBe("cooldown");
+  for (let t = 1_500; t < 120_000; t += 500) expect(d.sample(still, t)).toBe("idle");
+  expect(d.cooldownMs).toBe(30_000);
+  expect(d.sample(still, 121_000)).toBe("idle");
+  expect(d.cooldownMs).toBe(5_000);
+  expect(d.sample(moved, 121_500)).toBe("motion");
+  expect(d.sample(still, 126_000)).toBe("cooldown");
+  expect(d.sample(moved, 126_600)).toBe("motion");
+});
+
+test("a fixed cooldown still works for the envelope test's detector", () => {
+  const d = new MotionDetector({ consecutive: 1, cooldownMs: 2_000 });
+  d.sample(still, 0);
+  expect(d.sample(moved, 500)).toBe("motion");
+  d.outcome(false);
+  expect(d.cooldownMs).toBe(2_000);
+  expect(d.sample(still, 2_400)).toBe("cooldown");
+  expect(d.sample(moved, 2_600)).toBe("motion");
+});

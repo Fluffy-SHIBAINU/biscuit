@@ -13,8 +13,9 @@ Production has no household yet, so this is the whole setup. Fifteen minutes wit
    as a push to this installed app; keep the iPhone on Wi-Fi and not in Low Power Mode.
 3. **Laptop:** Next: the mailbox phone; read its code.
 4. **Android (the mailbox phone):** open https://biscuit.kindred-ai.dev/cam?collect=1, type the code, allow the
-   camera, prop it on the sill facing the box, Find my mailbox, Yes, that's it. Then the envelope test: open and close
-   the lid once; "Works." within 60 seconds. Done. Watch the box. The Watching screen must say "Collecting".
+   camera, prop it on the sill facing the box, Find my mailbox, Yes, that's it (or Draw the box myself). The phone goes
+   straight to Watching, which must say "Collecting". The envelope test is optional since October 29: Test it on the
+   Watching screen, open and close the lid once, "Works." within 60 seconds, Back to watching.
 5. **Leave it:** plugged in, screen on (the page holds a wake lock; turn off the phone's auto-lock to be sure), the
    box lit if a porch light exists. Headlights on a window are the main false alarm; each movement costs six SAM calls
    in collect mode and the day's cap is 800 (the day turns at 8 PM Eastern). If the screen says "Paused" in the
@@ -24,7 +25,7 @@ Production has no household yet, so this is the whole setup. Fifteen minutes wit
 
 
 The watcher's model, SAM 3.1, is not trained here: it is Meta's segmentation model served by the Meta Model API, and it
-finds "mail carrier", "mailbox door" and "envelope" by name. What a day at a real mailbox can tune is the decision layer
+finds "mail carrier", "person", "mail truck" and "envelope" by name (until October 29 the set was "mail carrier", "mailbox door", "envelope"). What a day at a real mailbox can tune is the decision layer
 around it: which prompts to ask, the score at which an answer counts, and how much movement the phone needs before any
 frame leaves it. This document is the run for the founder's second phone and the tools that turn its frames into those
 three numbers.
@@ -60,9 +61,10 @@ Before the run, from the repo: `npm run db:migrate` (adds the sample table; the 
 
 1. Laptop: `/ana`, Next: the mailbox phone; read the code.
 2. Second phone: open `https://biscuit.kindred-ai.dev/cam?collect=1`, type the code, allow the camera, point it at the
-   mailbox, Find my mailbox, Yes, that's it. Then the envelope test: open and close the lid (QA steps 6 and 7).
+   mailbox, Find my mailbox, Yes, that's it (or Draw the box myself); it watches at once. The envelope test is optional:
+   Test it, open and close the lid (QA steps 6 and 7).
 3. Watching: the screen must show "Collecting" and "kept for calibration" next to the frame count.
-4. Make the mailbox move, with a pause of at least 90 seconds between events (the motion cooldown):
+4. Make the mailbox move, with a pause between events for the motion cooldown (since October 29: 5 seconds after a sighting, backing off to 15, 30 and 60 seconds while sends see nothing, reset by a sighting or two quiet minutes; before that a flat 90 seconds):
    - open the lid, put an envelope in, close it: 5 times (the "mail" label);
    - open the lid and close it, nothing left: 3 times ("carrier");
    - walk past, wave a hand near the box, park a car or let a shadow cross, nothing touching the box: 5 times ("nothing");
