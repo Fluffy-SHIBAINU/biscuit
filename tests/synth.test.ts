@@ -177,3 +177,19 @@ test("three photo families, chosen by seed, each a different page", () => {
   expect(fax).toMatch(/Courier/);
   for (const page of [photo, scan, fax]) expect(page).toContain(l.html.slice(-80));
 });
+
+// From the simulated user trial: the truth names the addressee, and appointment times are real times.
+test("a letter with a patient block names its addressee unless the block is redacted; appointment times read as clock times", () => {
+  let named = 0;
+  for (const l of many) {
+    const hasBlock = ["bill_statement", "bill_final", "bill_collection", "notice_fap", "notice_not_bill", "notice_msn", "other_appointment", "other_results", "utility"].includes(l.template);
+    if (!hasBlock) { expect(l.truth.addressee).toBeNull(); continue; }
+    if (l.redacted.length) { expect(l.truth.addressee).toBeNull(); continue; }
+    expect(l.truth.addressee, `${l.template} ${l.seed}`).not.toBeNull();
+    expect(l.transcription).toContain(l.truth.addressee!.value);
+    named++;
+    if (l.template === "other_appointment") for (const m of l.transcription.matchAll(/\b(\d{1,2}):(\d{2}) (AM|PM)\b/g)) { const h = Number(m[1]); expect(h).toBeGreaterThanOrEqual(1); expect(h).toBeLessThanOrEqual(12); }
+  }
+  expect(named).toBeGreaterThan(300);
+});
+

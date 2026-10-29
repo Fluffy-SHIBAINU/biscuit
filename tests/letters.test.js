@@ -52,3 +52,7 @@ test("readOnceLine names the reader that was away and the one that read alone", 
   expect(readOnceLine(readers)).toBe("DeepSeek V4.1 Flash on Fireworks didn't answer in 10 seconds. Meta's reader read it alone. Ana's page says so.");
   expect(readOnceLine([{ name: "meta", status: "failed" }, { name: "fireworks", status: "ok" }])).toBe("Meta's reader had an error. Fireworks reader read it alone. Ana's page says so.");
 });
+
+test("statusLine names a letter addressed to someone else", () => {
+  expect(statusLine({ status: "not_mine", facts: [] })).toBe("Addressed to someone else. Ana told.");
+});

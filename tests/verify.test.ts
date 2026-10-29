@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import { normalize, verifyFacts, verifyQuote } from "../server/verify.js";
+import { normalizeExtraction } from "../server/meta/spark.js";
 
 const T = "Statement Date: 10/03/2026\nAmount Due:  $1,850.00\nSee “Financial Assistance” below — call us.";
 
@@ -13,4 +14,12 @@ test("verifyFacts marks the unverified one", () => {
   expect(facts.find((f) => f.field === "amount_due")?.verified).toBe(false);
   expect(facts.find((f) => f.field === "statement_date")?.verified).toBe(true);
   expect(facts.find((f) => f.field === "sender")).toBeUndefined();
+});
+
+test("the addressee is a cited fact like the sender", () => {
+  const x = normalizeExtraction({ kind: "bill", sender: { value: "A", quote: "A" }, addressee: { value: "Rosa Alvarez", quote: "Guarantor: Rosa Alvarez" }, phone_numbers: [] });
+  expect(x.addressee).toEqual({ value: "Rosa Alvarez", quote: "Guarantor: Rosa Alvarez" });
+  const facts = verifyFacts(x, "A\nGuarantor: Rosa Alvarez\n");
+  expect(facts.find((f) => f.field === "addressee")).toMatchObject({ value: "Rosa Alvarez", verified: true });
+  expect(normalizeExtraction({ kind: "bill", phone_numbers: [] }).addressee).toBeNull();
 });

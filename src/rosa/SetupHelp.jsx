@@ -34,7 +34,7 @@ export default function SetupHelp({ onDone }) {
       <span className="label plain center">On {name}'s home screen · hold 2 seconds, or say “Biscuit, help”</span>
       <section className="card">
         <span className="label">What happens</span>
-        <div className="fact"><strong>1 · {name}'s phone calls 911</strong><span className="label plain">the phone's own emergency call · it asks “Call 911?” first, so a bump never dials</span></div>
+        <div className="fact"><strong>1 · {name}'s phone calls 911</strong><span className="label plain">the phone's own emergency call · it asks “Call 911?” first, so a bump never dials · for this test, tap Cancel there: nothing is called, and the test still reaches Ana</span></div>
         <div className="fact"><strong>2 · Ana is told at once</strong><span className="label plain">her page shows the time · her phone buzzes</span></div>
         <div className="fact"><strong>3 · Afterwards: Call Ana, or I'm OK</strong><label className="field"><span>Ana's number, kept on this phone only</span><input inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="617 555 0142" /></label></div>
       </section>

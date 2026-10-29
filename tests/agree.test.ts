@@ -59,3 +59,8 @@ test("valuesAgree: a sender that adds its department to the same name is the sam
   expect(valuesAgree("sender", "Medicare", "Medicare Rewards Department")).toBe(false);
   expect(valuesAgree("sender", "Medicare Rewards Department", "Medicare Rewards Departmental")).toBe(false);
 });
+
+test("the addressee is compared like a name", () => {
+  expect(valuesAgree("addressee", "Rosa Alvarez", "ROSA ALVAREZ")).toBe(true);
+  expect(valuesAgree("addressee", "Rosa Alvarez", "Mabel Thompson")).toBe(false);
+});

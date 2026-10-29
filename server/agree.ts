@@ -9,9 +9,9 @@ export type Gate = { readBy: ReadBy; facts: GatedFact[]; checks: Check[]; differ
 export type ReaderFacts = { name: string; facts: Fact[] };
 
 const DIGIT_FIELDS = new Set(["amount_due", "statement_date", "due_date", "account_last4", "phone_numbers"]);
-const NAME_FIELDS = new Set(["sender", "hospital_name"]);
+const NAME_FIELDS = new Set(["sender", "hospital_name", "addressee"]);
 const PHRASE: Record<string, string> = {
-  amount_due: "the amount", statement_date: "the statement date", due_date: "the due date", sender: "the sender",
+  amount_due: "the amount", statement_date: "the statement date", due_date: "the due date", sender: "the sender", addressee: "the name on it",
   hospital_name: "the hospital's name", account_last4: "the account number", phone_numbers: "a phone number", financial_assistance: "the help-paying line",
 };
 const digits = (s: string) => s.replace(/\D/g, "");

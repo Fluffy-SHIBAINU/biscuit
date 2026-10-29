@@ -12,8 +12,8 @@ test("letter cards carry the letter and the lines Biscuit would speak for it", (
   for (const c of cards) {
     expect(c.transcription.split(/\s+/).length).toBeGreaterThan(30);
     expect(c.spokenLines.length).toBeGreaterThan(0);
-    expect(c.spokenLines[0]).toMatch(/^This is from /);
-    if (c.kind === "bill") expect(c.offerLines[0]).toBe("I can send this to Ana.");
+    expect(c.spokenLines[0]).toMatch(/^This is (addressed to|from) /);
+    if (c.kind === "bill") expect(c.offerLines[0]).toBe("Shall I send this to Ana?");
   }
 });
 

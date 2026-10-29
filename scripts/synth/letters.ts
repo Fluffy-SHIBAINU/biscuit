@@ -113,7 +113,7 @@ function hospitalHeader(rng: Rng, h: Hospital, dept: string, phones: Cited[], li
   blocks.push(`<div class="head">${h1(head[0])}${head.slice(1).map((s) => l(s)).join("")}</div>`);
 }
 /** The patient block. One page in seven prints the name and address as black bars (a redacted sample): on the page, not in the transcription. */
-function patientBlock(rng: Rng, h: { city: string; state: string } | null, label: string, lines: string[], blocks: string[], extra: string[] = [], redacted: string[] = []) {
+function patientBlock(rng: Rng, h: { city: string; state: string } | null, label: string, lines: string[], blocks: string[], extra: string[] = [], redacted: string[] = []): { name: string; addressee: Cited | null } {
   const name = person(rng);
   const city = h?.city ?? rng.pick(["Springfield", "Riverside", "Fairview", "Franklin", "Greenville", "Madison"]);
   const state = h?.state ?? rng.pick(Object.keys(ZIP3).filter((s) => s.length === 2 && !["PR", "VI", "GU"].includes(s)));
@@ -123,11 +123,11 @@ function patientBlock(rng: Rng, h: { city: string; state: string } | null, label
     redacted.push(...who);
     lines.push(...extra);
     blocks.push(`<div class="meta">${extra.map((s) => l(s)).join("")}${who.map(() => '<div class="bar"></div>').join("")}</div>`);
-  } else {
-    lines.push(...extra, ...who);
-    blocks.push(`<div class="meta">${[...extra, ...who].map((s) => l(s)).join("")}</div>`);
+    return { name, addressee: null };
   }
-  return name;
+  lines.push(...extra, ...who);
+  blocks.push(`<div class="meta">${[...extra, ...who].map((s) => l(s)).join("")}</div>`);
+  return { name, addressee: cited(name, `${label}${name}`) };
 }
 function fapParagraph(rng: Rng, ph: string): string {
   return rng.pick([
@@ -145,7 +145,7 @@ function billStatement(rng: Rng): Draft {
   const acct = account(rng);
   const hasStmt = rng.chance(0.9), hasAcct = rng.chance(0.85), hasDue = rng.chance(0.85);
   const stmtLine = `Statement Date: ${usDate(stmt)}`, acctLine = `Account Number: ${acct}`;
-  patientBlock(rng, h, rng.pick(["Guarantor: ", "Patient: ", "Responsible party: "]), lines, blocks, [...(hasStmt ? [stmtLine] : []), ...(hasAcct ? [acctLine] : [])], redacted);
+  const { addressee } = patientBlock(rng, h, rng.pick(["Guarantor: ", "Patient: ", "Responsible party: "]), lines, blocks, [...(hasStmt ? [stmtLine] : []), ...(hasAcct ? [acctLine] : [])], redacted);
   const n = rng.int(1, 4);
   const items = Array.from({ length: n }, () => { const charge = amountCents(rng, 8000, 420_000); const ins = Math.round(charge * (0.4 + rng.next() * 0.5)); return { date: usDate(stmt - rng.int(10, 40) * DAY), desc: rng.pick(SERVICES), charge, ins, share: charge - ins }; });
   const newCharges = items.reduce((a, i) => a + i.charge, 0), insurance = items.reduce((a, i) => a + i.ins, 0);
@@ -173,7 +173,7 @@ function billStatement(rng: Rng): Draft {
   }
   const foot = rng.pick([`Pay online, by phone, or mail a check with the stub below. Please write your account number on the check.`, `Detach and return the lower portion with your payment.`, `We accept Visa, MasterCard, Discover and personal checks.`]);
   lines.push(foot); blocks.push(l(foot, "foot"));
-  const truth: Extraction = { kind: "bill", sender: cited(h.name, h.name), hospital_name: cited(h.name, h.name), amount_due: cited(money(dueCents), amountLine), statement_date: hasStmt ? cited(usDate(stmt), stmtLine) : null, due_date: hasDue ? cited(usDate(due), dueLine) : null, financial_assistance: fa, phone_numbers: phones, account_last4: hasAcct ? cited(last4(acct), acctLine) : null };
+  const truth: Extraction = { kind: "bill", sender: cited(h.name, h.name), hospital_name: cited(h.name, h.name), amount_due: cited(money(dueCents), amountLine), statement_date: hasStmt ? cited(usDate(stmt), stmtLine) : null, due_date: hasDue ? cited(usDate(due), dueLine) : null, financial_assistance: fa, phone_numbers: phones, account_last4: hasAcct ? cited(last4(acct), acctLine) : null, addressee };
   return { lines, blocks, truth, hospital: h, redacted };
 }
 
@@ -185,7 +185,7 @@ function billFinal(rng: Rng): Draft {
   const acct = account(rng);
   const hasAcct = rng.chance(0.8);
   const dateLine = `Notice Date: ${usDate(notice)}`, acctLine = `Account Number: ${acct}`;
-  const name = patientBlock(rng, h, "", lines, blocks, [dateLine, ...(hasAcct ? [acctLine] : [])], redacted);
+  const { name, addressee } = patientBlock(rng, h, "", lines, blocks, [dateLine, ...(hasAcct ? [acctLine] : [])], redacted);
   const title = rng.pick(["FINAL NOTICE", "PAST DUE NOTICE", "SECOND NOTICE"]);
   lines.push(title); blocks.push(l(title, "title"));
   const dueCents = amountCents(rng, 4000, 600_000);
@@ -201,7 +201,7 @@ function billFinal(rng: Rng): Draft {
   }
   if (phones[0]) { const q = `Questions or payment arrangements: call ${phones[0].value}.`; lines.push(q); blocks.push(p(q)); }
   lines.push(`Thank you for choosing ${h.name}.`); blocks.push(l(`Thank you for choosing ${h.name}.`, "foot"));
-  const truth: Extraction = { kind: "bill", sender: cited(h.name, h.name), hospital_name: cited(h.name, h.name), amount_due: cited(money(dueCents), amountLine), statement_date: cited(usDate(notice), dateLine), due_date: cited(usDate(due), payBy), financial_assistance: fa, phone_numbers: phones, account_last4: hasAcct ? cited(last4(acct), acctLine) : null };
+  const truth: Extraction = { kind: "bill", sender: cited(h.name, h.name), hospital_name: cited(h.name, h.name), amount_due: cited(money(dueCents), amountLine), statement_date: cited(usDate(notice), dateLine), due_date: cited(usDate(due), payBy), financial_assistance: fa, phone_numbers: phones, account_last4: hasAcct ? cited(last4(acct), acctLine) : null, addressee };
   return { lines, blocks, truth, hospital: h, redacted };
 }
 
@@ -213,7 +213,7 @@ function noticeFap(rng: Rng): Draft {
   const acct = account(rng);
   const hasAcct = rng.chance(0.75);
   const dateLine = `Date: ${usDate(date)}`, acctLine = `Account Number: ${acct}`;
-  const name = patientBlock(rng, h, "", lines, blocks, [dateLine], redacted);
+  const { name, addressee } = patientBlock(rng, h, "", lines, blocks, [dateLine], redacted);
   const re = "Re: Your application for financial assistance";
   lines.push(re); blocks.push(l(re, "title"));
   if (hasAcct) { lines.push(acctLine); blocks.push(l(acctLine)); }
@@ -241,7 +241,7 @@ function noticeFap(rng: Rng): Draft {
   if (phones[0]) { const q = `If you have questions, call ${phones[0].value}, Monday to Friday, 8 AM to 4:30 PM.`; lines.push(q); blocks.push(p(q)); }
   const sig = `Sincerely, ${person(rng)}, Financial Counselor`;
   lines.push(sig); blocks.push(l(sig));
-  const truth: Extraction = { kind: "notice", sender: cited(h.name, h.name), hospital_name: cited(h.name, h.name), amount_due: cited(money(dueCents), amountLine), statement_date: cited(usDate(date), dateLine), due_date: payBy ? cited(usDate(due), payBy) : null, financial_assistance: fa, phone_numbers: phones, account_last4: hasAcct ? cited(last4(acct), acctLine) : null };
+  const truth: Extraction = { kind: "notice", sender: cited(h.name, h.name), hospital_name: cited(h.name, h.name), amount_due: cited(money(dueCents), amountLine), statement_date: cited(usDate(date), dateLine), due_date: payBy ? cited(usDate(due), payBy) : null, financial_assistance: fa, phone_numbers: phones, account_last4: hasAcct ? cited(last4(acct), acctLine) : null, addressee };
   return { lines, blocks, truth, hospital: h, redacted };
 }
 
@@ -269,7 +269,7 @@ function utility(rng: Rng): Draft {
   blocks.push(l(used), `<div class="box">${rows.map(([a, b]) => row(a, b)).join("")}${row(totalLine, "", "row total")}${row(dueLine, "", "row")}</div>`);
   const foot = [rng.pick([`Late payments are subject to a 1.5 percent charge.`, `A late fee of $5.00 applies to payments received after the due date.`]), phones[0] ? `Pay online, by phone at ${phones[0].value}, or by mail with the stub below.` : `Pay online or by mail with the stub below.`];
   lines.push(...foot); blocks.push(...foot.map((s) => p(s)));
-  const truth: Extraction = { kind: "utility", sender: cited(company, company), hospital_name: null, amount_due: cited(money(total), totalLine), statement_date: cited(usDate(stmt), stmtLine), due_date: cited(usDate(due), dueLine), financial_assistance: null, phone_numbers: phones, account_last4: cited(last4(acct), acctLine) };
+  const truth: Extraction = { kind: "utility", sender: cited(company, company), hospital_name: null, amount_due: cited(money(total), totalLine), statement_date: cited(usDate(stmt), stmtLine), due_date: cited(usDate(due), dueLine), financial_assistance: null, phone_numbers: phones, account_last4: cited(last4(acct), acctLine), addressee: cited(name, `Customer: ${name}`) };
   return { lines, blocks, truth, hospital: null };
 }
 
@@ -287,7 +287,7 @@ function ad(rng: Rng): Draft {
   const addr = address(rng, rng.pick(["Springfield", "Riverside", "Fairview", "Franklin"]), state);
   const foot = `${company}, ${addr.street}, ${addr.cityLine}`;
   lines.push(disclaimer, foot); blocks.push(l(disclaimer, "foot"), l(foot, "foot"));
-  const truth: Extraction = { kind: "ad", sender: cited(company, company), hospital_name: null, amount_due: null, statement_date: null, due_date: null, financial_assistance: null, phone_numbers: phones, account_last4: null };
+  const truth: Extraction = { kind: "ad", sender: cited(company, company), hospital_name: null, amount_due: null, statement_date: null, due_date: null, financial_assistance: null, phone_numbers: phones, account_last4: null, addressee: null };
   return { lines, blocks, truth, hospital: null };
 }
 
@@ -298,10 +298,11 @@ function otherLetter(rng: Rng, which: "other_appointment" | "other_results"): Dr
   hospitalHeader(rng, h, dept, phones, lines, blocks, rng.chance(0.8));
   const date = TODAY - rng.int(1, 20) * DAY;
   const dateLine = `Date: ${usDate(date)}`;
-  const name = patientBlock(rng, h, "", lines, blocks, [dateLine], redacted);
+  const { name, addressee } = patientBlock(rng, h, "", lines, blocks, [dateLine], redacted);
   lines.push(`Dear ${name},`); blocks.push(p(`Dear ${name},`));
   if (which === "other_appointment") {
-    const when = `${usDate(TODAY + rng.int(3, 40) * DAY)} at ${rng.int(8, 15)}:${rng.pick(["00", "15", "30", "45"])} ${rng.pick(["AM", "PM"])} with Dr. ${rng.pick(LAST)}, ${dept}`;
+    const hour = rng.int(8, 16);
+    const when = `${usDate(TODAY + rng.int(3, 40) * DAY)} at ${hour > 12 ? hour - 12 : hour}:${rng.pick(["00", "15", "30", "45"])} ${hour < 12 ? "AM" : "PM"} with Dr. ${rng.pick(LAST)}, ${dept}`;
     const body = [`This is a reminder of your upcoming appointment:`, when, `Please arrive 15 minutes early and bring your insurance card and a list of your medications.`, phones[0] ? `To reschedule, call ${phones[0].value}.` : `To reschedule, use the patient portal or write to the address above.`];
     lines.push(...body); blocks.push(p(body[0]), l(when, "big"), p(body[2]), p(body[3]));
   } else {
@@ -310,7 +311,7 @@ function otherLetter(rng: Rng, which: "other_appointment" | "other_results"): Dr
   }
   const sig = `Sincerely, ${dept}, ${h.name}`;
   lines.push(sig); blocks.push(l(sig));
-  const truth: Extraction = { kind: "other", sender: cited(h.name, h.name), hospital_name: cited(h.name, h.name), amount_due: null, statement_date: cited(usDate(date), dateLine), due_date: null, financial_assistance: null, phone_numbers: phones, account_last4: null };
+  const truth: Extraction = { kind: "other", sender: cited(h.name, h.name), hospital_name: cited(h.name, h.name), amount_due: null, statement_date: cited(usDate(date), dateLine), due_date: null, financial_assistance: null, phone_numbers: phones, account_last4: null, addressee };
   return { lines, blocks, truth, hospital: h, redacted };
 }
 
@@ -327,7 +328,7 @@ function billCollection(rng: Rng): Draft {
   blocks.push(`<div class="head">${h1(agency)}${l(`${addr.street}, ${addr.cityLine}`)}${l(phLine)}</div>`);
   const date = TODAY - rng.int(1, 25) * DAY, due = date + 30 * DAY, ref = account(rng);
   const dateLine = `Date: ${usDate(date)}`, refLine = `Reference Number: ${ref}`;
-  const name = patientBlock(rng, h, "", lines, blocks, [dateLine, refLine], redacted);
+  const { name, addressee } = patientBlock(rng, h, "", lines, blocks, [dateLine, refLine], redacted);
   const re = `Re: ${h.name} account`, orig = `Original creditor: ${h.name}`;
   const dueCents = amountCents(rng, 9000, 700_000);
   const amountLine = `Amount Due: ${money(dueCents)}`;
@@ -337,7 +338,7 @@ function billCollection(rng: Rng): Draft {
   const dispute = `If you dispute this debt or any part of it, write to us within 30 days and we will obtain verification and mail it to you.`;
   lines.push(re, orig, intro, amountLine, payBy, dispute, fdcpa);
   blocks.push(l(re, "title"), l(orig), p(intro), l(amountLine, "big"), p(payBy), p(dispute), l(fdcpa, "foot"));
-  const truth: Extraction = { kind: "bill", sender: cited(agency, agency), hospital_name: cited(h.name, orig), amount_due: cited(money(dueCents), amountLine), statement_date: cited(usDate(date), dateLine), due_date: cited(usDate(due), payBy), financial_assistance: null, phone_numbers: phones, account_last4: cited(last4(ref), refLine) };
+  const truth: Extraction = { kind: "bill", sender: cited(agency, agency), hospital_name: cited(h.name, orig), amount_due: cited(money(dueCents), amountLine), statement_date: cited(usDate(date), dateLine), due_date: cited(usDate(due), payBy), financial_assistance: null, phone_numbers: phones, account_last4: cited(last4(ref), refLine), addressee };
   return { lines, blocks, truth, hospital: h, redacted };
 }
 
@@ -348,7 +349,7 @@ function noticeNotBill(rng: Rng): Draft {
   hospitalHeader(rng, h, rng.pick(DEPTS), phones, lines, blocks, rng.chance(0.9));
   const stmt = TODAY - rng.int(2, 40) * DAY, acct = account(rng), hasAcct = rng.chance(0.7);
   const stmtLine = `Statement Date: ${usDate(stmt)}`, acctLine = `Account Number: ${acct}`, where = `Service location: ${h.name}`;
-  patientBlock(rng, h, rng.pick(["Patient: ", "Guarantor: "]), lines, blocks, [stmtLine, ...(hasAcct ? [acctLine] : []), where], redacted);
+  const { addressee } = patientBlock(rng, h, rng.pick(["Patient: ", "Guarantor: "]), lines, blocks, [stmtLine, ...(hasAcct ? [acctLine] : []), where], redacted);
   const header = ["Date", "Description", "Quantity", "Amount"];
   const n = rng.int(2, 5);
   const items = Array.from({ length: n }, () => ({ date: usDate(stmt - rng.int(5, 30) * DAY), desc: rng.pick(SERVICES), qty: rng.int(1, 3), amount: amountCents(rng, 4000, 300_000) }));
@@ -363,7 +364,7 @@ function noticeNotBill(rng: Rng): Draft {
   let fa: Extraction["financial_assistance"] = null;
   if (rng.chance(0.4)) { const line = `Financial assistance is available for those in need. Please see the back of this statement for financial information.`; lines.push(line); blocks.push(p(line)); fa = { value: true, quote: "Financial assistance is available for those in need." }; }
   lines.push("THIS IS NOT A BILL"); blocks.push(l("THIS IS NOT A BILL", "title"));
-  const truth: Extraction = { kind: "notice", sender: cited(h.name, h.name), hospital_name: cited(h.name, h.name), amount_due: null, statement_date: cited(usDate(stmt), stmtLine), due_date: null, financial_assistance: fa, phone_numbers: phones, account_last4: hasAcct ? cited(last4(acct), acctLine) : null };
+  const truth: Extraction = { kind: "notice", sender: cited(h.name, h.name), hospital_name: cited(h.name, h.name), amount_due: null, statement_date: cited(usDate(stmt), stmtLine), due_date: null, financial_assistance: fa, phone_numbers: phones, account_last4: hasAcct ? cited(last4(acct), acctLine) : null, addressee };
   return { lines, blocks, truth, hospital: h, redacted };
 }
 
@@ -375,7 +376,7 @@ function noticeMsn(rng: Rng): Draft {
   const official = "The Official Summary of Your Medicare Claims from the Centers for Medicare & Medicaid Services";
   lines.push("Medicare Summary Notice", `for ${part}`, official);
   blocks.push(`<div class="head">${h1("Medicare Summary Notice")}${l(`for ${part}`)}${l(official)}</div>`);
-  const name = patientBlock(rng, h, "", lines, blocks, [], redacted);
+  const { name, addressee } = patientBlock(rng, h, "", lines, blocks, [], redacted);
   const notice = TODAY - rng.int(2, 40) * DAY, from = notice - 92 * DAY;
   const medicare = `Medicare Number XXXX-XXX-${pad2(rng.int(0, 99))}${pad2(rng.int(0, 99))}`;
   const dateLine = `Date of This Notice ${longDate(notice)}`;
@@ -390,7 +391,7 @@ function noticeMsn(rng: Rng): Draft {
   const help = "1-800-MEDICARE (1-800-633-4227)";
   lines.push("Your Deductible Status", ded, "Be Informed", online, help);
   blocks.push(l("Your Deductible Status", "title"), p(ded), l("Be Informed", "title"), p(online), l(help, "foot"));
-  const truth: Extraction = { kind: "notice", sender: cited("Centers for Medicare & Medicaid Services", official), hospital_name: cited(h.name, h.name), amount_due: cited(money(billed), totalLine), statement_date: cited(longDate(notice), dateLine), due_date: null, financial_assistance: null, phone_numbers: [cited("1-800-633-4227", help)], account_last4: cited(medicare.slice(-4), medicare) };
+  const truth: Extraction = { kind: "notice", sender: cited("Centers for Medicare & Medicaid Services", official), hospital_name: cited(h.name, h.name), amount_due: cited(money(billed), totalLine), statement_date: cited(longDate(notice), dateLine), due_date: null, financial_assistance: null, phone_numbers: [cited("1-800-633-4227", help)], account_last4: cited(medicare.slice(-4), medicare), addressee };
   return { lines, blocks, truth, hospital: h, redacted };
 }
 
@@ -410,7 +411,7 @@ function adFlyer(rng: Rng): Draft {
   const foot = [`Store hours: Monday to Saturday 7 AM to 9 PM, Sunday 8 AM to 7 PM.`, `Prices good through ${usDate(end)} while supplies last.`, `${store}, ${addr.street}, ${addr.cityLine}`];
   if (rng.chance(0.5)) { const ph = phone(rng), line = `Questions about an order: ${ph}`; phones.push(cited(ph, line)); foot.push(line); }
   lines.push(...foot); blocks.push(...foot.map((s) => l(s, "foot")));
-  const truth: Extraction = { kind: "ad", sender: cited(store, store), hospital_name: null, amount_due: null, statement_date: null, due_date: null, financial_assistance: null, phone_numbers: phones, account_last4: null };
+  const truth: Extraction = { kind: "ad", sender: cited(store, store), hospital_name: null, amount_due: null, statement_date: null, due_date: null, financial_assistance: null, phone_numbers: phones, account_last4: null, addressee: null };
   return { lines, blocks, truth, hospital: null };
 }
 
@@ -426,7 +427,7 @@ function otherPage(rng: Rng): Draft {
   const foot = [`All are welcome. Programs are free unless noted.`];
   if (rng.chance(0.6)) { const ph = phone(rng), line = `Questions: ${ph}`; phones.push(cited(ph, line)); foot.push(line); }
   lines.push(...foot); blocks.push(...foot.map((s) => l(s, "foot")));
-  const truth: Extraction = { kind: "other", sender: cited(org, org), hospital_name: null, amount_due: null, statement_date: null, due_date: null, financial_assistance: null, phone_numbers: phones, account_last4: null };
+  const truth: Extraction = { kind: "other", sender: cited(org, org), hospital_name: null, amount_due: null, statement_date: null, due_date: null, financial_assistance: null, phone_numbers: phones, account_last4: null, addressee: null };
   return { lines, blocks, truth, hospital: null };
 }
 

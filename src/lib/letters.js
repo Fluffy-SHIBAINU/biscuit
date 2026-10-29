@@ -65,6 +65,7 @@ export function statusLine(l) {
     case "waiting_hospital": return `${money ? money + ". " : ""}Waiting on the hospital's answer.`;
     case "tossed": return "Tossed.";
     case "unknown_number": return "Asks you to call a number nobody publishes. Sent to Ana.";
+    case "not_mine": return "Addressed to someone else. Ana told.";
     default: return [money, due ? `due ${due}` : null].filter(Boolean).join(", ") || "Read.";
   }
 }

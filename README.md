@@ -69,6 +69,7 @@ Six real public documents (30 facts; Riverside itemization, Western Reserve bill
 | 2026-10-26 | Design mocks and the written spec (no code). |
 | 2026-10-27 | The web app, API, tests, deploy; the second reader. |
 | 2026-10-28 | Kindred's reader: synthetic letters, the Glimmer 30B LoRA, the eval through the production verifier, the shadow seat; the mailbox collect mode and its calibration tools. |
+| 2026-10-29 | Round two of Kindred's reader (letters that lack things, redaction bars, three photo families, real pages labelled by agreement) and its measurement; a simulated user trial, 36 personas on the real spoken lines (`docs/2026-10-29-user-trial.md`), and what it changed: the name on the letter is read first and a mismatch stops the reading and tells Ana, collectors and "not a bill" are said plainly, the hand-off is a question Biscuit asks, the mailbox phone is optional in words as well as in fact. |
 | Not changed | Waive (https://waive.kindred-ai.dev): Biscuit reads its published policy sheets (`/atlas/{ccn}.json`) and sends Ana to its existing start page (`/start?ccn=`). Kindred ID: the verifier files under `server/kindred/` are copies of the shared verifiers. |
 
 ## Privacy

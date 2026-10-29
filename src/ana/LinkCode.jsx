@@ -34,7 +34,7 @@ export default function LinkCode() {
         {kind === "rosa" ? (
           <ol className="steps"><li>Open <strong>biscuit.kindred-ai.dev</strong> in Safari or Chrome.</li><li>Share, then <strong>Add to Home Screen</strong>, then open Biscuit from there (that's what lets it chime).</li><li>Type this code.</li></ol>
         ) : (
-          <ol className="steps"><li>Open <strong>biscuit.kindred-ai.dev/cam</strong> on any old phone with a camera.</li><li>Type this code, then allow the camera.</li><li>Keep it plugged in by a window that sees the mailbox.</li></ol>
+          <><ol className="steps"><li>Open <strong>biscuit.kindred-ai.dev/cam</strong> on any old phone with a camera.</li><li>Type this code, then allow the camera.</li><li>Keep it plugged in by a window that sees the mailbox.</li></ol><p className="lead small">No spare phone, or no window on the box? Skip this. Everything else works the same: {''}when the mail comes, Rosa taps Mail came on her own phone.</p></>
         )}
       </section>
       <div className="codebox">{code ? `${code.slice(0, 3)} ${code.slice(3)}` : "…"}</div>
@@ -45,7 +45,7 @@ export default function LinkCode() {
       ) : (
         <button type="button" className="btn ana" onClick={fresh}>New code</button>
       )}
-      <button type="button" className="btn ana" onClick={() => navigate(kind === "rosa" ? "/ana/link?kind=cam" : "/ana")}>{kind === "rosa" ? "Skip to the mailbox phone" : "Skip for now"}</button>
+      <button type="button" className="btn ana" onClick={() => navigate(kind === "rosa" ? "/ana/link?kind=cam" : "/ana")}>{kind === "rosa" ? "Skip to the mailbox phone" : "Skip this, no spare phone"}</button>
       <p className="foot">The code works once and dies in ten minutes. Three wrong tries on the phone: make a new one here.</p>
     </main>
   );

@@ -31,13 +31,40 @@ export function printedForm(quote: string, value: string): string | null {
 }
 
 /** Spoken lines from verified facts only, in the spec's order. A number never comes from outside a verified quote. */
-export function composeReading(facts: Fact[], kind: LetterKind): string[] {
+const TITLES = new Set(["mr", "mrs", "ms", "miss", "dr", "sr", "jr", "the"]);
+const nameTokens = (s: string) => normalize(s).toLowerCase().replace(/[^a-z ]+/g, " ").split(" ").filter((t) => t && !TITLES.has(t));
+
+/** The same person: one name's words are all in the other's (initials match a first letter), or the last names match with the same first letter. */
+export function sameName(a: string, b: string): boolean {
+  const ta = nameTokens(a), tb = nameTokens(b);
+  if (!ta.length || !tb.length) return false;
+  const [short, long] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
+  const fits = (t: string) => long.some((u) => u === t || (t.length === 1 && u.startsWith(t)));
+  if (short.every(fits)) return true;
+  return ta[ta.length - 1] === tb[tb.length - 1] && ta[0][0] === tb[0][0];
+}
+
+/** A sender that is another company writing about a hospital account, not one of the hospital's own departments. */
+export function isCollector(sender: string): boolean {
+  return /\b(recover\w*|collect\w*|receivables?|credit|bureau|agency|associates|portfolio|asset|account management|llc|inc\.?)\b/i.test(sender) && !/\b(patient|hospital|medical|health|clinic|billing department|business office)\b/i.test(sender);
+}
+
+export type ReadingOptions = { seniorName?: string | null; notABill?: boolean };
+
+export function composeReading(facts: Fact[], kind: LetterKind, opts: ReadingOptions = {}): string[] {
   const v = new Map<string, Fact>();
   for (const f of facts) if (f.verified && !v.has(f.field)) v.set(f.field, f);
   const lines: string[] = [];
-  const from = v.get("hospital_name") ?? v.get("sender");
-  lines.push(from ? `This is from ${normalize(from.value)}.` : "I can't see who sent this.");
-  lines.push(KIND_LINE[kind] ?? KIND_LINE.other);
+  const addressee = v.get("addressee");
+  if (addressee && opts.seniorName && !sameName(addressee.value, opts.seniorName)) return [`This is addressed to ${normalize(addressee.value)}, not to you.`, "I'll stop here and tell Ana."];
+  if (addressee) lines.push(`This is addressed to ${normalize(addressee.value)}.`);
+  const hospital = v.get("hospital_name"), sender = v.get("sender");
+  const from = hospital ?? sender;
+  if (!from) lines.push("I can't see who sent this.");
+  else if (hospital && sender && isCollector(sender.value) && !valuesAgree("sender", sender.value, hospital.value)) lines.push(`This is from ${normalize(sender.value)}, about your ${normalize(hospital.value)} account.`);
+  else lines.push(`This is from ${normalize(from.value)}.`);
+  lines.push(opts.notABill && kind === "bill" ? "It looks like a statement." : KIND_LINE[kind] ?? KIND_LINE.other);
+  if (opts.notABill) lines.push("It says this is not a bill.");
   const amount = v.get("amount_due");
   if (amount) {
     const money = moneyFromQuote(amount.quote, amount.value);
@@ -55,6 +82,7 @@ export function composeReading(facts: Fact[], kind: LetterKind): string[] {
 }
 
 import type { SheetSummary } from "./waive.js";
+import { valuesAgree } from "./agree.js";
 
 export const MEDICARE_NUMBER = "18006334227";
 const phoneDigits = (s: string) => s.replace(/\D/g, "").replace(/^1(\d{10})$/, "$1");
@@ -71,7 +99,7 @@ export function unknownNumber(facts: Fact[], sheet: SheetSummary | null, kind: L
 
 /** The offer, spoken: the hospital's own rule with its number, then "The hospital decides.", then the question. No estimate is promised. */
 export function composeOffer(sheet: SheetSummary | null, _answers: Record<string, string>): string[] {
-  if (!sheet?.freeCare) return ["I can send this to Ana."];
+  if (!sheet?.freeCare) return ["Shall I send this to Ana?"];
   return [
     `${sheet.hospital} gives free care to households at or below ${sheet.freeCare.maxFpl} percent of the federal poverty level.`,
     "The hospital decides.",

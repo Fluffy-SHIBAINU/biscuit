@@ -13,6 +13,8 @@ export type Extraction = {
   financial_assistance: { value: boolean; quote: string } | null;
   phone_numbers: { value: string; quote: string }[];
   account_last4: Cited;
+  /** Whose name the letter is addressed to, as printed: the first thing Biscuit says, and the reason it stops when it is not Rosa's. */
+  addressee: Cited;
 };
 
 export type ChatTransport = (body: Record<string, unknown>) => Promise<any>;
@@ -40,8 +42,9 @@ export const EXTRACTION_SCHEMA = {
     financial_assistance: { type: ["object", "null"], properties: { value: { type: "boolean" }, quote: { type: "string" } }, required: ["value", "quote"], additionalProperties: false },
     phone_numbers: { type: "array", items: { type: "object", properties: { value: { type: "string" }, quote: { type: "string" } }, required: ["value", "quote"], additionalProperties: false } },
     account_last4: cited,
+    addressee: cited,
   },
-  required: ["kind", "sender", "hospital_name", "amount_due", "statement_date", "due_date", "financial_assistance", "phone_numbers", "account_last4"],
+  required: ["kind", "sender", "hospital_name", "amount_due", "statement_date", "due_date", "financial_assistance", "phone_numbers", "account_last4", "addressee"],
   additionalProperties: false,
 };
 
@@ -90,6 +93,7 @@ export function normalizeExtraction(raw: any): Extraction {
     financial_assistance: fa && typeof fa === "object" && typeof fa.quote === "string" ? { value: Boolean(fa.value), quote: fa.quote } : null,
     phone_numbers: Array.isArray(raw?.phone_numbers) ? raw.phone_numbers.map(citedOf).filter((x: Cited): x is NonNullable<Cited> => x !== null) : [],
     account_last4: citedOf(raw?.account_last4),
+    addressee: citedOf(raw?.addressee),
   };
 }
 

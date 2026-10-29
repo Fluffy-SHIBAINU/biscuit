@@ -23,9 +23,7 @@ export default function Offer() {
     if (!r) { navigate("/"); return; }
     (async () => {
       await speakAndKeep(lines);
-      if (mode === "unknown") patchLetter(r.id, { status: "unknown_number", needsReview: true }).catch(() => {});
-      if (mode === "send") patchLetter(r.id, { needsReview: true }).catch(() => {});
-      if (!alive.current || s.buttonsMode || !(mode === "offer" || mode === "ad")) return;
+      if (!alive.current || s.buttonsMode || !(mode === "offer" || mode === "ad" || mode === "send" || mode === "unknown")) return;
       try {
         const { blob, spoke } = await listen();
         const text = spoke ? await transcribe(blob) : "";

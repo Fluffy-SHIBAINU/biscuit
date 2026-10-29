@@ -7,7 +7,7 @@ import { frameCheck } from "../frame.js";
 import { detect, LETTER_PROMPT, type Detection, type SamPrompt } from "../meta/sam.js";
 import { extractFacts, transcribeLetter } from "../meta/spark.js";
 import { fireworksReaderFor, readerModel } from "../fireworks/spark.js";
-import { composeOffer, composeReading, unknownNumber } from "../compose.js";
+import { composeOffer, composeReading, sameName, unknownNumber } from "../compose.js";
 import { matchHospital, statesFromText } from "../hospitals.js";
 import { fetchSheet, type SheetSummary } from "../waive.js";
 import { attempt, READ_TIMEOUT_MS, type Reader, type ReadOutcome } from "../read.js";
@@ -87,12 +87,16 @@ export function letterRoutes(deps: { auth: MiddlewareHandler<AuthVars>; spark?: 
       }
       // A matched hospital's own bill is never "unknown number"; the rule is for letters from nobody on record.
       const unknown = hospital ? false : unknownNumber(gate.facts, sheet, extraction.kind);
-      const lines = composeReading(gate.facts.filter((f) => f.spoken), extraction.kind);
-      if (gate.differLine) lines.push(gate.differLine);
+      // Whose name is on it comes first; a letter addressed to someone else is named, not read, and Ana is told.
+      const addressee = gate.facts.find((f) => f.field === "addressee" && f.spoken);
+      const mismatch = Boolean(addressee && home.seniorName && !sameName(addressee.value, home.seniorName));
+      const notABill = /\bnot a bill\b/i.test(transcription);
+      const lines = composeReading(gate.facts.filter((f) => f.spoken), extraction.kind, { seniorName: home.seniorName, notABill });
+      if (gate.differLine && !mismatch) lines.push(gate.differLine);
       const readers = outcomes.map(({ name, label, status, ms, error }) => ({ name, ...(label ? { label } : {}), status, ms, ...(error ? { error } : {}) }));
       const eventId = await deps.events.record(home.id, c.var.device.id, "letter_read", {
         kind: extraction.kind, readBy: gate.readBy, readers: readers.map(({ name, label, status, ms }) => ({ name, ...(label ? { label } : {}), status, ms })),
-        agreed: gate.facts.filter((f) => f.agreement === "agreed").length, differ: gate.checks.length,
+        agreed: gate.facts.filter((f) => f.agreement === "agreed").length, differ: gate.checks.length, mismatch,
       });
       if (shadowRun) {
         // The shadow's reading is compared with the spoken reader's and logged for Ana; nothing it read reaches Rosa.
@@ -104,9 +108,9 @@ export function letterRoutes(deps: { auth: MiddlewareHandler<AuthVars>; spark?: 
         }).catch(() => undefined));
       }
       return c.json({
-        transcription, facts: gate.facts, kind: extraction.kind, sender: read.senderName, hospital, sheet, unknownNumber: unknown,
+        transcription, facts: gate.facts, kind: extraction.kind, sender: read.senderName, hospital, sheet, unknownNumber: unknown, mismatch,
         readBy: gate.readBy, readers, checks: gate.checks, lines,
-        offerLines: unknown ? ["This asks you to call a number I don't know. I'm sending it to Ana."] : extraction.kind === "bill" ? composeOffer(sheet, {}) : [],
+        offerLines: mismatch ? [] : unknown ? ["This asks you to call a number I don't know. Shall I tell Ana?"] : extraction.kind === "bill" ? composeOffer(sheet, {}) : [],
       });
     });
 }

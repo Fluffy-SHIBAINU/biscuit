@@ -30,7 +30,7 @@ export default function Letter() {
       const jpeg = await grabJpeg(video.current, 2000, 2_000_000);
       speak(["I've got it. One moment while I read."]);
       const r = await readLetter(jpeg);
-      const entry = { id: crypto.randomUUID(), readAt: new Date().toISOString(), kind: r.kind, sender: r.sender, facts: r.facts, transcription: r.transcription, hospital: r.hospital, status: "read", readBy: r.readBy, checks: r.checks || [], readers: r.readers || [] };
+      const entry = { id: crypto.randomUUID(), readAt: new Date().toISOString(), kind: r.kind, sender: r.sender, facts: r.facts, transcription: r.transcription, hospital: r.hospital, status: r.mismatch ? "not_mine" : "read", needsReview: Boolean(r.mismatch), readBy: r.readBy, checks: r.checks || [], readers: r.readers || [] };
       store.set((s) => ({ docket: [entry, ...s.docket], lastReading: { ...r, id: entry.id }, lookRequest: s.lookRequest && s.lookRequest.sender === r.sender ? null : s.lookRequest }));
       if (store.get().household?.shareLetters !== false) postLetter(summaryOf(entry)).catch(() => {});
       navigate("/reading");

@@ -60,7 +60,7 @@ export default function Reading() {
         {r.facts.map((f, i) => <Fact key={i} f={f} readBy={r.readBy} />)}
       </section>
       <div className="spacer" />
-      <button type="button" className="btn big" onClick={() => { stopSpeaking(); navigate("/question"); }}>Go on</button>
+      <button type="button" className="btn big" onClick={() => { stopSpeaking(); navigate(r.mismatch ? "/docket" : "/question"); }}>{r.mismatch ? "All right" : "Go on"}</button>
       <button type="button" className="btn secondary" onClick={() => { stopSpeaking(); navigate("/"); }}>Done</button>
       <p className="foot">{r.readBy === "twice" ? "Every number Biscuit said is inside a quote from the page, read the same way by two readers." : "Every number Biscuit said is inside a quote from the page."} The page's words stay on this phone.</p>
     </main>

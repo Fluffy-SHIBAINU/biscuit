@@ -5,7 +5,7 @@ import { SHADOW_LABEL, shadowReader } from "../server/routes/letter.js";
 
 const fx = (name: string) => JSON.parse(readFileSync(new URL(`./fixtures/meta/${name}.json`, import.meta.url), "utf8"));
 const jpeg = readFileSync(new URL("./fixtures/letter-synthetic.jpg", import.meta.url));
-const linked = async () => ({ device: { id: "d1", householdId: "h1", kind: "rosa" } as any, household: { id: "h1", called: "Rosa", language: "en" } as any });
+const linked = async () => ({ device: { id: "d1", householdId: "h1", kind: "rosa" } as any, household: { id: "h1", seniorName: "Rosa Alvarez", called: "Rosa", language: "en" } as any });
 const events = { count: async () => 0, record: async () => 1 };
 const post = (app: any, path: string, bytes: Uint8Array) => {
   const form = new FormData();
@@ -32,7 +32,7 @@ test("read route returns the transcription and verified facts", async () => {
   expect(body.facts.find((f: any) => f.field === "amount_due")).toMatchObject({ value: "$1,850.00", verified: true });
   expect(body.hospital).toMatchObject({ ccn: "220071", name: "Massachusetts General Hospital" });
   expect(body.sheet).toBeNull();
-  expect(body.offerLines).toEqual(["I can send this to Ana."]);
+  expect(body.offerLines).toEqual(["Shall I send this to Ana?"]);
   expect(body.lines[0]).toBe("This is from Massachusetts General Hospital.");
 });
 
@@ -56,7 +56,7 @@ test("a letter from nobody on record that asks for a call is flagged", async () 
   const body = await (await post(app, "/api/biscuit/letter/read", new Uint8Array(jpeg))).json();
   expect(body.hospital).toBeNull();
   expect(body.unknownNumber).toBe(true);
-  expect(body.offerLines[0]).toMatch(/^This asks you to call a number I don't know/);
+  expect(body.offerLines).toEqual(["This asks you to call a number I don't know. Shall I tell Ana?"]);
 });
 
 test("frame checks have their own budget", async () => {
@@ -197,3 +197,25 @@ test("without a shadow reader nothing is deferred", async () => {
   expect((await post(app, "/api/biscuit/letter/read", new Uint8Array(jpeg))).status).toBe(200);
   expect(pending).toEqual([]);
 });
+
+// From the simulated user trial: whose name is on the letter comes first, and a stranger's letter is not read out.
+test("a letter addressed to Rosa is read with her name first; one addressed to someone else stops and tells Ana", async () => {
+  const transcription: string = fx("spark-transcribe").choices[0].message.content;
+  const extraction = { ...JSON.parse(fx("spark-extract").choices[0].message.content), addressee: { value: "Rosa Alvarez", quote: "Guarantor: Rosa Alvarez" } };
+  const { calls, events: ev } = recorder();
+  const app = createApp({ lookup: linked, events: ev, sheet: async () => null, spark: { transcribe: async () => transcription, extract: async () => extraction } });
+  const body = await (await post(app, "/api/biscuit/letter/read", new Uint8Array(jpeg))).json();
+  expect(body.lines[0]).toBe("This is addressed to Rosa Alvarez.");
+  expect(body.lines[1]).toBe("This is from Massachusetts General Hospital.");
+  expect(body.mismatch).toBe(false);
+  expect(calls[0].data.mismatch).toBe(false);
+
+  const other = { ...extraction, addressee: { value: "Mabel Thompson", quote: "Guarantor: Mabel Thompson" } };
+  const app2 = createApp({ lookup: linked, events: recorder().events, sheet: async () => null, spark: { transcribe: async () => transcription.replace("Guarantor: Rosa Alvarez", "Guarantor: Mabel Thompson"), extract: async () => other } });
+  const body2 = await (await post(app2, "/api/biscuit/letter/read", new Uint8Array(jpeg))).json();
+  expect(body2.mismatch).toBe(true);
+  expect(body2.lines).toEqual(["This is addressed to Mabel Thompson, not to you.", "I'll stop here and tell Ana."]);
+  expect(body2.offerLines).toEqual([]);
+  expect(body2.facts.find((f: any) => f.field === "amount_due")).toMatchObject({ verified: true });
+});
+

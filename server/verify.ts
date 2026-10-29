@@ -20,7 +20,7 @@ export function verifyQuote(quote: string, transcription: string): boolean {
   return q.length > 0 && normalize(transcription).includes(q);
 }
 
-const CITED_FIELDS = ["sender", "hospital_name", "amount_due", "statement_date", "due_date", "account_last4"] as const;
+const CITED_FIELDS = ["addressee", "sender", "hospital_name", "amount_due", "statement_date", "due_date", "account_last4"] as const;
 
 export function verifyFacts(x: Extraction, transcription: string): Fact[] {
   const facts: Fact[] = [];
