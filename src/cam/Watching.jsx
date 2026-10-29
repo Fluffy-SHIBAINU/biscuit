@@ -6,6 +6,7 @@ import { speak } from "../lib/speech.js";
 import { store, useStore } from "../lib/store.js";
 import { MotionDetector } from "./motion.js";
 import { applyGate, frameFields, shouldSend, startWatcher } from "./watch.js";
+import { labelWords, pct } from "../lib/clips.js";
 import { regionStyle, videoSizeOf } from "./box.js";
 
 const clock = () => new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -86,7 +87,9 @@ export default function Watching() {
             setSentToday(r.callsToday ?? 0);
             applyGate(detector, r.gate);
             if (r.kept) setKept((k) => k + 1);
-            setEvents((e) => [{ at: clock(), text: r.seen ? `“${r.seen}” · mail seen · Rosa's phone told` : "movement · nothing recognised" }, ...e].slice(0, 6));
+            // What the send found, and, when clips are kept, what Biscuit thinks the clip shows.
+            const thinks = r.guess ? ` · Biscuit thinks ${labelWords(r.guess.label)} ${pct(r.guess.confidence)}` : "";
+            setEvents((e) => [{ at: clock(), text: `${r.seen ? `“${r.seen}” · mail seen · Rosa's phone told` : "movement · nothing recognised"}${thinks}` }, ...e].slice(0, 6));
             return r;
           } catch (err) {
             if (err?.status === 429 || err?.status === 409) setGate({ paused: true });

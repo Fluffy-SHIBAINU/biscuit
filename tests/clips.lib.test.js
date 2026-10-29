@@ -17,3 +17,24 @@ test("the result line says what the taps changed", () => {
   expect(tuningLine({ taps: 9, positives: 7, negatives: 2, floor: null, gate: 15.5, caught: 7, falseAlarms: 0 })).toBe("From your 9 taps: the usual score floor of 0.50 stays until 3 deliveries and 3 non-deliveries are tapped; 7 of 7 deliveries caught, no false alarms; the phone now needs more movement before it looks (15.5, was 12).");
   expect(tuningLine({ taps: 8, positives: 8, negatives: 0, floor: null, gate: 12, caught: 8, falseAlarms: 0 })).toBe("From your 8 taps: the usual score floor of 0.50 stays until 3 deliveries and 3 non-deliveries are tapped; 8 of 8 deliveries caught.");
 });
+
+// The guess on a card, and the second line: what the taps taught per prompt and what Biscuit classified itself.
+import { guessLine, learningLine, labelWords } from "../src/lib/clips.js";
+
+test("the guess on a card", () => {
+  expect(guessLine(null)).toBeNull();
+  expect(guessLine({ label: "carrier", confidence: 0.8 })).toBe("Biscuit thinks: Mail carrier · 80%");
+  expect(guessLine({ label: "nothing", confidence: 0.555 })).toBe("Biscuit thinks: Not mail · 56%");
+  expect(labelWords("other")).toBe("Someone else");
+  expect(labelWords("mail")).toBe("Mail carrier");
+});
+
+test("the second line says how the guesses did, what a prompt means here, which prompt needs more, and what Biscuit classified", () => {
+  expect(learningLine(null)).toBeNull();
+  expect(learningLine({ taps: 3 })).toBeNull();
+  const stat = (o) => ({ label: "carrier", learned: false, floor: null, fired: 0, agreed: 0, precision: null, ...o });
+  expect(learningLine({ taps: 20, prompts: { envelope: stat({ fired: 12, agreed: 11, precision: 11 / 12 }), none: stat({ label: "nothing", fired: 8, agreed: 6, precision: 0.75 }) } })).toBe("Biscuit's guess was right on 17 of 20 clips you checked.");
+  expect(learningLine({ taps: 20, prompts: { person: stat({ label: "carrier", learned: true, fired: 5, agreed: 4, precision: 0.8 }), "mail truck": stat({ floor: 0.7, fired: 4, agreed: 1, precision: 0.25 }) }, auto: { classified: 12, corrected: 1 } })).toBe("Biscuit's guess was right on 5 of 9 clips you checked; “person” at this box means the carrier; “mail truck” is often wrong here and now needs a score of 0.70; Biscuit classified 12 clips itself, 1 of them corrected by you.");
+  expect(learningLine({ taps: 9, prompts: { person: stat({ label: "nothing", learned: true, fired: 3, agreed: 3, precision: 1 }) }, auto: { classified: 1, corrected: 0 } })).toBe("Biscuit's guess was right on 3 of 3 clips you checked; “person” at this box means no mail; Biscuit classified 1 clip itself.");
+  expect(learningLine({ taps: 9, prompts: { envelope: stat() } })).toBeNull();
+});

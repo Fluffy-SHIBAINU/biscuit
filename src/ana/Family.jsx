@@ -4,7 +4,7 @@ import { cameraLine } from "../lib/camline.js";
 import { readerName } from "../lib/letters.js";
 import { navigate } from "../lib/navigate.js";
 import { pushSupported, subscribePush } from "../lib/push.js";
-import { ClipConsent, ClipStrip } from "./Clips.jsx";
+import { ClipCarousel, ClipConsent } from "./Clips.jsx";
 import MailTime from "./MailTime.jsx";
 import SignIn from "./SignIn.jsx";
 
@@ -75,7 +75,7 @@ export default function Family() {
             </div>
           ))}
         </section>
-        {(h.keepClips || camera.clips?.total > 0) && <ClipStrip household={h} camera={camera} onLabelled={load} />}
+        {(h.keepClips || camera.clips?.total > 0) && <ClipCarousel household={h} camera={camera} onLabelled={load} />}
         <div className="stack">
           <section className="card night">
             <span className="label night">Needs you</span>
@@ -104,7 +104,7 @@ export default function Family() {
           </section>
           <section className="card">
             <span className="label">Mailbox phone</span>
-            <div className="row"><span className={`pill ${camera.status === "online" ? "ok" : camera.status === "not_set" ? "warn" : "bad"}`}>{CAMERA_LINE[camera.status]}</span><span className="lead small">{cameraLine(camera, clock)}</span></div>
+            <div className="row wrap"><span className={`pill ${camera.status === "online" ? "ok" : camera.status === "not_set" ? "warn" : "bad"}`}>{CAMERA_LINE[camera.status]}</span>{(camera.clips?.attention > 0 || camera.clips?.classified > 0) && <span className="pill signal">{camera.clips.attention} to check · {camera.clips.classified} classified</span>}<span className="lead small">{cameraLine(camera, clock)}</span></div>
             <div className="row wrap">
               {camera.status === "paused" ? <button type="button" className="btn ana small" onClick={act("/cam/resume", "Watching again.")}>Resume watching</button> : camera.status !== "not_set" && <button type="button" className="btn ana small" onClick={act("/cam/pause", "Paused. Nothing leaves the mailbox phone until you resume.")}>Pause watching</button>}
               <button type="button" className="btn ana small" onClick={() => navigate("/ana/link?kind=cam")}>{camera.status === "not_set" ? "Set up a spare phone" : "Find the mailbox again"}</button>
