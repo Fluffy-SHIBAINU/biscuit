@@ -75,6 +75,14 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
       const rows = await getDb().update(cam).set({ paused: false }).where(eq(cam.householdId, c.var.household.id)).returning({ id: cam.householdId });
       return rows.length ? c.json({ ok: true }) : c.json({ error: "not_set" }, 404);
     })
+    .post("/cam/test/request", auth, async (c) => {
+      // Ana asks the mailbox phone to run the envelope test; the phone learns it at its next heartbeat and its result closes the request.
+      const h = c.var.household;
+      const [row] = await getDb().select({ id: cam.householdId }).from(cam).where(eq(cam.householdId, h.id)).limit(1);
+      if (!row) return c.json({ error: "not_set" }, 404);
+      await events.record(h.id, null, "cam_test_requested");
+      return c.json({ ok: true });
+    })
     .post("/family/letter/:id/again", auth, async (c) => {
       const db = getDb();
       const h = c.var.household;
@@ -138,7 +146,7 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
       const now = new Date();
       const devices = await db.select().from(device).where(eq(device.householdId, h.id));
       const letters = await db.select().from(letter).where(and(eq(letter.householdId, h.id), ne(letter.status, "hidden"))).orderBy(desc(letter.readAt)).limit(50);
-      const events = await db.select().from(event).where(and(eq(event.householdId, h.id), inArray(event.kind, ["said", "mail_seen", "mail_due", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack", "consent", "look_requested"]))).orderBy(desc(event.at)).limit(60);
+      const events = await db.select().from(event).where(and(eq(event.householdId, h.id), inArray(event.kind, ["said", "mail_seen", "mail_due", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack", "consent", "look_requested", "cam_test_run"]))).orderBy(desc(event.at)).limit(60);
       const [camRow] = await db.select().from(cam).where(eq(cam.householdId, h.id)).limit(1);
       const [clipCount] = await db.select({ total: sql<string>`count(*) filter (where jsonb_array_length(${camSample.frames}) > 0)`, pending: sql<string>`count(*) filter (where jsonb_array_length(${camSample.frames}) > 0 and ${camSample.label} is null)` }).from(camSample).where(eq(camSample.householdId, h.id));
       const [lastRead] = await db.select().from(event).where(and(eq(event.householdId, h.id), eq(event.kind, "letter_read"))).orderBy(desc(event.at)).limit(1);

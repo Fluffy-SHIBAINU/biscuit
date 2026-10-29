@@ -1,4 +1,4 @@
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 import type { AuthVars } from "../auth.js";
@@ -6,10 +6,10 @@ import { allowSamCall, bestDetection, COLLECT_PROMPTS, collectAllowed, regionSou
 import { CLIP_ATTACH_WINDOW_MS, CLIP_FRAMES, DEFAULT_FLOOR, MAX_CLIP_FRAME_BYTES } from "../clips.js";
 import type { Events } from "../events.js";
 import { MAIL_PAYLOAD, sendPush } from "../push.js";
-import { getDb } from "../db.js";
+import { getDb, type Db } from "../db.js";
 import { detect } from "../meta/sam.js";
 import type { SamDeps } from "./letter.js";
-import { cam, camSample, device, type Region } from "../schema.js";
+import { cam, camSample, device, event, type Region } from "../schema.js";
 
 export const MAX_FIND_BYTES = 600_000;
 export const MAX_FRAME_BYTES = 300_000;
@@ -19,6 +19,15 @@ const dataUrl = (f: Buffer) => `data:image/jpeg;base64,${f.toString("base64")}`;
 function validRegion(r: any): r is Region {
   const ok = (n: unknown) => typeof n === "number" && n >= 0 && n <= 1;
   return r && ok(r.x) && ok(r.y) && ok(r.w) && ok(r.h) && r.w > 0 && r.h > 0 && r.x + r.w <= 1.001 && r.y + r.h <= 1.001;
+}
+
+/** Ana's request for the envelope test reaches the phone for ten minutes, until the phone reports a result. */
+export const TEST_REQUEST_WINDOW_MS = 10 * 60_000;
+/** True when the newest test event in the window is Ana's request rather than a result from the phone. */
+export async function testRequested(db: Db, householdId: string, now = new Date()): Promise<boolean> {
+  const since = new Date(now.getTime() - TEST_REQUEST_WINDOW_MS);
+  const [latest] = await db.select({ kind: event.kind }).from(event).where(and(eq(event.householdId, householdId), inArray(event.kind, ["cam_test_requested", "cam_test_run"]), gt(event.at, since))).orderBy(desc(event.at)).limit(1);
+  return latest?.kind === "cam_test_requested";
 }
 
 type CamRow = typeof cam.$inferSelect;
@@ -156,7 +165,10 @@ export function camRoutes(deps: { auth: MiddlewareHandler<AuthVars>; sam?: SamDe
       const result = b?.result === "works" ? "works" : b?.result === "pending" ? "pending" : null;
       if (!result) return c.json({ error: "bad_result" }, 400);
       const rows = await getDb().update(cam).set({ testStatus: result }).where(eq(cam.householdId, c.var.household.id)).returning({ id: cam.householdId });
-      return rows.length ? c.json({ ok: true }) : c.json({ error: "not_set" }, 409);
+      if (!rows.length) return c.json({ error: "not_set" }, 409);
+      // The result is information: Ana's page lists it, and it closes any request she made. Nothing waits on it.
+      await deps.events.record(c.var.household.id, c.var.device.id, "cam_test_run", { result });
+      return c.json({ ok: true });
     })
     .post("/cam/heartbeat", deps.auth, async (c) => {
       const b = await c.req.json().catch(() => ({}));
@@ -164,7 +176,9 @@ export function camRoutes(deps: { auth: MiddlewareHandler<AuthVars>; sam?: SamDe
       const charging = typeof b?.charging === "boolean" ? b.charging : null;
       await getDb().update(device).set({ lastSeenAt: new Date(), battery, charging }).where(eq(device.id, c.var.device.id));
       const [row] = await getDb().select({ paused: cam.paused, testStatus: cam.testStatus, gate: cam.gate }).from(cam).where(eq(cam.householdId, c.var.household.id)).limit(1);
-      // The gate the taps set and whether Ana keeps clips: the phone raises or lowers its motion threshold and says on screen what is kept.
-      return c.json({ ok: true, paused: row?.paused ?? false, testStatus: row?.testStatus ?? null, gate: row?.gate ?? null, clips: Boolean(c.var.household.keepClips) });
+      // The gate the taps set, whether Ana keeps clips, and whether she asked for the envelope test: the phone raises or lowers its
+      // motion threshold, says on screen what is kept, and opens the test when asked.
+      const requested = await testRequested(getDb(), c.var.household.id);
+      return c.json({ ok: true, paused: row?.paused ?? false, testStatus: row?.testStatus ?? null, gate: row?.gate ?? null, clips: Boolean(c.var.household.keepClips), testRequested: requested });
     });
 }

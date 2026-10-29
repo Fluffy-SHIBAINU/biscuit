@@ -20,9 +20,9 @@ test("the recommended set is the prompts that catch at least half the mail, scor
   expect(r.set.prompts).toEqual(["envelope"]);
   expect(r.set.hitRate).toBe(0.75);
   expect(r.set.falseRate).toBe(0);
-  expect(r.current).toMatchObject({ prompts: ["mail carrier", "mailbox door", "envelope"], floor: 0.5 });
+  expect(r.current).toMatchObject({ prompts: ["mail carrier", "person", "mail truck", "envelope"], floor: 0.5 });
   expect(r.current.hitRate).toBe(0.75);
-  expect(r.current.falseRate).toBe(0.25);
+  expect(r.current.falseRate).toBe(0);
 });
 
 test("the motion gate rises to the level nine in ten mail events still clear, never below today's twelve", () => {

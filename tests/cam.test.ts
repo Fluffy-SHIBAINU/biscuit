@@ -44,3 +44,15 @@ test("allowSamCall", () => {
   expect(allowSamCall({ samCallsToday: 800, samDay: "2026-10-26" }, "2026-10-27")).toBe(true);
   expect(allowSamCall({ samCallsToday: 0, samDay: null }, "2026-10-27")).toBe(true);
 });
+
+import { COLLECT_PROMPTS, TEST_PROMPTS, WATCH_PROMPTS } from "../server/cam.js";
+
+// The watcher asks for the carrier first, then a person at the box, the mail truck, an envelope; the chime fires on any.
+// The envelope test still asks for the lid. The collect set keeps every watch prompt and the old lid prompt, once each.
+test("the watch prompts and their order", () => {
+  expect(WATCH_PROMPTS).toEqual(["mail carrier", "person", "mail truck", "envelope"]);
+  expect(TEST_PROMPTS).toEqual(["mailbox door"]);
+  for (const p of WATCH_PROMPTS) expect(COLLECT_PROMPTS).toContain(p);
+  expect(COLLECT_PROMPTS).toContain("mailbox door");
+  expect(new Set(COLLECT_PROMPTS).size).toBe(COLLECT_PROMPTS.length);
+});

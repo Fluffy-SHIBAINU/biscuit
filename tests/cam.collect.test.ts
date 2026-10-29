@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { createApp } from "../server/app.js";
-import { COLLECT_PROMPTS, collectAllowed } from "../server/cam.js";
+import { COLLECT_PROMPTS, collectAllowed, WATCH_PROMPTS } from "../server/cam.js";
 
 // Collect mode: a household whose owner is named by CAM_COLLECT_OWNER may keep its mailbox frames for calibration.
 // The phone asks for it on every send; nothing is kept for anyone else, and nothing is kept when the phone does not ask.
@@ -61,7 +61,7 @@ test("without the owner's permission nothing is kept and the normal path runs", 
   body = await (await post(mk({ CAM_COLLECT_OWNER: "ana@example.org" }), {})).json();
   expect(body.kept).toBeUndefined();
   expect(kept).toEqual([]);
-  expect(prompts.length).toBe(12);
+  expect(prompts.length).toBe(2 * 2 * WATCH_PROMPTS.length);
 });
 
 test("a sample that cannot be kept does not break the watch", async () => {
@@ -72,5 +72,5 @@ test("a sample that cannot be kept does not break the watch", async () => {
   });
   const res = await post(app, { collect: "1" });
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ seen: null, callsToday: 9, gate: null, kept: false });
+  expect(await res.json()).toEqual({ seen: null, callsToday: COLLECT_PROMPTS.length + WATCH_PROMPTS.length, gate: null, kept: false });
 });

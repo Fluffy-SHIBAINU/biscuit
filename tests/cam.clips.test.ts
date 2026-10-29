@@ -27,27 +27,27 @@ function harness(o: { household?: Record<string, unknown>; cam?: Record<string, 
 }
 
 test("an opted-in household: the watch prompts are scored on the first frame, a clip row is kept, and the reply carries its id and the gate", async () => {
-  const h = harness({ household: { keepClips: true }, cam: { gate: 14 }, scores: { envelope: 0.71, "mailbox door": 0.2 } });
+  const h = harness({ household: { keepClips: true }, cam: { gate: 14 }, scores: { envelope: 0.71, person: 0.2 } });
   const res = await h.frames({ level: "17.5" });
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ seen: "envelope", callsToday: 3, gate: 14, clipId: 41 });
+  expect(await res.json()).toEqual({ seen: "envelope", callsToday: 4, gate: 14, clipId: 41 });
   expect(h.prompts).toEqual([...WATCH_PROMPTS]);
   expect(h.kept).toHaveLength(1);
-  expect(h.kept[0]).toEqual({ householdId: "h1", deviceId: "d1", test: false, clip: true, level: 17.5, seen: "envelope", scores: { "mail carrier": 0, "mailbox door": 0.2, envelope: 0.71 }, frames: [] });
+  expect(h.kept[0]).toEqual({ householdId: "h1", deviceId: "d1", test: false, clip: true, level: 17.5, seen: "envelope", scores: { "mail carrier": 0, person: 0.2, "mail truck": 0, envelope: 0.71 }, frames: [] });
 });
 
 test("the household's own floor decides what counts as seen", async () => {
   const h = harness({ household: { keepClips: true }, cam: { floor: 0.8 }, scores: { envelope: 0.71 } });
-  expect(await (await h.frames()).json()).toEqual({ seen: null, callsToday: 6, gate: null, clipId: 41 });
+  expect(await (await h.frames()).json()).toEqual({ seen: null, callsToday: 8, gate: null, clipId: 41 });
   expect(h.kept[0]).toMatchObject({ seen: null, scores: { envelope: 0.71 } });
-  const low = harness({ household: { keepClips: true }, cam: { floor: 0.4 }, scores: { "mailbox door": 0.45 } });
-  expect(await (await low.frames()).json()).toMatchObject({ seen: "mailbox door", callsToday: 3 });
+  const low = harness({ household: { keepClips: true }, cam: { floor: 0.4 }, scores: { person: 0.45 } });
+  expect(await (await low.frames()).json()).toMatchObject({ seen: "person", callsToday: 4 });
 });
 
 test("a household that has not opted in keeps nothing: the usual cascade runs and the reply has no clip id", async () => {
   const h = harness();
-  expect(await (await h.frames()).json()).toEqual({ seen: null, callsToday: 6, gate: null });
-  expect(h.prompts).toEqual(["mail carrier", "mail carrier", "mailbox door", "mailbox door", "envelope", "envelope"]);
+  expect(await (await h.frames()).json()).toEqual({ seen: null, callsToday: 8, gate: null });
+  expect(h.prompts).toEqual(["mail carrier", "mail carrier", "person", "person", "mail truck", "mail truck", "envelope", "envelope"]);
   expect(h.kept).toEqual([]);
 });
 
@@ -85,5 +85,5 @@ test("a clip row that cannot be kept does not break the watch", async () => {
   const h = harness({ household: { keepClips: true }, keepFails: true, scores: { envelope: 0.7 } });
   const res = await h.frames();
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ seen: "envelope", callsToday: 3, gate: null });
+  expect(await res.json()).toEqual({ seen: "envelope", callsToday: 4, gate: null });
 });

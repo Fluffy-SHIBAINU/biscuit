@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { eq } from "drizzle-orm";
 import { createApp } from "../server/app.js";
+import { WATCH_PROMPTS } from "../server/cam.js";
 import { retireClips } from "../server/clips.js";
 import { getDb } from "../server/db.js";
 import { cam, camSample, device, household } from "../server/schema.js";
@@ -41,7 +42,7 @@ describe.skipIf(!process.env.DATABASE_URL)("clips on Ana's page", () => {
     await db.insert(device).values({ householdId, kind: "cam", tokenHash: t.hash, label: "sill" });
     await insert("fresh1", { level: 18, seen: "envelope", scores: { envelope: 0.8, "mailbox door": 0.2, "mail carrier": 0 } });
     await insert("fresh2", { level: 25, seen: null, scores: { envelope: 0.3, "mailbox door": 0.1, "mail carrier": 0 } });
-    await insert("fresh3", { level: 14, seen: "mailbox door", scores: { envelope: 0.1, "mailbox door": 0.7, "mail carrier": 0 } });
+    await insert("fresh3", { level: 14, seen: "person", scores: { envelope: 0.1, person: 0.7, "mail carrier": 0 } });
     await insert("empty", { frames: [] });
     await insert("old", { at: ago(8) });
     await insert("collect", { clip: false, at: ago(9), frames: [frame(1), frame(2), frame(3)] });
@@ -60,14 +61,14 @@ describe.skipIf(!process.env.DATABASE_URL)("clips on Ana's page", () => {
     expect(fam.household.keepClips).toBe(true);
     expect(fam.household.keepClipsAt).toBeTruthy();
     const hb = await (await app.request("/api/biscuit/cam/heartbeat", { method: "POST", headers: { ...camHeaders(), "content-type": "application/json" }, body: JSON.stringify({ battery: 80, charging: true }) })).json();
-    expect(hb).toEqual({ ok: true, paused: false, testStatus: "works", gate: null, clips: true });
+    expect(hb).toEqual({ ok: true, paused: false, testStatus: "works", gate: null, clips: true, testRequested: false });
     expect((await req("/api/biscuit/family/clips", { method: "PATCH", body: "{}" })).status).toBe(400);
   });
 
   test("the strip lists clips with frames, unlabelled first and newest first, and leaves skipped ones out", async () => {
     let clips = await json("/api/biscuit/family/clips");
     expect(clips.map((c: any) => c.id)).toEqual([ids.fresh3, ids.fresh2, ids.fresh1, ids.old, ids.collect]);
-    expect(clips[0]).toMatchObject({ seen: "mailbox door", level: 14, label: null, labelledAt: null, frames: [frame(1), frame(2)], scores: { "mailbox door": 0.7 } });
+    expect(clips[0]).toMatchObject({ seen: "person", level: 14, label: null, labelledAt: null, frames: [frame(1), frame(2)], scores: { person: 0.7 } });
     expect(await patch(`/api/biscuit/family/clip/${ids.old}`, { label: "skip" })).toMatchObject({ ok: true, id: ids.old, label: "skip", tuning: { taps: 0 } });
     clips = await json("/api/biscuit/family/clips");
     expect(clips.map((c: any) => c.id)).toEqual([ids.fresh3, ids.fresh2, ids.fresh1, ids.collect]);
@@ -80,14 +81,14 @@ describe.skipIf(!process.env.DATABASE_URL)("clips on Ana's page", () => {
     const res = await app.request("/api/biscuit/cam/frames", { method: "POST", headers: camHeaders(), body: form });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toMatchObject({ seen: "envelope", callsToday: 3, gate: null });
+    expect(body).toMatchObject({ seen: "envelope", callsToday: WATCH_PROMPTS.length, gate: null });
     expect(body.clipId).toBeGreaterThan(0);
     ids.e2e = body.clipId;
     expect(await (await app.request(`/api/biscuit/cam/clip/${ids.e2e}`, { method: "POST", headers: camHeaders(), body: small(2) })).json()).toEqual({ ok: true, frames: 2 });
     // Filled once: a second burst for the same clip is refused.
     expect((await app.request(`/api/biscuit/cam/clip/${ids.e2e}`, { method: "POST", headers: camHeaders(), body: small(1) })).status).toBe(404);
     const clips = await json("/api/biscuit/family/clips");
-    expect(clips[0]).toMatchObject({ id: ids.e2e, seen: "envelope", level: 16, label: null, scores: { "mail carrier": 0, "mailbox door": 0, envelope: 0.7 } });
+    expect(clips[0]).toMatchObject({ id: ids.e2e, seen: "envelope", level: 16, label: null, scores: { "mail carrier": 0, person: 0, "mail truck": 0, envelope: 0.7 } });
     expect(clips[0].frames).toHaveLength(2);
   });
 

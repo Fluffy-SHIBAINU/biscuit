@@ -4,7 +4,7 @@ export const DEVICE_KINDS = ["rosa", "cam", "ana"] as const;
 export type DeviceKind = (typeof DEVICE_KINDS)[number];
 export const EVENT_KINDS = [
   "mail_seen", "mail_due", "mail_tapped", "letter_read", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack",
-  "cam_online", "cam_offline", "cam_battery", "cam_paused", "consent", "said", "delete", "look_requested", "shadow_read",
+  "cam_online", "cam_offline", "cam_battery", "cam_paused", "cam_test_requested", "cam_test_run", "consent", "said", "delete", "look_requested", "shadow_read",
 ] as const;
 export const READ_BY = ["single", "twice", "once"] as const;
 export type ReadBy = (typeof READ_BY)[number];
