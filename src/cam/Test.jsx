@@ -6,6 +6,7 @@ import { speak } from "../lib/speech.js";
 import { store, useStore } from "../lib/store.js";
 import { frameFields, startWatcher } from "./watch.js";
 import { MotionDetector } from "./motion.js";
+import { regionStyle, videoSizeOf } from "./box.js";
 
 const WINDOW_MS = 60_000;
 
@@ -63,7 +64,7 @@ export default function Test() {
     <main className="screen">
       <div className="row between"><span className="label">Camera · 4 of 4 · {phase === "works" ? "works" : phase === "missed" ? "not seen" : "test"}</span><span className="label plain">Spare phone</span></div>
       <h1 className="display small">{phase === "waiting" ? "Open the mailbox, then close it." : phase === "works" ? "Works." : phase === "pending" ? "Set anyway. Test pending." : "I didn't see the lid move."}</h1>
-      <div className="frame"><video ref={video} autoPlay playsInline muted />{region && <div className="region" style={{ left: `${region.x * 100}%`, top: `${region.y * 100}%`, width: `${region.w * 100}%`, height: `${region.h * 100}%` }} />}</div>
+      <div className="frame"><video ref={video} autoPlay playsInline muted />{region && <div className="region" style={regionStyle(region, videoSizeOf(video.current))} />}</div>
       <section className="card">
         <span className="label">{phase === "waiting" ? `Watching the box · ${left} s` : phase === "missed" ? "60 seconds · no change" : "What happened"}</span>
         {log.length ? log.map((l, i) => <p key={i} className="said">{l}</p>) : <p className="lead small muted">{phase === "missed" ? "Motion didn't reach the box region, or glare hid the lid. Move the phone closer to the glass, tilt it down to lose the glare." : "Waiting for the lid."}</p>}

@@ -98,3 +98,12 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .film img { height: 84px; flex: none; border-radius: 4px; border: 1px solid var(--rule); background: var(--night); }
 .clip.fact { gap: 8px; }
 .label.plain.signal { color: var(--signal); }
+/* The box drawn by hand: the pad takes every touch over the preview, the box dims what it leaves out, the corners carry handles. */
+.drawpad { position: absolute; inset: 0; touch-action: none; user-select: none; -webkit-user-select: none; cursor: crosshair; }
+.region.editing { box-shadow: 0 0 0 2px rgba(34,211,238,.25), 0 0 0 9999px rgba(8,13,24,.45); pointer-events: none; }
+.region.editing.live { background: rgba(34,211,238,.1); }
+.handle { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: var(--night-signal); border: 3px solid var(--night); box-shadow: 0 0 10px rgba(34,211,238,.6); }
+/* Two buttons side by side: each grows to its words. */
+.row.pair { align-items: stretch; }
+.row.pair .btn { height: auto; min-height: 76px; min-width: 0; padding: 12px 10px; font-size: 19px; line-height: 1.2; }
+.handle.nw { left: 0; top: 0; } .handle.ne { left: 100%; top: 0; } .handle.sw { left: 0; top: 100%; } .handle.se { left: 100%; top: 100%; }

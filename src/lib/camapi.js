@@ -7,7 +7,8 @@ export async function findMailbox(jpegBlob, point) {
   else form.set("prompt", "mailbox");
   return api("/cam/find", { method: "POST", form });
 }
-export const setRegion = (region) => api("/cam/region", { method: "POST", json: { region } });
+/** The watched box and who set it: "sam" for SAM's find (padded), "hand" for a box the person drew (as drawn). */
+export const setRegion = (region, source) => api("/cam/region", { method: "POST", json: { region, source } });
 export const heartbeat = (battery, charging) => api("/cam/heartbeat", { method: "POST", json: { battery, charging } });
 export const sendFrames = (blobs, test = false, extra = {}) => {
   const form = new FormData();

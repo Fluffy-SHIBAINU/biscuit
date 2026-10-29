@@ -1,14 +1,17 @@
 import React, { useEffect, useRef, useState } from "react";
 import { grabJpeg, openCamera, stopCamera } from "../lib/camera.js";
 import { findMailbox, padRegion, setRegion } from "../lib/camapi.js";
-import { navigate } from "../lib/navigate.js";
+import { navigate, useSearch } from "../lib/navigate.js";
 import { speak } from "../lib/speech.js";
 import { store, useStore } from "../lib/store.js";
+import { regionStyle, roundBox, videoSizeOf } from "./box.js";
+import BoxEditor from "./BoxEditor.jsx";
 
-const STEP = { denied: "Camera · 1 of 4 · can't see", place: "Camera · 2 of 4 · live", looking: "Camera · 3 of 4 · looking", found: "Camera · 3 of 4 · found", wrong: "Camera · 3 of 4 · tap the box", notfound: "Camera · 3 of 4 · not found", set: "Camera · 3 of 4 · set" };
+const STEP = { denied: "Camera · 1 of 4 · can't see", place: "Camera · 2 of 4 · live", looking: "Camera · 3 of 4 · looking", found: "Camera · 3 of 4 · found", wrong: "Camera · 3 of 4 · tap the box", notfound: "Camera · 3 of 4 · not found", draw: "Camera · 3 of 4 · draw the box", set: "Camera · 3 of 4 · set" };
 
 export default function Setup() {
   const s = useStore();
+  const search = useSearch();
   const video = useRef(null);
   const stream = useRef(null);
   const [phase, setPhase] = useState("opening");
@@ -18,13 +21,27 @@ export default function Setup() {
   const [looks, setLooks] = useState(0);
   const [wrongs, setWrongs] = useState(0);
   const [tap, setTap] = useState(null);
+  // The box drawn by hand, in the video's coordinates; whether it adjusts a box already in use (from the Watching screen); the box saved.
+  const [drawn, setDrawn] = useState(null);
+  const [adjusting, setAdjusting] = useState(false);
+  const [back, setBack] = useState("place");
+  const [saved, setSaved] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  // ?draw=1 (the Watching screen's "Adjust the box") opens on the editor with the box in use.
+  const wantsDraw = new URLSearchParams(search).get("draw") === "1";
+
+  // Where the editor's second button leads: back to the live view, back to SAM's box, or (adjusting) back to watching.
+  function startDraw(initial, { adjust = false, from = "place" } = {}) {
+    setDrawn(initial); setAdjusting(adjust); setBack(from); setTap(null); setFailed(false); setPhase("draw");
+  }
 
   async function open() {
     setPhase("opening");
     try {
       stream.current = await openCamera(video.current);
       try { await navigator.wakeLock?.request("screen"); } catch { /* optional */ }
-      setPhase("place");
+      if (wantsDraw) startDraw(s.cam?.region || null, { adjust: Boolean(s.cam?.region) }); else setPhase("place");
     } catch {
       const n = refusals + 1;
       setRefusals(n); store.set({ camRefusals: n });
@@ -45,13 +62,22 @@ export default function Setup() {
     }
   }
 
-  async function confirm() {
-    const region = padRegion(box);
-    await setRegion(region);
-    store.set({ cam: { region, setAt: new Date().toISOString(), testStatus: "pending" } });
-    setPhase("set");
-    speak(["Set. I'll watch only this box."]);
+  // The box as it will be watched: SAM's find padded by a fifth, or the person's own drawing as drawn. Either way the
+  // envelope test is pending again. The rest of the camera settings on this phone (collect mode) stay.
+  async function save(region, source) {
+    setBusy(true); setFailed(false);
+    try {
+      await setRegion(region, source);
+      store.set((st) => ({ cam: { ...(st.cam || {}), region, regionSource: source, setAt: new Date().toISOString(), testStatus: "pending", skipped: false } }));
+      setSaved(region);
+      setPhase("set");
+      speak(["Set. I'll watch only this box."]);
+    } catch {
+      setFailed(true);
+    } finally { setBusy(false); }
   }
+  const confirm = () => save(padRegion(box), "sam");
+  const useDrawn = () => save(roundBox(drawn), "hand");
 
   function onTap(e) {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -59,7 +85,9 @@ export default function Setup() {
     setTap(p);
   }
 
-  const overlay = box && (phase === "found" || phase === "set") ? { left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.w * 100}%`, height: `${box.h * 100}%` } : null;
+  const shown = phase === "found" ? box : phase === "set" ? saved : null;
+  const overlay = shown ? regionStyle(shown, videoSizeOf(video.current)) : null;
+  const drawMyself = (label = "Draw the box myself") => <button type="button" className="btn secondary" onClick={() => startDraw(null)}>{label}</button>;
 
   if (phase === "denied") return (
     <main className="screen">
@@ -78,23 +106,27 @@ export default function Setup() {
     <main className="screen">
       <div className="row between"><span className="label">{STEP[phase] || "Camera"}</span><span className="label plain">Spare phone</span></div>
       <h1 className="display small">
-        {phase === "place" ? "Prop it on the windowsill, facing the mailbox." : phase === "looking" ? "Hold still. Looking for the mailbox." : phase === "found" ? "Is this your mailbox?" : phase === "wrong" ? "Tap your mailbox in the picture." : phase === "notfound" ? "I couldn't find a mailbox from here." : phase === "set" ? "Set. Now the envelope test." : "Opening the camera."}
+        {phase === "place" ? "Prop it on the windowsill, facing the mailbox." : phase === "looking" ? "Hold still. Looking for the mailbox." : phase === "found" ? "Is this your mailbox?" : phase === "wrong" ? "Tap your mailbox in the picture." : phase === "notfound" ? "I couldn't find a mailbox from here." : phase === "draw" ? (drawn ? "Drag a corner to resize. Drag inside to move." : "Draw a box around the mailbox.") : phase === "set" ? "Set. Now the envelope test." : "Opening the camera."}
       </h1>
       <div className={`frame ${phase === "wrong" ? "tappable" : ""}`} onClick={phase === "wrong" ? onTap : undefined}>
         <video ref={video} autoPlay playsInline muted />
         {overlay && <div className="region" style={overlay} />}
+        {phase === "draw" && <BoxEditor initial={drawn} video={video} onChange={setDrawn} />}
         {tap && phase === "wrong" && <div className="tapmark" style={{ left: `${tap.x * 100}%`, top: `${tap.y * 100}%` }} />}
         {phase === "looking" && <div className="scanline" />}
       </div>
       {phase === "found" && <section className="card status"><span className="pill signal">Observed</span><p className="lead small">A mailbox shape in the picture{score ? ` (confidence ${Math.round(score * 100)}%)` : ""}. Biscuit will watch only this box.</p></section>}
       {phase === "notfound" && <section className="card"><span className="label">Try this</span><p className="lead small">Move the phone so the box sits near the middle, and closer: as big as a coin on this screen. Glare on the glass: tilt the phone down a little.</p></section>}
+      {phase === "draw" && <section className="card"><span className="label">{drawn ? "Your box" : "Draw it"}</span><p className="lead small">{drawn ? "Leave a little room around the mailbox: the lid and the carrier's hand should fit inside. Drag outside the box to draw a new one." : "Put one finger on the picture and drag a box around the mailbox, with a little room around it: the lid and the carrier's hand should fit inside."}</p></section>}
+      {failed && <p className="lead small bad">Couldn't save the box. Check the connection and try again.</p>}
       <div className="spacer" />
-      {phase === "place" && <button type="button" className="btn" onClick={() => find()}>Find my mailbox</button>}
-      {phase === "found" && <><button type="button" className="btn" onClick={confirm}>Yes, that's it</button><button type="button" className="btn secondary" onClick={() => { setWrongs(wrongs + 1); setTap(null); setPhase("wrong"); }}>No, that's not it</button></>}
-      {phase === "wrong" && <><button type="button" className="btn" disabled={!tap} onClick={() => find(tap)}>Use what I tapped</button>{wrongs >= 2 ? <p className="lead small">Wrong twice: move the phone so only Rosa's box is in the picture, then look again.</p> : null}<button type="button" className="btn secondary" onClick={() => setPhase("place")}>Look again</button></>}
-      {phase === "notfound" && <>{looks < 2 && <button type="button" className="btn" onClick={() => find()}>Look again <span className="hint">try 2 of 2</span></button>}<button type="button" className="btn secondary" onClick={() => { setTap(null); setPhase("wrong"); }}>Tap where it is</button>{looks >= 2 && <button type="button" className="btn secondary" onClick={() => { store.set({ cam: { skipped: true } }); navigate("/cam/rest"); }}>Set the camera up later</button>}</>}
-      {phase === "set" && <button type="button" className="btn" onClick={() => navigate("/cam/test")}>Next: the envelope test</button>}
-      <p className="foot mono">{phase === "place" ? "One picture to SAM 3.1 with the word “mailbox” · ask you to confirm · remember only the box region" : "Pictures from the search are thrown away after the check. Once set, only the box region is ever looked at."}</p>
+      {phase === "place" && <><button type="button" className="btn" onClick={() => find()}>Find my mailbox</button>{drawMyself()}</>}
+      {phase === "found" && <><button type="button" className="btn" disabled={busy} onClick={confirm}>Yes, that's it</button><button type="button" className="btn secondary" onClick={() => { setWrongs(wrongs + 1); setTap(null); setPhase("wrong"); }}>No, that's not it</button><button type="button" className="btn secondary" onClick={() => startDraw(padRegion(box), { from: "found" })}>Adjust it by hand</button></>}
+      {phase === "wrong" && <><button type="button" className="btn" disabled={!tap} onClick={() => find(tap)}>Use what I tapped</button>{wrongs >= 2 ? <p className="lead small">Wrong twice: move the phone so only Rosa's box is in the picture, then look again.</p> : null}{drawMyself()}<button type="button" className="btn secondary" onClick={() => setPhase("place")}>Look again</button></>}
+      {phase === "notfound" && <>{looks < 2 && <button type="button" className="btn" onClick={() => find()}>Look again <span className="hint">try 2 of 2</span></button>}<button type="button" className="btn secondary" onClick={() => { setTap(null); setPhase("wrong"); }}>Tap where it is</button>{drawMyself()}{looks >= 2 && <button type="button" className="btn secondary" onClick={() => { store.set({ cam: { skipped: true } }); navigate("/cam/rest"); }}>Set the camera up later</button>}</>}
+      {phase === "draw" && <><button type="button" className="btn" disabled={!drawn || busy} onClick={useDrawn}>Use this box</button>{adjusting ? <button type="button" className="btn secondary" onClick={() => navigate("/cam")}>Keep the box as it is</button> : back === "found" ? <button type="button" className="btn secondary" onClick={() => setPhase("found")}>Back to what Biscuit found</button> : <button type="button" className="btn secondary" onClick={() => setPhase("place")}>Find it for me instead</button>}</>}
+      {phase === "set" && <><button type="button" className="btn" onClick={() => navigate("/cam/test")}>Next: the envelope test</button>{adjusting && <button type="button" className="btn secondary" onClick={() => navigate("/cam")}>Watch now, test later</button>}</>}
+      <p className="foot mono">{phase === "place" ? "One picture to SAM 3.1 with the word “mailbox” · ask you to confirm · remember only the box region" : phase === "draw" ? "Nothing is sent while you draw · the box is kept as you drew it, no padding · once set, only the box is ever looked at" : "Pictures from the search are thrown away after the check. Once set, only the box region is ever looked at."}</p>
     </main>
   );
 }
