@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { MAIL_TIMES, mailSourceLabel, mailTimeLabel, todaysMailLine } from "../src/lib/mailtime.js";
+import { MAIL_TIMES, mailSourceLabel, mailTimeLabel, mailTimeLine, todaysMailLine } from "../src/lib/mailtime.js";
 
 test("Ana picks from eight in the morning to six in the evening, on the hour", () => {
   expect(MAIL_TIMES).toHaveLength(11);
@@ -27,4 +27,12 @@ test("the small line under it says who is watching", () => {
   expect(mailSourceLabel({ hasCam: null, mailMinutes: null })).toBe("Seen by the mailbox phone · no pictures kept");
   expect(mailSourceLabel({ hasCam: false, mailMinutes: 780 })).toBe("No mailbox phone · Biscuit chimes about the usual time");
   expect(mailSourceLabel({ hasCam: false, mailMinutes: null })).toBe("No mailbox phone · tap below when the mail comes");
+});
+
+// The one line under the Mail Time card's title on Ana's page.
+test("mailTimeLine", () => {
+  expect(mailTimeLine(null)).toBe("No Chime Set");
+  expect(mailTimeLine(undefined)).toBe("No Chime Set");
+  expect(mailTimeLine(15 * 60)).toBe("Usual Mail Time 3 PM");
+  expect(mailTimeLine(9 * 60 + 30)).toBe("Usual Mail Time 9:30 AM");
 });

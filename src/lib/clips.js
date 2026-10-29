@@ -4,11 +4,11 @@
 
 /** The taps, in her words; the stored labels stay carrier, nothing, other (and skip). */
 export const TAPS = [
-  { label: "carrier", words: "The mail carrier" },
-  { label: "nothing", words: "A car or the wind" },
-  { label: "other", words: "Someone else" },
+  { label: "carrier", words: "The Mail Carrier" },
+  { label: "nothing", words: "A Car or the Wind" },
+  { label: "other", words: "Someone Else" },
 ];
-export const TAP_WORDS = { mail: "The mail carrier", carrier: "The mail carrier", nothing: "A car or the wind", other: "Someone else", skip: "Skipped" };
+export const TAP_WORDS = { mail: "The Mail Carrier", carrier: "The Mail Carrier", nothing: "A Car or the Wind", other: "Someone Else", skip: "Skipped" };
 const PHRASE = { mail: "the mail carrier", carrier: "the mail carrier", nothing: "a car or the wind", other: "someone else" };
 export const TUNE_MIN_TAPS = 8;
 export const DEFAULT_FLOOR = 0.5;
@@ -19,14 +19,19 @@ export const labelWords = (label) => TAP_WORDS[label] || label;
 export const labelPhrase = (label) => PHRASE[label] || label;
 export const pct = (c) => `${Math.round((Number(c) || 0) * 100)}%`;
 
-/** What SAM saw, in words: "the mail truck", "a person". */
+/** What SAM saw, in words: "the mail truck", "a person"; and the same for a Title Case line, "the Mail Truck". */
 const SEEN = { "mail carrier": "the mail carrier", person: "a person", "mail truck": "the mail truck", envelope: "an envelope", "mailbox door": "the mailbox door", hand: "a hand" };
+const SEEN_TITLE = { "mail carrier": "the Mail Carrier", person: "a Person", "mail truck": "the Mail Truck", envelope: "an Envelope", "mailbox door": "the Mailbox Door", hand: "a Hand" };
 export const seenWords = (prompt) => SEEN[prompt] || prompt;
+export const seenTitle = (prompt) => SEEN_TITLE[prompt] || (prompt ? prompt.charAt(0).toUpperCase() + prompt.slice(1) : prompt);
 
-/** Biscuit's guess on a card, for the daughter: a sentence, no number. Null without a guess. */
+/** The label mid-line in Title Case: "the Mail Carrier". */
+const PHRASE_TITLE = { mail: "the Mail Carrier", carrier: "the Mail Carrier", nothing: "a Car or the Wind", other: "Someone Else" };
+
+/** Biscuit's guess on a card, for the daughter: one Title Case line, no number. Null without a guess. */
 export function guessLine(g) {
   if (!g || !g.label) return null;
-  return `Biscuit thinks it was ${labelPhrase(g.label)}.`;
+  return `Biscuit Thinks It Was ${PHRASE_TITLE[g.label] || g.label}`;
 }
 
 /** The same guess for Details: label, confidence, the prompt it rests on, the version, and what became of it. */
@@ -40,15 +45,15 @@ export function guessDetail(g) {
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
-/** The line under the clip on stage, for the daughter. */
+/** The line under the clip on stage, for the daughter, in Title Case. */
 export function clipLine(c, group) {
   if (group === "attention") {
-    if (c.guess?.rejected) return "You said that wasn't right. What was it?";
+    if (c.guess?.rejected) return "Not Right · What Was It?";
     const line = guessLine(c.guess);
     if (line) return line;
-    return c.seen ? `Something moved; Biscuit saw ${seenWords(c.seen)}. What was it?` : "Something moved. What was it?";
+    return c.seen ? `Something Moved · Biscuit Saw ${seenTitle(c.seen)}` : "Something Moved · What Was It?";
   }
-  return `${labelWords(c.label)}. ${c.labelledBy === "biscuit" ? "Biscuit sorted this one." : "You said so."}`;
+  return `${labelWords(c.label)} · ${c.labelledBy === "biscuit" ? "Sorted by Biscuit" : "Your Tap"}`;
 }
 
 /** The same clip for Details: id, level, what SAM saw, every score, the guess, who labelled it. */
@@ -65,21 +70,20 @@ export function clipDetail(c) {
 }
 
 /**
- * The summary a daughter reads at the top of the card: how the box stands (clips to check, nothing moved, all sorted),
- * then, when there is something to say, how Biscuit is doing in one warm line. No percentages, floors or prompt names.
+ * The summary a daughter reads at the top of the card, in Title Case: how the box stands (clips to check, nothing moved,
+ * all sorted), then, when there is something to say, how Biscuit is doing in one warm line. No percentages, floors or
+ * prompt names; the numbers are in Details.
  */
 export function clipsSummary({ keepClips, movementsToday, attention, classified, tuning }) {
   const lines = [];
-  if (attention > 0) lines.push(`${plural(attention, "clip", "clips")} to check. Who was it?`);
-  else if (!keepClips && !classified) lines.push("Clips are off. Turn them on below and Biscuit will keep a short clip of each movement for you to check.");
-  else if (movementsToday > 0) lines.push("All of today's movements are sorted. Nothing to check.");
-  else lines.push("Nothing has moved at the box today.");
-  const stats = Object.values(tuning?.prompts || {});
-  const checked = stats.reduce((n, s) => n + (s.fired || 0), 0);
-  const right = stats.reduce((n, s) => n + (s.agreed || 0), 0);
-  if (tuning?.auto?.classified > 0) lines.push("Biscuit now sorts the sure ones by itself; you can still say Not right.");
-  else if (checked > 0) lines.push(`Good job! Biscuit is getting smarter: right ${plural(right, "time", "times")} out of ${checked}.`);
-  return { title: "Who was at the box", lines };
+  if (attention > 0) lines.push(`${plural(attention, "Clip", "Clips")} to Check`);
+  else if (!keepClips && !classified) lines.push("Clips Off");
+  else if (movementsToday > 0) lines.push("All Sorted");
+  else lines.push("Nothing Has Moved Today");
+  const checked = Object.values(tuning?.prompts || {}).reduce((n, s) => n + (s.fired || 0), 0);
+  if (tuning?.auto?.classified > 0) lines.push("Biscuit Sorts the Sure Ones Itself");
+  else if (checked > 0) lines.push("Good Job! Biscuit Is Getting Smarter");
+  return { title: "Who Was at the Box", lines };
 }
 
 /** One line for Details: what her taps did to the floor and gate. Null with no taps. */

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import Details from "../components/Details.jsx";
 import { api } from "../lib/api.js";
 import { navigate, useSearch } from "../lib/navigate.js";
 import MailTime from "./MailTime.jsx";
@@ -25,29 +26,31 @@ export default function LinkCode() {
     return () => clearInterval(t);
   }, [expiresAt, kind]);
 
-  const phone = kind === "cam" ? "the spare phone" : "Rosa's phone";
+  const phone = kind === "cam" ? "the Spare Phone" : "Rosa's Phone";
   return (
     <main className="screen ana">
-      <span className="label">Set up · {kind === "cam" ? "3 of 3 · mailbox phone" : "2 of 3 · Rosa's phone"}</span>
-      <h1 className="display small">{kind === "cam" ? "Make a spare phone the mailbox camera." : "Link Rosa's phone."}</h1>
+      <span className="label">Set Up · {kind === "cam" ? "3 of 3 · Mailbox Phone" : "2 of 3 · Rosa's Phone"}</span>
+      <h1 className="display small">{kind === "cam" ? "Make a Spare Phone the Mailbox Camera" : "Link Rosa's Phone"}</h1>
       <section className="card">
         <span className="label">On {phone}</span>
         {kind === "rosa" ? (
-          <ol className="steps"><li>Open <strong>biscuit.kindred-ai.dev</strong> in Safari or Chrome.</li><li>Share, then <strong>Add to Home Screen</strong>, then open Biscuit from there (that's what lets it chime).</li><li>Type this code.</li></ol>
+          <ol className="steps"><li>Open <strong>biscuit.kindred-ai.dev</strong> in Safari or Chrome.</li><li>Share, then <strong>Add to Home Screen</strong>, then open Biscuit from there.</li><li>Type this code.</li></ol>
         ) : (
-          <><ol className="steps"><li>Open <strong>biscuit.kindred-ai.dev/cam</strong> on any old phone with a camera.</li><li>Type this code, then allow the camera.</li><li>Keep it plugged in by a window that sees the mailbox.</li></ol><p className="lead small">No spare phone, or no window on the box? Skip this. Tell Biscuit when the mail usually comes and he chimes {''}Rosa's own phone about then; she can also tap Mail came on her phone any time.</p><MailTime /></>
+          <><ol className="steps"><li>Open <strong>biscuit.kindred-ai.dev/cam</strong> on any old phone with a camera.</li><li>Type this code, then allow the camera.</li><li>Keep it plugged in by a window that sees the mailbox.</li></ol><MailTime /></>
         )}
       </section>
       <div className="codebox">{code ? `${code.slice(0, 3)} ${code.slice(3)}` : "…"}</div>
-      <p className="label plain">{linked ? `${phone[0].toUpperCase() + phone.slice(1)} linked.` : left === "expired" ? "Code expired. Make a new one." : `Good for ${left || "10:00"} · waiting for ${phone}…`}</p>
+      <p className="lead small">{linked ? `${phone[0].toUpperCase() + phone.slice(1)} Linked` : left === "expired" ? "Code Expired · Make a New One" : `Good for ${left || "10:00"} · Waiting for ${phone}`}</p>
       <div className="spacer" />
       {linked ? (
-        kind === "rosa" ? <button type="button" className="btn ana primary" onClick={() => navigate("/ana/link?kind=cam")}>Next: the mailbox phone</button> : <button type="button" className="btn ana primary" onClick={() => navigate("/ana")}>Open your page</button>
+        kind === "rosa" ? <button type="button" className="btn ana primary" onClick={() => navigate("/ana/link?kind=cam")}>Next: The Mailbox Phone</button> : <button type="button" className="btn ana primary" onClick={() => navigate("/ana")}>Open Your Page</button>
       ) : (
-        <button type="button" className="btn ana" onClick={fresh}>New code</button>
+        <button type="button" className="btn ana" onClick={fresh}>New Code</button>
       )}
-      <button type="button" className="btn ana" onClick={() => navigate(kind === "rosa" ? "/ana/link?kind=cam" : "/ana")}>{kind === "rosa" ? "Skip to the mailbox phone" : "Skip this, no spare phone"}</button>
-      <p className="foot">The code works once and dies in ten minutes. Three wrong tries on the phone: make a new one here.</p>
+      <button type="button" className="btn ana" onClick={() => navigate(kind === "rosa" ? "/ana/link?kind=cam" : "/ana")}>{kind === "rosa" ? "Skip to the Mailbox Phone" : "Skip This, No Spare Phone"}</button>
+      <Details>
+        <span className="label plain">{kind === "rosa" ? "Opening Biscuit from the Home Screen icon is what lets it chime. " : "No spare phone, or no window on the box? Skip this. Set the usual mail time above and Biscuit chimes Rosa's own phone about then; she can also tap Mail came on her phone any time. "}The code works once and dies in ten minutes. Three wrong tries on the phone: make a new one here.</span>
+      </Details>
     </main>
   );
 }

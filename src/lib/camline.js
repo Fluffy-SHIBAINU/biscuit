@@ -12,10 +12,10 @@ export function cameraLine(camera, clock) {
   ].filter(Boolean).join(" · ");
 }
 
-/** The one line a daughter reads beside the pill: what the phone is doing now, in her words; the numbers stay in cameraLine, under Details. */
+/** The one Title Case line a daughter reads beside the pill: what the phone is doing now; the numbers stay in cameraLine, under Details. */
 export function cameraSummary(camera, household, clock) {
-  if (camera.status === "not_set") return "No spare phone yet.";
-  if (camera.status === "paused") return "Paused. Nothing leaves the phone until you resume.";
-  if (camera.status === "offline") return "Offline. Check that the phone is open on its page and plugged in.";
-  return [`Watching the box.`, camera.lastMotionAt ? `Last movement ${clock(camera.lastMotionAt)}.` : "Nothing has moved yet.", household?.keepClips ? "Keeping short clips for you." : null].filter(Boolean).join(" ");
+  if (camera.status === "not_set") return "No Spare Phone Yet";
+  if (camera.status === "paused") return "Paused";
+  if (camera.status === "offline") return "Offline";
+  return ["Watching the Box", camera.lastMotionAt ? `Last Movement ${clock(camera.lastMotionAt)}` : "Nothing Has Moved Yet", household?.keepClips ? "Keeping Short Clips" : null].filter(Boolean).join(" · ");
 }

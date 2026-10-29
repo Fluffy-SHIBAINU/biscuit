@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Details from "../components/Details.jsx";
 import { api } from "../lib/api.js";
 import { navigate } from "../lib/navigate.js";
 
@@ -16,17 +17,19 @@ export default function WhoFor() {
   }
   return (
     <main className="screen ana">
-      <span className="label">Set up · 1 of 3</span>
-      <h1 className="display small">Who does Biscuit help?</h1>
-      <label className="field"><span>Their name</span><input value={f.seniorName} onChange={set("seniorName")} placeholder="Rosa Alvarez" /></label>
-      <label className="field"><span>What Biscuit calls them</span><input value={f.called} onChange={set("called")} placeholder="Rosa" /></label>
-      <label className="field"><span>You are their</span><select value={f.relation} onChange={set("relation")}><option value="daughter">Daughter</option><option value="son">Son</option><option value="spouse">Spouse</option><option value="grandchild">Grandchild</option><option value="friend">Friend</option><option value="caregiver">Caregiver</option></select></label>
-      <label className="field"><span>They live</span><select value={f.living} onChange={set("living")}><option value="alone">Alone</option><option value="with_family">With family</option><option value="with_care">With care</option></select></label>
+      <span className="label">Set Up · 1 of 3</span>
+      <h1 className="display small">Who Does Biscuit Help?</h1>
+      <label className="field"><span>Their Name</span><input value={f.seniorName} onChange={set("seniorName")} placeholder="Rosa Alvarez" /></label>
+      <label className="field"><span>What Biscuit Calls Them</span><input value={f.called} onChange={set("called")} placeholder="Rosa" /></label>
+      <label className="field"><span>You Are Their</span><select value={f.relation} onChange={set("relation")}><option value="daughter">Daughter</option><option value="son">Son</option><option value="spouse">Spouse</option><option value="grandchild">Grandchild</option><option value="friend">Friend</option><option value="caregiver">Caregiver</option></select></label>
+      <label className="field"><span>They Live</span><select value={f.living} onChange={set("living")}><option value="alone">Alone</option><option value="with_family">With Family</option><option value="with_care">With Care</option></select></label>
       <label className="field"><span>Language</span><select value={f.language} onChange={set("language")}><option value="en">English</option></select></label>
       {error && <p className="lead small bad">{error}</p>}
       <div className="spacer" />
       <button type="button" className="btn ana primary" disabled={!f.seniorName.trim()} onClick={next}>Next</button>
-      <p className="foot">Only the name is required. Nothing here goes to a hospital.</p>
+      <Details>
+        <span className="label plain">Only the name is required. Nothing here goes to a hospital.</span>
+      </Details>
     </main>
   );
 }

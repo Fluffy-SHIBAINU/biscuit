@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { MAIL_TIMES, browserTz, mailTimeLabel } from "../lib/mailtime.js";
 
-/** "The mail usually comes about": Ana's pick, saved as she changes it. On days the box is not seen, Rosa's own phone chimes then. */
+/** The usual mail hour: Ana's pick, saved as she changes it. On days the box is not seen, Rosa's own phone chimes then; the card's Details say so. */
 export default function MailTime({ initial, onSaved }) {
   const [value, setValue] = useState(initial ?? null);
   const [note, setNote] = useState("");
@@ -15,15 +15,15 @@ export default function MailTime({ initial, onSaved }) {
     setValue(minutes);
     try {
       await api("/family/mail-time", { method: "PATCH", json: { minutes, tz: browserTz() } });
-      setNote(minutes == null ? "No chime." : `Rosa's phone chimes about ${mailTimeLabel(minutes)} on days the box isn't seen.`);
+      setNote("Saved.");
       if (onSaved) onSaved(minutes);
     } catch { setNote("Couldn't save that. Try again."); }
   }
   return (
     <label className="field">
-      <span>The mail usually comes about</span>
+      <span>Usual Time</span>
       <select value={value ?? ""} onChange={change} aria-label="When the mail usually comes">
-        <option value="">Not set · no chime</option>
+        <option value="">Not Set · No Chime</option>
         {MAIL_TIMES.map((m) => <option key={m} value={m}>{mailTimeLabel(m)}</option>)}
       </select>
       {note && <span className="label plain">{note}</span>}

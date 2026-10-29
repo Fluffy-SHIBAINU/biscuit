@@ -8,6 +8,7 @@ import { MotionDetector } from "./motion.js";
 import { applyGate, frameFields, shouldSend, startWatcher } from "./watch.js";
 import { labelWords, pct } from "../lib/clips.js";
 import { regionStyle, videoSizeOf } from "./box.js";
+import Details from "../components/Details.jsx";
 
 const clock = () => new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
@@ -107,12 +108,12 @@ export default function Watching() {
 
   return (
     <main className="screen night dim">
-      <div className="row between"><span className="label night">Biscuit · mailbox phone</span><span className={`pill ${paused ? "warn" : "ok"}`}>{paused ? "Paused" : status === "watching" ? "Watching" : "Starting"}</span></div>
-      <h1 className="display small">Watching Rosa's mailbox.</h1>
+      <div className="row between"><span className="label night">Biscuit · Mailbox Phone</span><span className={`pill ${paused ? "warn" : "ok"}`}>{paused ? "Paused" : status === "watching" ? "Watching" : "Starting"}</span></div>
+      <h1 className="display small">Watching Rosa's Mailbox.</h1>
       <div className="frame"><video ref={video} autoPlay playsInline muted />{region && <div className="region" style={regionStyle(region, videoSizeOf(video.current))} />}</div>
-      <p className="lead small">{paused && battery !== null && battery < 10 ? "Plug me in. Watching pauses under 10%." : paused ? "Paused from Ana's page, or today's limit reached." : `${events.length ? `Last movement ${events[0].at}.` : "Nothing has moved yet."} ${clips ? "Keeping short clips for Ana." : collect ? "Collecting frames for calibration." : "Frames are checked and gone."}`}</p>
-      <details className="details night" open={collect}>
-        <summary className="label night">Details</summary>
+      <p className="lead small">{paused && battery !== null && battery < 10 ? "Paused · Plug Me In" : paused ? "Paused" : `${events.length ? `Last Movement ${events[0].at}` : "Nothing Has Moved Yet"} · ${clips ? "Keeping Short Clips for Ana" : collect ? "Collecting Frames" : "Frames Checked and Gone"}`}</p>
+      <p className="lead small muted">Keep This Page Open and Plugged In</p>
+      <Details night open={collect}>
         <section className="card night">
           <div className="row between"><span>Plugged in</span><span className="label plain">{battery === null ? "unknown" : `${charging ? "yes" : "no"} · ${battery}%`}</span></div>
           <div className="row between"><span>Frames sent today</span><span className="label plain">{sentToday} · {collect ? `${kept} kept for calibration` : clips ? `${clipsKept} ${clipsKept === 1 ? "clip" : "clips"} kept for Ana` : "all discarded"}</span></div>
@@ -121,14 +122,14 @@ export default function Watching() {
         </section>
         {clips && <section className="card night"><span className="pill signal">Clips</span><p className="lead small">Keeping short clips of the box for Ana to check: when something moves, 8 small frames of the box region over 6 seconds go to her page. Ana turned this on; she can turn it off there.</p></section>}
         {collect && <section className="card night"><span className="pill warn">Collecting</span><p className="lead small">Calibration mode, this phone only: each movement's frames and SAM's scores are kept for Ana's household to label. Open this page with ?collect=0 to stop.</p></section>}
-        <p className="lead small">{collect ? "Something moves at the box: 3 frames go to SAM 3.1 and are kept with their scores." : clips ? "Something moves at the box: 3 frames go to SAM 3.1, and a 6-second clip of the box is kept for Ana to check." : "Nothing moves, nothing is sent. Something moves at the box: 3 frames go to SAM 3.1, then they're gone. Checks again 5 seconds after a sighting, more slowly after false alarms."}</p>
-      </details>
+        <p className="lead small">{paused && battery !== null && battery < 10 ? "Watching pauses under 10% on battery. " : paused ? "Paused from Ana's page, or today's limit reached. " : ""}{collect ? "Something moves at the box: 3 frames go to SAM 3.1 and are kept with their scores." : clips ? "Something moves at the box: 3 frames go to SAM 3.1, and a 6-second clip of the box is kept for Ana to check." : "Nothing moves, nothing is sent. Something moves at the box: 3 frames go to SAM 3.1, then they're gone. Checks again 5 seconds after a sighting, more slowly after false alarms."}</p>
+        <p className="foot mono">Closing this page stops the camera; Rosa's phone still works, she can tap Mail came.</p>
+      </Details>
       <div className="spacer" />
       <div className="row pair">
-        <button type="button" className="btn secondary night" onClick={() => navigate("/cam/setup?draw=1")}>Adjust the box</button>
+        <button type="button" className="btn secondary night" onClick={() => navigate("/cam/setup?draw=1")}>Adjust the Box</button>
       </div>
-      <button type="button" className="btn secondary night" onClick={() => navigate("/cam/setup")}>Find the mailbox again</button>
-      <p className="foot mono">Keep this page open and plugged in. Closing it stops the camera; Rosa's phone still works, she can tap Mail came.</p>
+      <button type="button" className="btn secondary night" onClick={() => navigate("/cam/setup")}>Find the Mailbox Again</button>
     </main>
   );
 }

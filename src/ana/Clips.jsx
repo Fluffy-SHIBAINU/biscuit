@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import Details from "../components/Details.jsx";
 import { api } from "../lib/api.js";
 import { clipDetail, clipLine, clipsSummary, learningLine, TAPS, tuningLine } from "../lib/clips.js";
 
@@ -7,52 +8,42 @@ const when = (iso) => (iso ? new Date(iso).toLocaleString([], { weekday: "short"
 export const FRAME_MS = 500;
 const SWIPE_PX = 40;
 
-/** The technical side of a card: closed for a daughter, open for the founder's household. A plain disclosure, nothing behind a route. */
-export function Details({ open, children }) {
-  return (
-    <details className="details" open={open}>
-      <summary className="label plain">Details</summary>
-      <div className="stack tight">{children}</div>
-    </details>
-  );
-}
-
-/** Ana's two choices, in the Mailbox phone card, one sentence each; the long words are in the card's Details (ClipConsentDetails). */
+/** Ana's two choices, in the Mailbox Phone card: a Title Case name and one short sentence each beside the switch, since consent must say what is kept; the long words are in the card's Details (ClipConsentDetails). */
 export function ClipConsent({ household: h, camera, onSaved }) {
   const [note, setNote] = useState("");
   const choose = async (patch, confirmText) => {
     if (confirmText && !window.confirm(confirmText)) return;
     try {
       const r = await api("/family/clips", { method: "PATCH", json: patch });
-      setNote(patch.keep === false ? (r.deleted ? `Stopped. ${r.deleted} ${r.deleted === 1 ? "clip" : "clips"} removed.` : "Stopped.") : patch.keep ? "On. Clips are kept from the next movement; the mailbox phone says so on its screen." : patch.share ? "Thank you. Your tapped clips help Biscuit learn from now on." : "Your clips stay out of it from now on.");
+      setNote(patch.keep === false ? (r.deleted ? `Stopped. ${r.deleted} ${r.deleted === 1 ? "clip" : "clips"} removed.` : "Stopped.") : patch.keep ? "On from the next movement." : patch.share ? "Thank you." : "Off from now on.");
       if (onSaved) onSaved();
     } catch { setNote("That didn't work. Try again."); }
   };
   const kept = camera?.clips?.total ?? 0;
   return (
     <div className="stack tight">
-      <label className="row toggle"><input type="checkbox" checked={Boolean(h.keepClips)} onChange={(e) => choose({ keep: e.target.checked }, e.target.checked ? null : `Stop keeping clips?${kept ? ` The ${kept} ${kept === 1 ? "clip" : "clips"} kept so far ${h.shareClips ? "go too, except the ones you tapped, which stay to help Biscuit learn until you turn that off" : "go too"}.` : ""}`)} /><span className="lead small">Keep short clips of the box so you can say who it was. Only you see them; gone within 30 days{h.shareClips ? ", except the tapped ones that help Biscuit learn" : ""}.</span></label>
-      {h.keepClips && <label className="row toggle"><input type="checkbox" checked={Boolean(h.shareClips)} onChange={(e) => choose({ share: e.target.checked })} /><span className="lead small">Let the clips you tapped help Biscuit learn for everyone, with nothing that names you.</span></label>}
+      <label className="row toggle"><input type="checkbox" checked={Boolean(h.keepClips)} onChange={(e) => choose({ keep: e.target.checked }, e.target.checked ? null : `Stop keeping clips?${kept ? ` The ${kept} ${kept === 1 ? "clip" : "clips"} kept so far ${h.shareClips ? "go too, except the ones you tapped, which stay to help Biscuit learn until you turn that off" : "go too"}.` : ""}`)} /><span className="lead small"><strong>Keep Short Clips</strong> · Short clips of the box so you can say who it was; only you see them, gone within 30 days{h.shareClips ? ", except the tapped ones that help Biscuit learn" : ""}.</span></label>
+      {h.keepClips && <label className="row toggle"><input type="checkbox" checked={Boolean(h.shareClips)} onChange={(e) => choose({ share: e.target.checked })} /><span className="lead small"><strong>Help Improve Biscuit</strong> · The clips you tapped help Biscuit learn for everyone, with nothing that names you.</span></label>}
       {note && <span className="label plain signal">{note}</span>}
     </div>
   );
 }
 
-/** The full words behind the two choices, for the Mailbox phone card's Details. */
+/** The full words behind the two choices, for the Mailbox Phone card's Details. */
 export function ClipConsentDetails() {
   return (
     <>
-      <span className="label plain">Keep short clips: when something moves, the mailbox phone keeps 8 small frames of the box region over 6 seconds, nothing outside the box, with SAM 3.1's scores, so you can tap who it was. Biscuit says what it thinks each clip is; your tap confirms or corrects it. Clips you haven't checked go after 7 days; the ones you tap, 30 days after the tap. Only you see them, on this page. Your taps tune this one mailbox: how sure SAM must be, how much movement counts, what a person at the box usually means here; once a prompt has been right nine times in ten over twenty of your taps, Biscuit classifies the sure clips itself and you can say Not right. Off is the default.</span>
-      <span className="label plain">Help improve Biscuit: clips you tapped, and clips Biscuit classified that you left as they were, may be exported to teach a small classifier or a SAM prompt set to tell the carrier from everything else: the box region only, your household as a hashed id, no name, no address, no device, the hour not the minute, and whether the label was yours or Biscuit's. Those clips then stay past 30 days, until you turn this off; what was exported before that stays in the set, with nothing that names you.</span>
+      <span className="label plain">Keep Short Clips: when something moves, the mailbox phone keeps 8 small frames of the box region over 6 seconds, nothing outside the box, with SAM 3.1's scores, so you can tap who it was. Biscuit says what it thinks each clip is; your tap confirms or corrects it. Clips you haven't checked go after 7 days; the ones you tap, 30 days after the tap. Only you see them, on this page. Your taps tune this one mailbox: how sure SAM must be, how much movement counts, what a person at the box usually means here; once a prompt has been right nine times in ten over twenty of your taps, Biscuit classifies the sure clips itself and you can say Not Right. Off is the default.</span>
+      <span className="label plain">Help Improve Biscuit: clips you tapped, and clips Biscuit classified that you left as they were, may be exported to teach a small classifier or a SAM prompt set to tell the carrier from everything else: the box region only, your household as a hashed id, no name, no address, no device, the hour not the minute, and whether the label was yours or Biscuit's. Those clips then stay past 30 days, until you turn this off; what was exported before that stays in the set, with nothing that names you.</span>
     </>
   );
 }
 
 /**
- * "Who was at the box": a carousel, one clip at a time, the eight frames as a loop (tap pauses), a scrubber, arrows and
+ * "Who Was at the Box": a carousel, one clip at a time, the eight frames as a loop (tap pauses), a scrubber, arrows and
  * swipes between clips, a counter, and two groups: the clips that need Ana and the ones already classified, by her or by
  * Biscuit. Biscuit's guess is the dark button, so one tap confirms; the other taps correct. On a clip Biscuit classified
- * itself, Not right hands it back. Everything with a number in it is under Details.
+ * itself, Not Right hands it back. Everything with a number or an explanation in it is under Details.
  */
 export function ClipCarousel({ household: h, camera, onLabelled }) {
   const [data, setData] = useState(null);
@@ -121,20 +112,20 @@ export function ClipCarousel({ household: h, camera, onLabelled }) {
   const tuned = tuningLine(camera?.tuning), learned = learningLine(camera?.tuning);
 
   return (
-    <section className="card grow carousel" tabIndex={0} onKeyDown={onKey} aria-label="Who was at the box">
+    <section className="card grow carousel" tabIndex={0} onKeyDown={onKey} aria-label="Who Was at the Box">
       <div className="row between wrap"><h2 className="h2">{summary.title}</h2>{clip && <span className="label plain">{at + 1} of {list.length}</span>}</div>
       {summary.lines.map((l, i) => <p key={i} className={`lead small ${i ? "muted" : ""}`}>{l}</p>)}
       <div className="tabs">
-        <button type="button" className={`btn ana small ${group === "attention" ? "on" : ""}`} onClick={() => pick("attention")}>Needs your attention · {counts.attention}</button>
-        <button type="button" className={`btn ana small ${group === "classified" ? "on" : ""}`} onClick={() => pick("classified")}>Already classified · {counts.classified}</button>
+        <button type="button" className={`btn ana small ${group === "attention" ? "on" : ""}`} onClick={() => pick("attention")}>Needs Your Attention · {counts.attention}</button>
+        <button type="button" className={`btn ana small ${group === "classified" ? "on" : ""}`} onClick={() => pick("classified")}>Already Classified · {counts.classified}</button>
       </div>
       {note && <p className="lead small signal">{note}</p>}
-      {data === null && <p className="lead small muted">One moment.</p>}
-      {data && !clip && <p className="lead small muted">{group === "attention" ? "Nothing to check right now." : "Nothing sorted yet."}</p>}
+      {data === null && <p className="lead small muted">One Moment</p>}
+      {data && !clip && <p className="lead small muted">{group === "attention" ? "Nothing to Check" : "Nothing Sorted Yet"}</p>}
       {clip && (
         <div className="clip stack tight">
           <div className="stage" onClick={() => setPlaying((p) => !p)} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} role="button" aria-label={playing ? "Pause the clip" : "Play the clip"}>
-            {shown ? <img src={shown} alt="" /> : <span className="label night">One moment.</span>}
+            {shown ? <img src={shown} alt="" /> : <span className="label night">One Moment</span>}
             {!playing && <span className="pill signal paused">Paused</span>}
             <button type="button" className="navbtn prev" disabled={at === 0} onClick={(e) => { e.stopPropagation(); go(-1); }} aria-label="Previous clip">‹</button>
             <button type="button" className="navbtn next" disabled={at >= list.length - 1} onClick={(e) => { e.stopPropagation(); go(1); }} aria-label="Next clip">›</button>
@@ -145,8 +136,8 @@ export function ClipCarousel({ household: h, camera, onLabelled }) {
           <div className="row wrap">
             {group === "classified" && byBiscuit ? (
               <>
-                <button type="button" className="btn ana small primary" disabled={busy} onClick={reject}>Not right</button>
-                <button type="button" className="btn ana small" disabled={busy} onClick={() => tap(clip.label)}>Yes, right</button>
+                <button type="button" className="btn ana small primary" disabled={busy} onClick={reject}>Not Right</button>
+                <button type="button" className="btn ana small" disabled={busy} onClick={() => tap(clip.label)}>Yes, Right</button>
               </>
             ) : (
               <>
@@ -162,7 +153,7 @@ export function ClipCarousel({ household: h, camera, onLabelled }) {
         {learned && <span className="label plain">{learned}</span>}
         {clip && <span className="label plain">{clipDetail(clip)}</span>}
         <span className="label plain">{counts.attention} to check · {counts.classified} classified · {camera?.movementsToday ?? 0} {camera?.movementsToday === 1 ? "movement" : "movements"} today · the dark button is Biscuit's guess; stored labels carrier, nothing, other, skip.</span>
-        <span className="label plain">Swipe or use the arrows to move between clips; tap the picture to pause. The frames are the box region only, 320 pixels wide, up to 8 over 6 seconds; unchecked clips go after 7 days, tapped ones 30 days after the tap unless they help Biscuit learn. Nothing here leaves this page except what you chose in the Mailbox phone card.</span>
+        <span className="label plain">A car or the wind: anything that was not mail. Someone else: a person at the box who is not the carrier. Swipe or use the arrows to move between clips; tap the picture to pause. The frames are the box region only, 320 pixels wide, up to 8 over 6 seconds; unchecked clips go after 7 days, tapped ones 30 days after the tap unless they help Biscuit learn. Nothing here leaves this page except what you chose in the Mailbox Phone card.</span>
       </Details>
     </section>
   );

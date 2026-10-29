@@ -8,6 +8,11 @@ export function mailTimeLabel(minutes) {
   return `${hour}${m ? `:${String(m).padStart(2, "0")}` : ""} ${h < 12 ? "AM" : "PM"}`;
 }
 
+/** The one line under the Mail Time card's title on Ana's page. */
+export function mailTimeLine(minutes) {
+  return minutes == null ? "No Chime Set" : `Usual Mail Time ${mailTimeLabel(minutes)}`;
+}
+
 /** This phone's zone, for the server to keep as the household's. */
 export function browserTz() {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch { return null; }
