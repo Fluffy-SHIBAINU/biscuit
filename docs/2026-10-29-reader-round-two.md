@@ -70,3 +70,96 @@ deployment is for the day a reader passes the seat rule, or for a demo that want
 Alternatives were weighed and set aside: exporting the adapter and serving the merged weights on Baseten needs an
 inference engine that knows Glimmer's new architecture and a day of plumbing; keeping a training session open as the
 backend is not a serving path.
+
+## 4. Round two as run (October 29, overnight)
+
+What changed in the generator (`scripts/synth/letters.ts`, `photo.ts`): twelve templates instead of seven (added a
+collection-agency letter, a hospital statement that says "THIS IS NOT A BILL", a Medicare Summary Notice page, a store
+flyer and a community schedule); every bill, notice and letter can now lack an account number, a due date, a statement
+date or a phone number, with the truth saying null; one patient block in seven is printed as black redaction bars that
+are on the page and not in the transcription; two-column headers and ruled tables on some pages; and three photo
+families chosen by seed, a phone photo, a flatbed scan and a fax. Still 600 letters to train and 100 held out, still
+seed 1, still nothing checked in.
+
+Real pages: fourteen more public pages (the other Medicare Summary Notice pages, the Part B and DME samples, the IRS
+notice's second page, the Western Reserve guide's ABN, estimate and application pages, the VA statement text) were read
+by both production readers and became 28 training rows under the gate's own rule (`scripts/eval/agree-label.ts`: kinds
+must match, a field both cited must agree, a field one cited is kept when its quote verifies, phones as full numbers).
+The IRS CP14 balance-due notice joined the hand-labelled dev set, now six documents. The receipts replay was not possible:
+dataset downloads are disabled on the account like uploads.
+
+Training: one epoch (154 steps of 8 rows), rank 16, learning rate 1e-4, reasoning strength low; a snapshot every 50
+steps, each sampled on the six real documents and promoted as a model, plus the final weights. The reader that takes the
+table is the snapshot with the most facts right and the fewest verified-but-wrong on the real six, then scored on the
+100 new held-out letters.
+
+<!-- results:r2 -->
+| Reader | Letters read | Lines read verbatim | Facts right | Verified but wrong | Unverified | Kind right | Hospital resolved | Median s | p90 s |
+|---|---|---|---|---|---|---|---|---|---|
+| DeepSeek V4.1 Flash on Fireworks | 97/100 | 97.5% | 483/523 (92.4%) | 18 | 4 | 59.0% | 64/65 | 3 | 3.8 |
+| Spark 1.3 (Meta Model API) | 96/100 | 97.3% | 487/523 (93.1%) | 14 | 0 | 68.0% | 62/65 | 4.3 | 5.7 |
+| Kindred's reader (Glimmer 30B, trained) | 100/100 | 98.3% | 515/523 (98.5%) | 10 | 0 | 100.0% | 64/65 | 11.1 | 17.6 |
+
+| Field | DeepSeek V4.1 Flash on Fireworks | Spark 1.3 (Meta Model API) | Kindred's reader (Glimmer 30B, trained) |
+|---|---|---|---|
+| sender | 95/100 [2] | 83/100 [12] | 100/100 [0] |
+| hospital_name | 62/65 [1] | 62/65 [1] | 65/65 [0] |
+| amount_due | 54/56 [8] | 54/56 [0] | 54/56 [2] |
+| statement_date | 67/76 [0] | 74/76 [0] | 74/76 [2] |
+| due_date | 45/47 [0] | 45/47 [0] | 45/47 [2] |
+| account_last4 | 49/58 [3] | 51/58 [0] | 56/58 [2] |
+| financial_assistance | 20/27 [4] | 26/27 [0] | 27/27 [1] |
+| phone_numbers | 91/94 [0] | 92/94 [1] | 94/94 [1] |
+<!-- /results:r2 -->
+
+Six real public documents, 30 facts on the page, every reader (`--truth synth/real --preds synth/runs/real`):
+
+<!-- results:r2real -->
+| Reader | Letters read | Lines read verbatim | Facts right | Verified but wrong | Unverified | Kind right | Hospital resolved | Median s | p90 s |
+|---|---|---|---|---|---|---|---|---|---|
+| DeepSeek V4.1 Flash on Fireworks | 6/6 | 100.0% | 29/30 (96.7%) | 3 | 0 | 50.0% | 2/3 | 5.5 | 5.7 |
+| Glimmer 30B, base, schema in the prompt | 6/6 | 100.0% | 26/30 (86.7%) | 3 | 0 | 83.3% | 2/3 | 27.2 | 29.9 |
+| Kindred's reader, round one (Oct 28) | 6/6 | 100.0% | 24/30 (80.0%) | 14 | 1 | 50.0% | 2/3 | 50.4 | 61.8 |
+| Kindred's reader, round two (Oct 29) | 6/6 | 100.0% | 28/30 (93.3%) | 5 | 1 | 100.0% | 2/3 | 15.5 | 15.5 |
+| Spark 1.3 (Meta Model API) | 6/6 | 100.0% | 26/30 (86.7%) | 6 | 0 | 83.3% | 2/3 | 6.9 | 7.8 |
+
+| Field | DeepSeek V4.1 Flash on Fireworks | Glimmer 30B, base, schema in the prompt | Kindred's reader, round one (Oct 28) | Kindred's reader, round two (Oct 29) | Spark 1.3 (Meta Model API) |
+|---|---|---|---|---|---|
+| sender | 6/6 [0] | 4/6 [1] | 2/6 [4] | 5/6 [1] | 4/6 [1] |
+| hospital_name | 5/5 [0] | 5/5 [0] | 4/5 [1] | 5/5 [0] | 5/5 [0] |
+| amount_due | 5/5 [0] | 3/5 [0] | 5/5 [1] | 4/5 [0] | 5/5 [0] |
+| statement_date | 4/5 [1] | 5/5 [0] | 5/5 [1] | 5/5 [1] | 4/5 [1] |
+| due_date | 2/2 [0] | 2/2 [0] | 2/2 [0] | 2/2 [0] | 1/2 [1] |
+| account_last4 | 1/1 [0] | 1/1 [0] | 1/1 [4] | 1/1 [1] | 1/1 [1] |
+| financial_assistance | 1/1 [1] | 1/1 [1] | 1/1 [1] | 1/1 [1] | 1/1 [1] |
+| phone_numbers | 5/5 [1] | 5/5 [1] | 4/5 [2] | 5/5 [1] | 5/5 [1] |
+<!-- /results:r2real -->
+
+### What round two measured
+
+Snapshots on the six real documents: step 50 read 27 of 30 with 7 wrong, steps 100 and 150 and the final weights 28
+with 6, 5 and 5. The plateau came by step 100; the final weights (`biscuit-glimmer-oct29a`) are the reader scored
+above. Every snapshot is promoted on the account as `biscuit-glimmer-oct29a-s50`, `-s100`, `-s150`.
+
+On the 100 new held-out letters, which now include pages with no account, no phone or no date, redaction bars, scans
+and faxes, Kindred's reader reads 515 of 523 facts with 10 verified-but-wrong and every kind right, against DeepSeek's
+483 and 18 and Spark 1.3's 487 and 14. Both live readers read three or four pages too short to count, and both mislabel
+kinds (59 and 68 percent): the catalogue's "notice" and "letter" are learned, not guessed.
+
+On the six real documents the adapter went from the weakest reader to the middle of the room: 24 facts and 14 wrong in
+round one, 28 and 5 in round two, with every kind right. What it still gets wrong: the IRS notice's placeholder phone
+"1-800-xxx-xxxx" (cited verbatim by four of the five readers; the truth says the page has no number), the Riverside
+letterhead "Riverside Health System" as sender where the truth says the hospital line (the base model makes the same
+call), "financial assistance information on back" read as help offered (every reader makes that call; the label is the
+outlier), and on the Medicare claims page the service dates as the notice date and the claim number as the account
+(the two genuine misreads). None of the invented account numbers of round one remain.
+
+The seat rule asked for no more verified-but-wrong than either live reader on the real set. DeepSeek has 3, Spark 1.3
+has 6, Kindred's reader has 5. It passes against Spark and not against DeepSeek, so by the rule as written it stays in
+the shadow. Six documents cannot separate 3 from 5 with any confidence either way; a round three needs the real set
+first: twenty to forty more public pages labelled by hand, including the hard kinds (claims pages, remittance stubs,
+collection letters), before another adapter is judged.
+
+Cost of the round: training $0 (the promotion), in-session sampling for four dev snapshots, the holdout and the three
+comparison passes about $3.50, the production readers under $1.
+

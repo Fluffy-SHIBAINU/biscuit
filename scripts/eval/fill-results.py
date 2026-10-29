@@ -1,32 +1,40 @@
 #!/usr/bin/env python3
-"""Puts the scorer's tables into README.md and the Kindred's reader document between comment markers, so a rerun replaces them.
-  python scripts/eval/fill-results.py
+"""Puts scorer tables into a Markdown file between comment markers, so a rerun replaces them.
+  python scripts/eval/fill-results.py README.md synth=synth/runs/scores2/scores.md real=synth/runs/real/scores/scores.md
+  python scripts/eval/fill-results.py docs/x.md r2=synth/runs/scores2/scores.md:full
+Each name=path puts that scores.md's summary table at RESULTS_<NAME> (first time) or between <!-- results:name --> markers
+(later); ":full" appends the per-field table too.
 """
 import re
+import sys
 from pathlib import Path
 
-R = Path(__file__).resolve().parents[2]
-synth = (R / "synth/runs/scores/scores.md").read_text().split("\n\n")
-real = (R / "synth/runs/real/scores/scores.md").read_text().split("\n\n")
-summary = lambda md: md[0].strip()
-per_field = lambda md: md[2].strip() if len(md) > 2 else ""
 
-def block(name, body):
-    return f"<!-- results:{name} -->\n{body}\n<!-- /results:{name} -->"
+def tables(path: str, full: bool) -> str:
+    parts = Path(path).read_text().split("\n\n")
+    out = parts[0].strip()
+    if full and len(parts) > 2:
+        out += "\n\n" + parts[2].strip()
+    return out
 
-def fill(path, parts):
-    s = Path(path).read_text()
-    for name, body in parts.items():
+
+def fill(target: str, specs: list[str]) -> None:
+    s = Path(target).read_text()
+    for spec in specs:
+        name, _, rest = spec.partition("=")
+        path, _, flag = rest.partition(":")
+        body = f"<!-- results:{name} -->\n{tables(path, flag == 'full')}\n<!-- /results:{name} -->"
         marker = f"RESULTS_{name.upper()}"
         pattern = re.compile(rf"<!-- results:{name} -->.*?<!-- /results:{name} -->", re.S)
         if marker in s:
-            s = s.replace(marker, block(name, body))
+            s = s.replace(marker, body)
         elif pattern.search(s):
-            s = pattern.sub(lambda _: block(name, body), s)
+            s = pattern.sub(lambda _: body, s)
         else:
-            raise SystemExit(f"{path}: no marker for {name}")
-    Path(path).write_text(s)
+            raise SystemExit(f"{target}: no marker for {name}")
+    Path(target).write_text(s)
+    print(f"filled {target}: {', '.join(x.split('=')[0] for x in specs)}")
 
-fill(R / "README.md", {"synth": summary(synth), "real": summary(real)})
-fill(R / "docs/2026-10-28-kindred-reader.md", {"synth": summary(synth) + "\n\n" + per_field(synth), "real": summary(real) + "\n\n" + per_field(real)})
-print("filled README.md and docs/2026-10-28-kindred-reader.md")
+
+if __name__ == "__main__":
+    fill(sys.argv[1], sys.argv[2:])

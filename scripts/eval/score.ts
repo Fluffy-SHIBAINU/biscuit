@@ -1,5 +1,5 @@
 // Scores readers' raw outputs against the synthetic truth through Biscuit's own verifier and agreement rules.
-//   npx tsx scripts/eval/score.ts --truth synth/holdout --preds synth/runs/eval,synth/runs/oct28a --out synth/runs/scores
+//   npx tsx scripts/eval/score.ts --truth synth/holdout --preds synth/runs/eval,synth/runs/oct28a --out synth/runs/scores [--only dev_]
 // A fact counts as right only when the reader cited it with a quote that is verbatim in its own transcription (the §2 rule)
 // and the value agrees with the truth the way the agreement gate compares two readers. "Verified but wrong" is the number
 // that matters most: facts Biscuit would have spoken that the page does not say.
@@ -25,7 +25,7 @@ export type Score = {
 };
 
 const FIELDS = ["sender", "hospital_name", "amount_due", "statement_date", "due_date", "account_last4", "financial_assistance", "phone_numbers"];
-const LABELS: Record<string, string> = { glimmer_base: "Glimmer 30B, base", glimmer_base_schema: "Glimmer 30B, base, schema in the prompt", glimmer_tuned: "Kindred's reader (Glimmer 30B, trained)" };
+const LABELS: Record<string, string> = { glimmer_base: "Glimmer 30B, base", glimmer_base_schema: "Glimmer 30B, base, schema in the prompt", glimmer_tuned: "Kindred's reader (Glimmer 30B, trained)", glimmer_r1: "Kindred's reader, round one (Oct 28)", glimmer_r2: "Kindred's reader, round two (Oct 29)" };
 const median = (xs: number[]) => (xs.length ? [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] : 0);
 const p90 = (xs: number[]) => (xs.length ? [...xs].sort((a, b) => a - b)[Math.min(xs.length - 1, Math.floor(xs.length * 0.9))] : 0);
 
@@ -100,7 +100,8 @@ if (process.argv[1] && /score\.ts$/.test(process.argv[1])) {
   const scores: Score[] = [];
   for (const dir of arg("preds", "synth/runs/eval").split(",").filter(Boolean)) {
     if (!existsSync(dir)) continue;
-    for (const file of readdirSync(dir).filter((n) => /^predictions_.*\.jsonl$/.test(n)).sort()) {
+    const only = arg("only", "");
+    for (const file of readdirSync(dir).filter((n) => /^predictions_.*\.jsonl$/.test(n) && (!only || new RegExp(only).test(n))).sort()) {
       const name = file.replace(/^predictions_/, "").replace(/\.jsonl$/, "");
       const metaPath = join(dir, `reader_${name}.json`);
       const meta = existsSync(metaPath) ? JSON.parse(readFileSync(metaPath, "utf8")) : {};

@@ -38,25 +38,28 @@ npx tsx scripts/eval/score.ts --truth synth/holdout --preds synth/runs/eval,synt
 python scripts/train/deploy.py create --model accounts/<account>/models/biscuit-glimmer-oct28a    # the shadow seat, $8 an hour awake, asleep in ten idle minutes
 ```
 
-**Results.** Every reader gets the same JPEG and the same two prompts; a fact counts as right only when its quote is verbatim in the reader's own transcription and its value agrees with the truth the way the agreement gate compares two readers. "Verified but wrong" is what Biscuit would have spoken that the page does not say. On the 100 held-out synthetic letters Kindred's reader beats both live readers; on five real public documents it is the weakest of the four, inventing account numbers from amounts and phone numbers because every letter it trained on had one. It learned the templates, not letters, so it stays in the shadow. Glimmer rows' seconds are the pooled training sampler's, not serving latency; "base" in the session had no constrained decoding and wrote the page instead of JSON, so the base row to read is the one with the schema in the prompt.
+**Results, round two (October 29).** Every reader gets the same JPEG and the same two prompts; a fact counts as right only when its quote is verbatim in the reader's own transcription and its value agrees with the truth the way the agreement gate compares two readers. "Verified but wrong" is what Biscuit would have spoken that the page does not say. Round one (October 28) beat both live readers on held-out synthetic letters and was the weakest on real documents, inventing account numbers because every training letter had one. Round two taught absence (letters that lack fields, pages that are not letters, redaction bars), two more photo families, and 28 rows from real public pages labelled by the two readers' agreement. On 100 new held-out letters it beats both live readers; on six real public documents it reads 28 of 30 facts with 5 verified-but-wrong, between DeepSeek (29, 3) and Spark 1.3 (26, 6), up from 24 and 14. The seat rule (no more verified-but-wrong than either live reader on real pages) is not yet met, so it stays in the shadow. Glimmer rows' seconds are the pooled training sampler's, not serving latency. Round one, round two and what is left: [docs/2026-10-28-kindred-reader.md](docs/2026-10-28-kindred-reader.md), [docs/2026-10-29-reader-round-two.md](docs/2026-10-29-reader-round-two.md).
+
+100 new held-out synthetic letters (round-two generator, 523 facts):
 
 <!-- results:synth -->
 | Reader | Letters read | Lines read verbatim | Facts right | Verified but wrong | Unverified | Kind right | Hospital resolved | Median s | p90 s |
 |---|---|---|---|---|---|---|---|---|---|
-| DeepSeek V4.1 Flash on Fireworks | 100/100 | 98.8% | 568/588 (96.6%) | 7 | 7 | 70.0% | 69/69 | 4.1 | 5.1 |
-| Spark 1.3 (Meta Model API) | 100/100 | 99.1% | 575/588 (97.8%) | 13 | 0 | 69.0% | 69/69 | 5.3 | 6.7 |
-| Glimmer 30B, base | 0/100 | 99.1% | 0/588 (0.0%) | 0 | 0 | 0.0% | 0/69 | 0 | 0 |
-| Glimmer 30B, base, schema in the prompt | 100/100 | 99.3% | 535/588 (91.0%) | 39 | 3 | 69.0% | 68/69 | 41.2 | 130 |
-| Kindred's reader (Glimmer 30B, trained) | 100/100 | 100.0% | 587/588 (99.8%) | 6 | 0 | 100.0% | 69/69 | 12.6 | 56.1 |
+| DeepSeek V4.1 Flash on Fireworks | 97/100 | 97.5% | 483/523 (92.4%) | 18 | 4 | 59.0% | 64/65 | 3 | 3.8 |
+| Spark 1.3 (Meta Model API) | 96/100 | 97.3% | 487/523 (93.1%) | 14 | 0 | 68.0% | 62/65 | 4.3 | 5.7 |
+| Kindred's reader (Glimmer 30B, trained) | 100/100 | 98.3% | 515/523 (98.5%) | 10 | 0 | 100.0% | 64/65 | 11.1 | 17.6 |
 <!-- /results:synth -->
+
+Six real public documents (30 facts; Riverside itemization, Western Reserve bill and statement, two Medicare notice pages, an IRS balance-due notice):
 
 <!-- results:real -->
 | Reader | Letters read | Lines read verbatim | Facts right | Verified but wrong | Unverified | Kind right | Hospital resolved | Median s | p90 s |
 |---|---|---|---|---|---|---|---|---|---|
-| DeepSeek V4.1 Flash on Fireworks | 5/5 | 100.0% | 24/26 (92.3%) | 3 | 0 | 60.0% | 2/3 | 5.6 | 6.2 |
-| Glimmer 30B, base, schema in the prompt | 5/5 | 100.0% | 22/26 (84.6%) | 2 | 0 | 80.0% | 2/3 | 19.9 | 24 |
-| Kindred's reader (Glimmer 30B, trained) | 5/5 | 100.0% | 21/26 (80.8%) | 12 | 0 | 40.0% | 2/3 | 14.3 | 15.9 |
-| Spark 1.3 (Meta Model API) | 5/5 | 100.0% | 25/26 (96.2%) | 2 | 0 | 100.0% | 2/3 | 9.2 | 9.7 |
+| DeepSeek V4.1 Flash on Fireworks | 6/6 | 100.0% | 29/30 (96.7%) | 3 | 0 | 50.0% | 2/3 | 5.5 | 5.7 |
+| Glimmer 30B, base, schema in the prompt | 6/6 | 100.0% | 26/30 (86.7%) | 3 | 0 | 83.3% | 2/3 | 27.2 | 29.9 |
+| Kindred's reader, round one (Oct 28) | 6/6 | 100.0% | 24/30 (80.0%) | 14 | 1 | 50.0% | 2/3 | 50.4 | 61.8 |
+| Kindred's reader, round two (Oct 29) | 6/6 | 100.0% | 28/30 (93.3%) | 5 | 1 | 100.0% | 2/3 | 15.5 | 15.5 |
+| Spark 1.3 (Meta Model API) | 6/6 | 100.0% | 26/30 (86.7%) | 6 | 0 | 83.3% | 2/3 | 6.9 | 7.8 |
 <!-- /results:real -->
 
 ## What was built when
