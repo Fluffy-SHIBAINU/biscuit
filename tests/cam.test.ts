@@ -39,8 +39,8 @@ test("cam/find returns the best box for a text prompt and 404 when nothing score
 import { allowSamCall } from "../server/cam.js";
 
 test("allowSamCall", () => {
-  expect(allowSamCall({ samCallsToday: 399, samDay: "2026-10-27" }, "2026-10-27")).toBe(true);
-  expect(allowSamCall({ samCallsToday: 400, samDay: "2026-10-27" }, "2026-10-27")).toBe(false);
-  expect(allowSamCall({ samCallsToday: 400, samDay: "2026-10-26" }, "2026-10-27")).toBe(true);
+  expect(allowSamCall({ samCallsToday: 799, samDay: "2026-10-27" }, "2026-10-27")).toBe(true);
+  expect(allowSamCall({ samCallsToday: 800, samDay: "2026-10-27" }, "2026-10-27")).toBe(false);
+  expect(allowSamCall({ samCallsToday: 800, samDay: "2026-10-26" }, "2026-10-27")).toBe(true);
   expect(allowSamCall({ samCallsToday: 0, samDay: null }, "2026-10-27")).toBe(true);
 });

@@ -1,5 +1,28 @@
 # Biscuit: calibrating the mailbox watcher on a real mailbox
 
+## 0. Tonight, before bed (October 28): set the camera for tomorrow's delivery
+
+Production has no household yet, so this is the whole setup. Fifteen minutes with three devices.
+
+1. **Laptop, Ana's page:** https://biscuit.kindred-ai.dev/ana. Sign in with Google **as i.shawn.yoon@gmail.com** (that is
+   the address `CAM_COLLECT_OWNER` names; another account would watch fine but keep no frames). Describe who Biscuit
+   helps; read the six-digit code.
+2. **iPhone (Rosa):** open https://biscuit.kindred-ai.dev in Safari, Share, Add to Home Screen, open Biscuit from the
+   icon (the install is what lets it chime), type the code, say or tap yes at consent. On Ana's page tap "Get notified
+   on this device"; on the iPhone tap "Send a test to Ana's page" and check the laptop buzzes. The mail chime arrives
+   as a push to this installed app; keep the iPhone on Wi-Fi and not in Low Power Mode.
+3. **Laptop:** Next: the mailbox phone; read its code.
+4. **Android (the mailbox phone):** open https://biscuit.kindred-ai.dev/cam?collect=1, type the code, allow the
+   camera, prop it on the sill facing the box, Find my mailbox, Yes, that's it. Then the envelope test: open and close
+   the lid once; "Works." within 60 seconds. Done. Watch the box. The Watching screen must say "Collecting".
+5. **Leave it:** plugged in, screen on (the page holds a wake lock; turn off the phone's auto-lock to be sure), the
+   box lit if a porch light exists. Headlights on a window are the main false alarm; each movement costs six SAM calls
+   in collect mode and the day's cap is 800 (the day turns at 8 PM Eastern). If the screen says "Paused" in the
+   morning, tap "Find the mailbox again" and confirm the box: that clears the pause.
+6. **Tomorrow:** when the carrier comes, the iPhone chimes "You've got mail, Rosa." and Ana's page says "Mail came."
+   Then section 2 below, from step 5, for the labels and the calibration report.
+
+
 The watcher's model, SAM 3.1, is not trained here: it is Meta's segmentation model served by the Meta Model API, and it
 finds "mail carrier", "mailbox door" and "envelope" by name. What a day at a real mailbox can tune is the decision layer
 around it: which prompts to ask, the score at which an answer counts, and how much movement the phone needs before any
@@ -18,7 +41,7 @@ motion level that tripped the gate. Two locks, both explicit:
 
 Frames are kept in `biscuit_cam_sample` (migration `drizzle/0003_fair_the_fury.sql`) and are deleted with the household.
 Nothing is read by anyone but the owner's own scripts. In collect mode every prompt is scored on the first frame, so a
-movement costs at least six SAM calls instead of one to nine; the daily cap of 400 still applies.
+movement costs at least six SAM calls instead of one to nine; the daily cap of 800 still applies.
 
 ## 2. The run (second phone, at the mailbox)
 

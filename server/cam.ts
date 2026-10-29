@@ -16,7 +16,7 @@ export function bestDetection(d: Detection[], minScore = 0.5): Detection | null 
   return best && best.score >= minScore ? best : null;
 }
 
-export const SAM_DAILY_CAP = 400;
+export const SAM_DAILY_CAP = 800;
 
 /** False once today's SAM calls reach the cap; a new day resets the count. */
 export function allowSamCall(row: { samCallsToday: number; samDay: string | null }, today: string): boolean {
