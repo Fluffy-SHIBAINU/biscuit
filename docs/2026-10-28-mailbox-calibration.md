@@ -40,8 +40,19 @@ motion level that tripped the gate. Two locks, both explicit:
   `/cam?collect=0` turns it off. The Watching screen shows a "Collecting" card the whole time.
 
 Frames are kept in `biscuit_cam_sample` (migration `drizzle/0003_fair_the_fury.sql`) and are deleted with the household.
-Nothing is read by anyone but the owner's own scripts. In collect mode every prompt is scored on the first frame, so a
-movement costs at least six SAM calls instead of one to nine; the daily cap of 800 still applies.
+They are read by the owner's own scripts and shown on the household's own family page, in the "Who was at the box" strip,
+where a tap labels them. In collect mode every prompt is scored on the first frame, so a movement costs at least six SAM
+calls instead of one to nine; the daily cap of 800 still applies.
+
+**Since October 29 collect mode is no longer the only way frames are kept.** Any household whose Ana turns on "Keep short
+clips of the box for me to check" keeps, for each movement, a clip row (`clip = true`): the three watch prompts' scores on
+the first frame and up to eight small crops of the box region over six seconds, with a 7-day retention when unchecked and
+30 days after a tap. Ana's taps (Mail carrier, Not mail, Someone else) store `carrier`, `nothing` and `other`, the same
+words as the sheet below, so `samples.ts` and `calibrate.ts` read them unchanged; "Skip" stores `skip` and counts as
+unlabelled. From eight taps the household's own floor and gate are computed by the rules of section 3 and applied
+automatically. Collect mode stays what it is: the founder's full frames, six prompts, kept with the household and outside
+that retention. A second choice, "Help improve Biscuit for everyone", lets tapped clips into a de-identified export. All of
+it: `docs/2026-10-29-mailbox-clips.md`.
 
 ## 2. The run (second phone, at the mailbox)
 
@@ -71,7 +82,10 @@ scored together. Today's watcher (the three prompts at 0.5) is scored the same w
 suggestion is the level nine mail events in ten still clear, never below today's 12, with the share of non-events it
 would have kept on the phone.
 
-Applying it is three edits: `WATCH_PROMPTS` and the floor in `server/cam.ts`, the threshold in `src/cam/motion.js`.
+Applying it across every household is three edits: `WATCH_PROMPTS` and the default floor in `server/cam.ts`, the default
+threshold in `src/cam/motion.js`. For one household's own box the floor and gate now follow from Ana's taps without an
+edit (`server/clips.ts`, `docs/2026-10-29-mailbox-clips.md`); this script remains the founder's view across the six
+prompts, which the automatic path does not choose between.
 
 ## 4. Honest limits
 
