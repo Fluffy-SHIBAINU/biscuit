@@ -81,7 +81,7 @@ settings in force: its level clears the gate and its best first-frame score clea
 
 As a clip is made, `guessLabel(scores, tuning)` in `server/clips.ts` says what Biscuit thinks it shows, and the row
 keeps it (`guess`: label, confidence, the prompt it rests on, the rule's version). The card says it in her words,
-"Biscuit thinks it was the mail carrier.", and makes that answer the dark button, so one tap confirms and another
+"Biscuit Thinks It Was the Mail Carrier", and makes that answer the dark button, so one tap confirms and another
 corrects; the number ("Guess: carrier · 80% · rests on “envelope”") is under the card's Details.
 
 - The mapping, before the taps say otherwise: "mail carrier", "mail truck" or "envelope" above its floor means the
@@ -186,10 +186,12 @@ Later on October 29, the guess and the carousel:
 
 Later again on October 29, two voices on Ana's page:
 
-- The daughter's side of every card is a title, one plain line (`clipsSummary`, `cameraSummary` in `src/lib`), the
-  buttons in her words (The mail carrier, A car or the wind, Someone else, Skip; the stored labels are unchanged) and
-  Biscuit's guess as a sentence without a number. Everything with a number, a floor, a prompt name or the full consent
-  and retention words sits under a `<details>` disclosure labelled Details, one per card.
+- The daughter's side of every card is a Title Case title, one short Title Case line (`clipsSummary`, `cameraSummary`,
+  `src/lib/lines.js`, `mailTimeLine`), the buttons in her words (The Mail Carrier, A Car or the Wind, Someone Else,
+  Skip; the stored labels are unchanged) and Biscuit's guess as one line without a number. Everything with a number, a
+  floor, a prompt name, an explanation or the full consent and retention words sits under a `<details>` disclosure
+  labelled Details, one per card; the page footer is one Details at the bottom. Rosa's own screens are spoken lines and
+  stay in sentence case.
 - The disclosures open by default for the household whose owner `CAM_COLLECT_OWNER` names (`household.admin` on
   `GET /api/biscuit/family`, from `isCollectOwner`) and stay closed for everyone else. Nothing is hidden behind a route.
 - The consent toggles keep one sentence each; the first says "gone within 30 days", which is the upper bound (unchecked
