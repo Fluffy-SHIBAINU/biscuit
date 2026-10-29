@@ -1,0 +1,25 @@
+# The delivery-hour chime tick. Vercel's Hobby plan runs crons once a day, so this schedule asks Biscuit every ten
+# minutes to chime the phones whose usual mail hour has come (POST /api/biscuit/chime/tick, see server/chime.ts).
+# CRON_SECRET is a repository secret and the same value sits in the Vercel production environment.
+name: Mail chime tick
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+concurrency:
+  group: chime-tick
+  cancel-in-progress: false
+permissions: {}
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ask Biscuit to chime the phones whose hour has come
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then echo "CRON_SECRET is not set on this repository; nothing to do."; exit 0; fi
+          curl -fsS --max-time 60 --retry 2 -X POST \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            https://biscuit.kindred-ai.dev/api/biscuit/chime/tick

@@ -303,7 +303,15 @@ Smaller, in the letters rather than the product: appointment times in the synthe
 to 4:30 PM, no more "14:30"), and the Medicare Summary Notice template no longer prints "$NaN.NaN". Both are in the
 generator the next training round draws from, and every synthetic truth now carries the addressee.
 
-Not changed, and why. A chime on Rosa's own phone at the usual delivery hour, for a household with no mailbox phone, is
-the next step for change 1 and is on the roadmap, not in this week. The yes/no buttons stay as the fallback for people
-in buttons mode and for a reading that passed the name check. Baseten's key is still refused by its inference endpoint,
-so a second family of judge remains undone.
+Built later the same night, after the section above was written: the delivery-hour chime, the next step for change 1.
+Ana sets the hour the mail usually comes (on the family page, or on the mailbox-phone step when she skips it); on a day
+the box is not seen, Rosa's own phone chimes once, inside a ninety-minute window from that hour, with words that call it
+a usual time and not a sighting: "About now is when the mail usually comes, Rosa. If there's a letter, tap and I'll read
+it." Rosa's phone tells the server its time zone when it links and with each refresh, so Ana never thinks about zones.
+Home says "No mail seen yet today. It usually comes about 1 PM." and "No mailbox phone · Biscuit chimes about the usual
+time". The tick comes from a GitHub Actions schedule every ten minutes (`.github/workflows/chime.yml`, calling
+`/api/biscuit/chime/tick` with `CRON_SECRET`), because Vercel's Hobby plan runs crons once a day; it can run a few
+minutes late and it never knows whether mail came.
+
+Still open. The yes/no buttons stay as the fallback for people in buttons mode and for a reading that passed the name
+check. Baseten's key is still refused by its inference endpoint, so a second family of judge remains undone.

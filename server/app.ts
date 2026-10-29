@@ -11,6 +11,7 @@ import { anaRoutes } from "./routes/ana.js";
 import { pushRoutes } from "./routes/push.js";
 import { camRoutes, type CamStore } from "./routes/cam.js";
 import { helpRoutes } from "./routes/help.js";
+import { chimeRoutes } from "./routes/chime.js";
 import type { Sender } from "./push.js";
 import { dbLimiter, type Limiter } from "./limits.js";
 import { getDb } from "./db.js";
@@ -20,7 +21,7 @@ import type { Chooser } from "./questions.js";
 
 export const VERSION = "0.1.0";
 
-export type AppOptions = { lookup?: Lookup; asr?: AsrFn; spark?: SparkDeps; reader2?: SparkDeps | null; shadow?: SparkDeps | null; waitUntil?: (p: Promise<unknown>) => void; readTimeoutMs?: number; sam?: SamDeps; events?: Events; chooser?: Chooser; sheet?: SheetFn; anaEnv?: Record<string, string | undefined>; camEnv?: Record<string, string | undefined>; camStore?: CamStore; pushSend?: Sender; limiter?: Limiter | null; claimLimiter?: Limiter; frameLimiter?: Limiter };
+export type AppOptions = { lookup?: Lookup; asr?: AsrFn; spark?: SparkDeps; reader2?: SparkDeps | null; shadow?: SparkDeps | null; waitUntil?: (p: Promise<unknown>) => void; readTimeoutMs?: number; sam?: SamDeps; events?: Events; chooser?: Chooser; sheet?: SheetFn; anaEnv?: Record<string, string | undefined>; camEnv?: Record<string, string | undefined>; camStore?: CamStore; chimeEnv?: Record<string, string | undefined>; pushSend?: Sender; limiter?: Limiter | null; claimLimiter?: Limiter; frameLimiter?: Limiter };
 
 export function createApp(opts: AppOptions = {}): Hono {
   const app = new Hono();
@@ -53,6 +54,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   app.route("/api/biscuit", camRoutes({ auth, sam: opts.sam, events, env: opts.camEnv, store: opts.camStore }));
   app.route("/api/biscuit", householdRoutes({ auth, anaAuth: anaAuth({ env: opts.anaEnv }) }));
   app.route("/api/biscuit", helpRoutes({ auth, anaAuth: anaAuth({ env: opts.anaEnv }), events, send: opts.pushSend }));
+  app.route("/api/biscuit", chimeRoutes({ env: opts.chimeEnv, events, send: opts.pushSend }));
   app.route("/api/biscuit", questionRoutes({ auth, chooser: opts.chooser }));
   app.route("/api/biscuit", sheetRoutes({ auth, sheet: opts.sheet }));
   return app;

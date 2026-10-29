@@ -61,6 +61,18 @@ describe.skipIf(!process.env.DATABASE_URL)("docket, letters, handoff, events", (
     expect(typeof docket.lastMailSeen).toBe("string");
     expect((await req("/api/biscuit/events", { method: "POST", body: JSON.stringify({ kind: "nope" }) })).status).toBe(400);
   });
+
+  test("the phone tells its zone with the docket and hears the usual mail hour; a bad zone changes nothing", async () => {
+    let docket = await (await req("/api/biscuit/docket?tz=America/Denver")).json();
+    expect(docket).toMatchObject({ mailMinutes: null, hasCam: false });
+    let [h] = await getDb().select().from(household).where(eq(household.id, householdId));
+    expect(h.tz).toBe("America/Denver");
+    await getDb().update(household).set({ mailMinutes: 13 * 60 }).where(eq(household.id, householdId));
+    docket = await (await req("/api/biscuit/docket?tz=Mars/Olympus")).json();
+    expect(docket.mailMinutes).toBe(780);
+    [h] = await getDb().select().from(household).where(eq(household.id, householdId));
+    expect(h.tz).toBe("America/Denver");
+  });
 });
 
 describe.skipIf(!process.env.DATABASE_URL)("what Biscuit said reaches the family page", () => {

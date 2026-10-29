@@ -3,7 +3,7 @@ import { bigserial, boolean, date, integer, jsonb, pgTable, real, text, timestam
 export const DEVICE_KINDS = ["rosa", "cam", "ana"] as const;
 export type DeviceKind = (typeof DEVICE_KINDS)[number];
 export const EVENT_KINDS = [
-  "mail_seen", "mail_tapped", "letter_read", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack",
+  "mail_seen", "mail_due", "mail_tapped", "letter_read", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack",
   "cam_online", "cam_offline", "cam_battery", "cam_paused", "consent", "said", "delete", "look_requested", "shadow_read",
 ] as const;
 export const READ_BY = ["single", "twice", "once"] as const;
@@ -24,6 +24,9 @@ export const household = pgTable("biscuit_household", {
   living: text("living"),
   language: text("language").notNull().default("en"),
   shareLetters: boolean("share_letters").notNull().default(true),
+  /** Minutes after local midnight when the mail usually comes (Ana's guess; Rosa's phone chimes then if the box was not seen), and the household's IANA zone, said by Rosa's phone. */
+  mailMinutes: integer("mail_minutes"),
+  tz: text("tz"),
   consentedAt: ts("consented_at"),
   createdAt: ts("created_at").notNull().defaultNow(),
 });

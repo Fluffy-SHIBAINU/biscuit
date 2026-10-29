@@ -7,6 +7,7 @@ import { getDb } from "../db.js";
 import { cam, device, event, household, letter, linkCode } from "../schema.js";
 import { dbEvents, type Events } from "../events.js";
 import { LOOK_PAYLOAD, sendPush, type Sender } from "../push.js";
+import { validTz } from "../chime.js";
 
 const LIVING = ["alone", "with_family", "with_care"];
 const CLEAN = (v: unknown, max = 80) => (typeof v === "string" ? v.trim().slice(0, max) : "");
@@ -80,13 +81,24 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
       const { sent } = await sendPush(db, h.id, ["rosa"], LOOK_PAYLOAD(sender, rows[0].id), { send: o.send }).catch(() => ({ sent: 0 }));
       return c.json({ ok: true, sent });
     })
+    .patch("/family/mail-time", auth, async (c) => {
+      // The hour the mail usually comes, Ana's guess, in minutes after midnight; null turns the chime off. Her zone only
+      // fills a blank: once Rosa's phone has said where it is, that zone stays.
+      const b = await c.req.json().catch(() => ({}));
+      const minutes = b?.minutes;
+      if (!(minutes === null || (Number.isInteger(minutes) && minutes >= 0 && minutes < 1440))) return c.json({ error: "bad_minutes" }, 400);
+      const h = c.var.household;
+      const tz = h.tz ?? validTz(b?.tz);
+      await getDb().update(household).set({ mailMinutes: minutes, ...(tz && !h.tz ? { tz } : {}) }).where(eq(household.id, h.id));
+      return c.json({ ok: true, mailMinutes: minutes, tz: tz ?? null });
+    })
     .get("/family", auth, async (c) => {
       const db = getDb();
       const h = c.var.household;
       const now = new Date();
       const devices = await db.select().from(device).where(eq(device.householdId, h.id));
       const letters = await db.select().from(letter).where(and(eq(letter.householdId, h.id), ne(letter.status, "hidden"))).orderBy(desc(letter.readAt)).limit(50);
-      const events = await db.select().from(event).where(and(eq(event.householdId, h.id), inArray(event.kind, ["said", "mail_seen", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack", "consent", "look_requested"]))).orderBy(desc(event.at)).limit(60);
+      const events = await db.select().from(event).where(and(eq(event.householdId, h.id), inArray(event.kind, ["said", "mail_seen", "mail_due", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack", "consent", "look_requested"]))).orderBy(desc(event.at)).limit(60);
       const [camRow] = await db.select().from(cam).where(eq(cam.householdId, h.id)).limit(1);
       const [lastRead] = await db.select().from(event).where(and(eq(event.householdId, h.id), eq(event.kind, "letter_read"))).orderBy(desc(event.at)).limit(1);
       const readData = (lastRead?.data ?? {}) as { readBy?: string; readers?: unknown[] };
@@ -100,7 +112,7 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
       const openHelp = events.find((e) => e.kind === "help");
       const closed = openHelp ? events.some((e) => (e.kind === "help_ok" || e.kind === "help_cancel") && e.at > openHelp.at) : true;
       return c.json({
-        household: { id: h.id, seniorName: h.seniorName, called: h.called, relation: h.relation, living: h.living, language: h.language, shareLetters: h.shareLetters, consentedAt: h.consentedAt },
+        household: { id: h.id, seniorName: h.seniorName, called: h.called, relation: h.relation, living: h.living, language: h.language, shareLetters: h.shareLetters, consentedAt: h.consentedAt, mailMinutes: h.mailMinutes ?? null, tz: h.tz ?? null },
         devices: devices.map((d) => ({ id: d.id, kind: d.kind, label: d.label, lastSeenAt: d.lastSeenAt, hasPush: Boolean(d.pushSubscription), battery: d.battery, charging: d.charging })),
         letters,
         said: events.filter((e) => e.kind === "said").map((e) => ({ at: e.at, text: (e.data as any)?.text ?? "" })),

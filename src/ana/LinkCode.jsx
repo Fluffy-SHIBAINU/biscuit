@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { navigate, useSearch } from "../lib/navigate.js";
+import MailTime from "./MailTime.jsx";
 
 export default function LinkCode() {
   const search = useSearch();
@@ -34,7 +35,7 @@ export default function LinkCode() {
         {kind === "rosa" ? (
           <ol className="steps"><li>Open <strong>biscuit.kindred-ai.dev</strong> in Safari or Chrome.</li><li>Share, then <strong>Add to Home Screen</strong>, then open Biscuit from there (that's what lets it chime).</li><li>Type this code.</li></ol>
         ) : (
-          <><ol className="steps"><li>Open <strong>biscuit.kindred-ai.dev/cam</strong> on any old phone with a camera.</li><li>Type this code, then allow the camera.</li><li>Keep it plugged in by a window that sees the mailbox.</li></ol><p className="lead small">No spare phone, or no window on the box? Skip this. Everything else works the same: {''}when the mail comes, Rosa taps Mail came on her own phone.</p></>
+          <><ol className="steps"><li>Open <strong>biscuit.kindred-ai.dev/cam</strong> on any old phone with a camera.</li><li>Type this code, then allow the camera.</li><li>Keep it plugged in by a window that sees the mailbox.</li></ol><p className="lead small">No spare phone, or no window on the box? Skip this. Tell Biscuit when the mail usually comes and he chimes {''}Rosa's own phone about then; she can also tap Mail came on her phone any time.</p><MailTime /></>
         )}
       </section>
       <div className="codebox">{code ? `${code.slice(0, 3)} ${code.slice(3)}` : "…"}</div>

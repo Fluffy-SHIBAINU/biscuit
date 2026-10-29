@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { api } from "../lib/api.js";
 import { navigate } from "../lib/navigate.js";
+import { browserTz } from "../lib/mailtime.js";
 import { store } from "../lib/store.js";
 
 export default function EnterCode() {
@@ -10,7 +11,7 @@ export default function EnterCode() {
 
   async function submit() {
     try {
-      const r = await api("/link/claim", { method: "POST", json: { code }, token: null });
+      const r = await api("/link/claim", { method: "POST", json: { code, tz: browserTz() }, token: null });
       store.set({ deviceToken: r.deviceToken, kind: r.kind, household: r.household });
       navigate(r.kind === "cam" ? "/cam" : "/setup/voice");
     } catch (err) {

@@ -3,6 +3,7 @@ import { api } from "../lib/api.js";
 import { readerName } from "../lib/letters.js";
 import { navigate } from "../lib/navigate.js";
 import { pushSupported, subscribePush } from "../lib/push.js";
+import MailTime from "./MailTime.jsx";
 import SignIn from "./SignIn.jsx";
 
 const WAIVE = "https://waive.kindred-ai.dev";
@@ -105,7 +106,8 @@ export default function Family() {
               {camera.status === "paused" ? <button type="button" className="btn ana small" onClick={act("/cam/resume", "Watching again.")}>Resume watching</button> : camera.status !== "not_set" && <button type="button" className="btn ana small" onClick={act("/cam/pause", "Paused. Nothing leaves the mailbox phone until you resume.")}>Pause watching</button>}
               <button type="button" className="btn ana small" onClick={() => navigate("/ana/link?kind=cam")}>{camera.status === "not_set" ? "Set up a spare phone" : "Find the mailbox again"}</button>
             </div>
-            <span className="label plain">Watches the box region only · frames checked, then discarded · nothing stored, nothing streamed</span>
+            <MailTime initial={h.mailMinutes ?? null} onSaved={load} />
+            <span className="label plain">Watches the box region only · frames checked, then discarded · nothing stored, nothing streamed · with no spare phone, {h.called}'s own phone chimes at the usual hour</span>
           </section>
           <section className="card">
             <span className="label">Help</span>
@@ -119,7 +121,7 @@ export default function Family() {
           </section>
           <section className="card">
             <span className="label">Recent</span>
-            {events.slice(0, 8).map((e) => <p key={e.id} className="said"><span className="label plain">{when(e.at)}</span> {({ mail_seen: "Mail came.", handoff: "Waive case started.", help: "Help pressed.", help_cancel: "Help cancelled.", help_ok: `${h.called} said she's OK.`, help_test: "Help test sent.", help_test_ack: "Help test reached this page.", consent: `${h.called} said yes to Biscuit.`, look_requested: `Asked ${h.called} for another look at the letter from ${e.data?.sender || "a sender"}.` })[e.kind] || e.kind}</p>)}
+            {events.slice(0, 8).map((e) => <p key={e.id} className="said"><span className="label plain">{when(e.at)}</span> {({ mail_seen: "Mail came.", mail_due: "Chimed: the mail usually comes about now.", handoff: "Waive case started.", help: "Help pressed.", help_cancel: "Help cancelled.", help_ok: `${h.called} said she's OK.`, help_test: "Help test sent.", help_test_ack: "Help test reached this page.", consent: `${h.called} said yes to Biscuit.`, look_requested: `Asked ${h.called} for another look at the letter from ${e.data?.sender || "a sender"}.` })[e.kind] || e.kind}</p>)}
           </section>
         </div>
       </div>

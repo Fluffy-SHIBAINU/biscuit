@@ -7,6 +7,7 @@ import { getDocket } from "../lib/api.js";
 import { useEffect, useRef, useState } from "react";
 import { holdToHelp } from "../lib/hold.js";
 import { postEvent } from "../lib/api.js";
+import { mailSourceLabel, todaysMailLine } from "../lib/mailtime.js";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const clock = (d) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -42,7 +43,7 @@ export default function Home() {
   useEffect(() => { if (!holding) setArmed(false); }, [holding]);
   useEffect(() => {
     if (!s.deviceToken) return;
-    const refresh = () => getDocket().then((d) => store.set({ ...(d.lastMailSeen ? { lastMailSeen: d.lastMailSeen } : {}), lookRequest: lookRequestOf(d.letters) })).catch(() => {});
+    const refresh = () => getDocket().then((d) => store.set({ ...(d.lastMailSeen ? { lastMailSeen: d.lastMailSeen } : {}), mailMinutes: d.mailMinutes ?? null, hasCam: d.hasCam ?? null, lookRequest: lookRequestOf(d.letters) })).catch(() => {});
     const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
     document.addEventListener("visibilitychange", onVisible);
     const t = setInterval(refresh, 60_000);
@@ -50,7 +51,7 @@ export default function Home() {
   }, [s.deviceToken]);
   useEffect(() => {
     if (!s.deviceToken) return;
-    getDocket().then((d) => store.set({ ...(d.lastMailSeen ? { lastMailSeen: d.lastMailSeen } : {}), lookRequest: lookRequestOf(d.letters) })).catch(() => {});
+    getDocket().then((d) => store.set({ ...(d.lastMailSeen ? { lastMailSeen: d.lastMailSeen } : {}), mailMinutes: d.mailMinutes ?? null, hasCam: d.hasCam ?? null, lookRequest: lookRequestOf(d.letters) })).catch(() => {});
   }, [s.deviceToken]);
   async function turnOnChime() {
     try { const ok = await subscribePush(); if (!ok) setChimeError("The phone said no to notifications. Allow them in Settings for Biscuit."); }
@@ -58,8 +59,6 @@ export default function Home() {
   }
   const now = new Date();
   const name = s.household?.called || "Rosa";
-  const seen = s.lastMailSeen ? new Date(s.lastMailSeen) : null;
-  const sameDay = seen && seen.toDateString() === now.toDateString();
   const waiting = s.docket.find((l) => l.status === "handoff" || l.status === "waiting_hospital");
   return (
     <main className="screen">
@@ -67,8 +66,8 @@ export default function Home() {
       <div className="row"><Dog /><h1 className="display">{greeting(now, name)}</h1></div>
       <section className="card">
         <span className="label">Today's mail</span>
-        <p className="lead">{sameDay ? `The mail came at ${clock(seen)}.` : "No mail seen yet today."}</p>
-        <span className="label plain">Seen by the mailbox phone · no pictures kept</span>
+        <p className="lead">{todaysMailLine({ seenAt: s.lastMailSeen, now, mailMinutes: s.mailMinutes })}</p>
+        <span className="label plain">{mailSourceLabel({ hasCam: s.hasCam, mailMinutes: s.mailMinutes })}</span>
         <a href="/mail?from=home" className="link" onClick={(e) => { e.preventDefault(); navigate("/mail?from=home"); }}>Mail came and I didn't say so? Tap here.</a>
       </section>
       {s.lookRequest && (

@@ -1,6 +1,6 @@
 # Biscuit
 
-Biscuit is a voice helper that lives on a senior's phone and speaks when the mail comes. A spare phone on the windowsill watches the mailbox. When mail lands, Rosa's phone chimes. Biscuit asks to see each letter, reads it aloud, says only what it can quote from the page, asks one or two questions, and, for a hospital bill, starts a Waive case that her daughter Ana approves. Ana sees what Biscuit read and said on a family page. If Rosa needs help, her phone calls 911 and Ana is told at once.
+Biscuit is a voice helper that lives on a senior's phone and speaks when the mail comes. A spare phone on the windowsill watches the mailbox. When mail lands, Rosa's phone chimes. With no spare phone, her phone chimes instead at the hour Ana says the mail usually comes, and says that it is a usual time, not a sighting. Biscuit asks to see each letter, reads it aloud, says only what it can quote from the page, asks one or two questions, and, for a hospital bill, starts a Waive case that her daughter Ana approves. Ana sees what Biscuit read and said on a family page. If Rosa needs help, her phone calls 911 and Ana is told at once.
 
 Biscuit is a Kindred AI product, built for the Meta Global AI Developer Hackathon (Startups track, "Build for Your World"). Live at https://biscuit.kindred-ai.dev. Design spec: [docs/2026-10-26-biscuit-design.md](docs/2026-10-26-biscuit-design.md). Plan: [docs/2026-10-27-biscuit-mvp-plan.md](docs/2026-10-27-biscuit-mvp-plan.md).
 
@@ -8,7 +8,7 @@ Biscuit is a Kindred AI product, built for the Meta Global AI Developer Hackatho
 
 - **Rosa's phone:** open https://biscuit.kindred-ai.dev, Share, Add to Home Screen, open Biscuit from the icon, type the six-digit code from Ana's page. The Home Screen install is what lets it chime.
 - **Ana:** https://biscuit.kindred-ai.dev/ana, sign in with Kindred ID (Google), describe who Biscuit helps, read the code to Rosa's phone.
-- **The mailbox phone:** any old phone with a camera: https://biscuit.kindred-ai.dev/cam, type its code, allow the camera, point it at the mailbox, confirm the box Biscuit found, run the envelope test, leave it plugged in on the sill.
+- **The mailbox phone:** any old phone with a camera: https://biscuit.kindred-ai.dev/cam, type its code, allow the camera, point it at the mailbox, confirm the box Biscuit found, run the envelope test, leave it plugged in on the sill. No spare phone? Ana sets the usual mail hour on her page instead, and Rosa's own phone chimes then.
 
 ## The Meta models, and where each one works
 
@@ -69,7 +69,7 @@ Six real public documents (30 facts; Riverside itemization, Western Reserve bill
 | 2026-10-26 | Design mocks and the written spec (no code). |
 | 2026-10-27 | The web app, API, tests, deploy; the second reader. |
 | 2026-10-28 | Kindred's reader: synthetic letters, the Glimmer 30B LoRA, the eval through the production verifier, the shadow seat; the mailbox collect mode and its calibration tools. |
-| 2026-10-29 | Round two of Kindred's reader (letters that lack things, redaction bars, three photo families, real pages labelled by agreement) and its measurement; a simulated user trial, 36 personas on the real spoken lines (`docs/2026-10-29-user-trial.md`), and what it changed: the name on the letter is read first and a mismatch stops the reading and tells Ana, collectors and "not a bill" are said plainly, the hand-off is a question Biscuit asks, the mailbox phone is optional in words as well as in fact. |
+| 2026-10-29 | Round two of Kindred's reader (letters that lack things, redaction bars, three photo families, real pages labelled by agreement) and its measurement; a simulated user trial, 36 personas on the real spoken lines (`docs/2026-10-29-user-trial.md`), and what it changed: the name on the letter is read first and a mismatch stops the reading and tells Ana, collectors and "not a bill" are said plainly, the hand-off is a question Biscuit asks, the mailbox phone is optional in words as well as in fact; the delivery-hour chime for homes without a mailbox phone (Ana sets the hour, Rosa's phone keeps the zone, a GitHub Actions schedule ticks `/api/biscuit/chime/tick` every ten minutes). |
 | Not changed | Waive (https://waive.kindred-ai.dev): Biscuit reads its published policy sheets (`/atlas/{ccn}.json`) and sends Ana to its existing start page (`/start?ccn=`). Kindred ID: the verifier files under `server/kindred/` are copies of the shared verifiers. |
 
 ## Privacy
@@ -87,13 +87,13 @@ Six real public documents (30 facts; Riverside itemization, Western Reserve bill
 
 ## Limits
 
-English only. One family member told. The mailbox phone must stay on its page, plugged in. No wake word: a tap, the Talk button or a notification starts Biscuit. Informed Delivery, Kindred's reader taking a live seat, and more languages are next.
+English only. One family member told. The mailbox phone must stay on its page, plugged in. Without one, the chime is Ana's guess at the hour, ticked every ten minutes by a GitHub Actions schedule (Vercel's Hobby plan runs crons once a day), so it can run a few minutes late and never knows whether mail actually came. No wake word: a tap, the Talk button or a notification starts Biscuit. Informed Delivery, Kindred's reader taking a live seat, and more languages are next.
 
 ## Run it
 
 ```bash
 npm install
-cp .env.local.example .env.local   # MODEL_API_KEY, FIREWORKS_API_KEY + READER_SECOND=fireworks, VAPID keys (node scripts/vapid.mjs >> .env.local), DATABASE_URL
+cp .env.local.example .env.local   # MODEL_API_KEY, FIREWORKS_API_KEY + READER_SECOND=fireworks, VAPID keys (node scripts/vapid.mjs >> .env.local), DATABASE_URL, CRON_SECRET (the same value as the repo's Actions secret, for the chime tick)
 npm run db:migrate
 npm run dev                        # vercel dev on :3000 (KINDRED_AUTH_BYPASS=<email> stands in for Ana's session locally)
 npm test && npm run typecheck && npm run build

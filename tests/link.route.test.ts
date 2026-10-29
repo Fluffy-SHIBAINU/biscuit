@@ -47,6 +47,14 @@ describe.skipIf(!process.env.DATABASE_URL)("POST /api/biscuit/link/claim", () =>
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ error: "no_match" });
   });
+
+  test("the phone says its zone when it claims, and the household keeps it", async () => {
+    await getDb().insert(linkCode).values({ code: "900003", householdId, kind: "rosa", expiresAt: new Date(Date.now() + 600_000) });
+    const res = await app.request("/api/biscuit/link/claim", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code: "900003", tz: "America/Los_Angeles" }) });
+    expect(res.status).toBe(200);
+    const [h] = await getDb().select().from(household).where(eq(household.id, householdId));
+    expect(h.tz).toBe("America/Los_Angeles");
+  });
 });
 
 test("claims are rate limited by caller", async () => {

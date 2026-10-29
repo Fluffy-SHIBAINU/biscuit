@@ -4,7 +4,8 @@ import type { MiddlewareHandler } from "hono";
 import type { AuthVars } from "../auth.js";
 import { getDb } from "../db.js";
 import type { Events } from "../events.js";
-import { EVENT_KINDS, READ_BY, event, household, letter, type Check, type EventKind } from "../schema.js";
+import { EVENT_KINDS, READ_BY, device, event, household, letter, type Check, type EventKind } from "../schema.js";
+import { validTz } from "../chime.js";
 import { isNull } from "drizzle-orm";
 import { startUrl } from "../waive.js";
 import { HELP_PAYLOAD, MAIL_PAYLOAD, sendPush, type PushPayload, type Sender } from "../push.js";
@@ -91,12 +92,18 @@ export function docketRoutes(deps: { auth: MiddlewareHandler<AuthVars>; events: 
     .get("/docket", deps.auth, async (c) => {
       const db = getDb();
       const h = c.var.household.id;
+      // The phone says its zone with each refresh; the household keeps it for the delivery-hour chime.
+      const tz = validTz(c.req.query("tz"));
+      if (tz && tz !== c.var.household.tz) await db.update(household).set({ tz }).where(eq(household.id, h));
+      const hasCam = (await db.select({ id: device.id }).from(device).where(and(eq(device.householdId, h), eq(device.kind, "cam"))).limit(1)).length > 0;
       const letters = await db.select().from(letter).where(and(eq(letter.householdId, h), ne(letter.status, "hidden"))).orderBy(desc(letter.readAt));
       const [seen] = await db.select({ at: event.at }).from(event).where(and(eq(event.householdId, h), eq(event.kind, "mail_seen"))).orderBy(desc(event.at)).limit(1);
       return c.json({
         letters,
         lastMailSeen: seen ? seen.at.toISOString() : null,
         waiting: letters.filter((l) => ["handoff", "waiting_hospital"].includes(l.status)),
+        mailMinutes: c.var.household.mailMinutes ?? null,
+        hasCam,
       });
     });
 }

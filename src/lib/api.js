@@ -1,3 +1,4 @@
+import { browserTz } from "./mailtime.js";
 import { store } from "./store.js";
 
 export class ApiError extends Error {
@@ -40,4 +41,5 @@ export const postLetter = (entry) => api("/letter", { method: "POST", json: entr
 export const patchLetter = (id, patch) => api(`/letter/${id}`, { method: "PATCH", json: patch });
 export const handoff = (letterId, ccn) => api("/handoff", { method: "POST", json: { letterId, ccn } });
 export const postEvent = (kind, data = {}) => api("/events", { method: "POST", json: { kind, data } });
-export const getDocket = () => api("/docket");
+/** The docket, with this phone's zone so the household keeps it for the delivery-hour chime. */
+export const getDocket = () => { const tz = browserTz(); return api(`/docket${tz ? `?tz=${encodeURIComponent(tz)}` : ""}`); };

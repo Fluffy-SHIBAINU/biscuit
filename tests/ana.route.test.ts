@@ -44,4 +44,20 @@ describe.skipIf(!process.env.DATABASE_URL)("Ana's routes with the local bypass",
     expect(fam.devices).toEqual([]);
     expect(fam.camera.status).toBe("not_set");
   });
+
+  test("Ana sets the usual mail hour; a zone only fills a blank, so the phone's own zone keeps winning", async () => {
+    const res = await req("/api/biscuit/family/mail-time", { method: "PATCH", body: JSON.stringify({ minutes: 13 * 60, tz: "America/Chicago" }) });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, mailMinutes: 780, tz: "America/Chicago" });
+    let fam = await (await req("/api/biscuit/family")).json();
+    expect(fam.household).toMatchObject({ mailMinutes: 780, tz: "America/Chicago" });
+    expect((await req("/api/biscuit/family/mail-time", { method: "PATCH", body: JSON.stringify({ minutes: 14 * 60, tz: "America/Denver" }) })).status).toBe(200);
+    fam = await (await req("/api/biscuit/family")).json();
+    expect(fam.household).toMatchObject({ mailMinutes: 840, tz: "America/Chicago" });
+    expect((await req("/api/biscuit/family/mail-time", { method: "PATCH", body: JSON.stringify({ minutes: "soon" }) })).status).toBe(400);
+    expect((await req("/api/biscuit/family/mail-time", { method: "PATCH", body: JSON.stringify({ minutes: 1500 }) })).status).toBe(400);
+    expect((await req("/api/biscuit/family/mail-time", { method: "PATCH", body: JSON.stringify({ minutes: null }) })).status).toBe(200);
+    fam = await (await req("/api/biscuit/family")).json();
+    expect(fam.household.mailMinutes).toBeNull();
+  });
 });
