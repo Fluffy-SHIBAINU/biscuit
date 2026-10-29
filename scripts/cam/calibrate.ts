@@ -4,6 +4,7 @@
 //   npx tsx scripts/cam/calibrate.ts [--samples synth/cam/samples.json] [--labels synth/cam/labels.json] [--out synth/cam/calibration.md]
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { COLLECT_PROMPTS, WATCH_PROMPTS } from "../../server/cam.js";
+import { isLabelled, NEGATIVE, POSITIVE } from "../../server/clips.js";
 
 export type Sample = { id: number; at: string; test: boolean; level: number | null; seen: string | null; scores: Record<string, number>; label: string | null };
 export type Point = { floor: number; hitRate: number; falseRate: number };
@@ -11,8 +12,7 @@ export type PromptStat = Point & { curve: Point[] };
 export type SetStat = { prompts: string[]; hitRate: number; falseRate: number };
 export type Report = { positives: number; negatives: number; unlabelled: number; prompts: Record<string, PromptStat>; set: SetStat; current: SetStat & { floor: number }; motion: { current: number; suggested: number; keptPositives: number; droppedNegatives: number }; markdown: string };
 
-export const POSITIVE = new Set(["mail", "carrier"]);
-export const NEGATIVE = new Set(["nothing", "other"]);
+export { NEGATIVE, POSITIVE };
 export const CURRENT_FLOOR = 0.5;
 export const CURRENT_MOTION = 12;
 const FLOORS = Array.from({ length: 13 }, (_, i) => Math.round((0.3 + i * 0.05) * 100) / 100);
@@ -25,9 +25,9 @@ function arg(name: string, fallback: string): string {
 
 export function calibrate(samples: Sample[]): Report {
   const real = samples.filter((s) => !s.test);
-  const pos = real.filter((s) => s.label && POSITIVE.has(s.label));
-  const neg = real.filter((s) => s.label && NEGATIVE.has(s.label));
-  const unlabelled = real.filter((s) => !s.label).length;
+  const pos = real.filter((s) => isLabelled(s.label) && POSITIVE.has(s.label!));
+  const neg = real.filter((s) => isLabelled(s.label) && NEGATIVE.has(s.label!));
+  const unlabelled = real.filter((s) => !isLabelled(s.label)).length;
   const names = [...COLLECT_PROMPTS, ...new Set(real.flatMap((s) => Object.keys(s.scores)))].filter((p, i, a) => a.indexOf(p) === i);
   const score = (s: Sample, p: string) => s.scores[p] ?? 0;
   const prompts: Record<string, PromptStat> = {};

@@ -29,7 +29,7 @@ test("in collect mode every prompt is scored on the first frame and the sample i
   const prompts: string[] = [];
   const app = createApp({
     lookup: linked("ana@example.org"), camEnv: { CAM_COLLECT_OWNER: "ana@example.org" },
-    camStore: { get: async () => ({ householdId: "h1", region: { x: 0, y: 0, w: 1, h: 1 }, paused: false, samCallsToday: 0, samDay: null, testStatus: "works" }) as any, update: async () => {}, keep: async (row: any) => { kept.push(row); } },
+    camStore: { get: async () => ({ householdId: "h1", region: { x: 0, y: 0, w: 1, h: 1 }, paused: false, samCallsToday: 0, samDay: null, testStatus: "works" }) as any, update: async () => {}, keep: async (row: any) => { kept.push(row); return 1; }, attach: async () => true },
     sam: { detect: async (_j, p) => { if ("text" in p) prompts.push(p.text); return "text" in p && p.text === "envelope" ? [{ box: { x: 0.1, y: 0.1, w: 0.3, h: 0.2 }, score: 0.71 }] : []; } },
     events: { count: async () => 0, record: async () => 1 }, pushSend: async () => {},
   });
@@ -51,7 +51,7 @@ test("without the owner's permission nothing is kept and the normal path runs", 
   const prompts: string[] = [];
   const mk = (env: Record<string, string>) => createApp({
     lookup: linked("ana@example.org"), camEnv: env,
-    camStore: { get: async () => ({ householdId: "h1", region: { x: 0, y: 0, w: 1, h: 1 }, paused: false, samCallsToday: 0, samDay: null, testStatus: "works" }) as any, update: async () => {}, keep: async (row: any) => { kept.push(row); } },
+    camStore: { get: async () => ({ householdId: "h1", region: { x: 0, y: 0, w: 1, h: 1 }, paused: false, samCallsToday: 0, samDay: null, testStatus: "works" }) as any, update: async () => {}, keep: async (row: any) => { kept.push(row); return 1; }, attach: async () => true },
     sam: { detect: async (_j, p) => { if ("text" in p) prompts.push(p.text); return []; } },
     events: { count: async () => 0, record: async () => 1 }, pushSend: async () => {},
   });
@@ -67,10 +67,10 @@ test("without the owner's permission nothing is kept and the normal path runs", 
 test("a sample that cannot be kept does not break the watch", async () => {
   const app = createApp({
     lookup: linked("ana@example.org"), camEnv: { CAM_COLLECT_OWNER: "ana@example.org" },
-    camStore: { get: async () => ({ householdId: "h1", region: { x: 0, y: 0, w: 1, h: 1 }, paused: false, samCallsToday: 0, samDay: null, testStatus: "works" }) as any, update: async () => {}, keep: async () => { throw new Error("relation biscuit_cam_sample does not exist"); } },
+    camStore: { get: async () => ({ householdId: "h1", region: { x: 0, y: 0, w: 1, h: 1 }, paused: false, samCallsToday: 0, samDay: null, testStatus: "works" }) as any, update: async () => {}, keep: async () => { throw new Error("relation biscuit_cam_sample does not exist"); }, attach: async () => true },
     sam: { detect: async () => [] }, events: { count: async () => 0, record: async () => 1 }, pushSend: async () => {},
   });
   const res = await post(app, { collect: "1" });
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ seen: null, callsToday: 9, kept: false });
+  expect(await res.json()).toEqual({ seen: null, callsToday: 9, gate: null, kept: false });
 });

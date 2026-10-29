@@ -36,6 +36,13 @@
       "when": 1793287190305,
       "tag": "0004_overjoyed_wolfsbane",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793295308951,
+      "tag": "0005_medical_firestar",
+      "breakpoints": true
     }
   ]
 }
