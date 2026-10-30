@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { navigate, useSearch } from "../lib/navigate.js";
 import MailTime from "./MailTime.jsx";
+import Qr from "./Qr.jsx";
+import { linkUrl } from "../lib/qrlink.js";
 
 export default function LinkCode() {
   const search = useSearch();
@@ -32,6 +34,8 @@ export default function LinkCode() {
       <h1 className="display small">{kind === "cam" ? "Make a Spare Phone the Mailbox Camera" : "Link Rosa's Phone"}</h1>
       <section className="card">
         <span className="label">On {phone}</span>
+        <Qr text={code ? linkUrl(code, kind, window.location.origin) : ""} alt={`Link code for ${phone}`} />
+        <p className="lead small center">Scan With {phone} · Or Type the Code</p>
         {kind === "rosa" ? (
           <ol className="steps"><li>Open <strong>biscuit.kindred-ai.dev</strong> in Safari or Chrome.</li><li>Share, then <strong>Add to Home Screen</strong>, then open Biscuit from there.</li><li>Type this code.</li></ol>
         ) : (
