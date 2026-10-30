@@ -194,6 +194,12 @@ Later again on October 29, two voices on Ana's page:
   stay in sentence case.
 - The disclosures open by default for the household whose owner `CAM_COLLECT_OWNER` names (`household.admin` on
   `GET /api/biscuit/family`, from `isCollectOwner`) and stay closed for everyone else. Nothing is hidden behind a route.
+  Superseded on October 30: the founder ruled that no technical explanation is shown to the user at all, not even
+  folded. Every Details disclosure and explanatory sentence left the user side of Ana's page, her setup screens and the
+  mailbox phone's screens. The former Details content is an admin view, rendered (not hidden) only when the household is
+  the admin one and the page is opened as `/ana?admin=1` (`isAdminView` in `src/lib/admin.js`); on the mailbox phone the
+  counts, the movement level and the events render only in collect mode. The two consent sentences beside the switches
+  stay, because consent must say what is kept.
 - The consent toggles keep one sentence each; the first says "gone within 30 days", which is the upper bound (unchecked
   clips go after 7), and adds the exception when the second choice keeps tapped clips longer.
 - The mailbox phone's screen keeps "Watching Rosa's mailbox." and one plain line (the last movement, whether clips are
