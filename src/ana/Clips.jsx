@@ -8,7 +8,7 @@ const when = (iso) => (iso ? new Date(iso).toLocaleString([], { weekday: "short"
 export const FRAME_MS = 500;
 const SWIPE_PX = 40;
 
-/** Ana's two choices, in the Mailbox Phone card: a Title Case name and one short sentence each beside the switch, since consent must say what is kept; the long words are in the card's Details (ClipConsentDetails). */
+/** Ana's two choices, in the Mailbox Phone card: a Title Case name and one short sentence each beside the switch, since consent must say what is kept. The long words (ClipConsentDetails) render only in the admin view. */
 export function ClipConsent({ household: h, camera, onSaved }) {
   const [note, setNote] = useState("");
   const choose = async (patch, confirmText) => {
@@ -29,7 +29,7 @@ export function ClipConsent({ household: h, camera, onSaved }) {
   );
 }
 
-/** The full words behind the two choices, for the Mailbox Phone card's Details. */
+/** The full words behind the two choices, for the admin view only. */
 export function ClipConsentDetails() {
   return (
     <>
@@ -43,9 +43,9 @@ export function ClipConsentDetails() {
  * "Who Was at the Box": a carousel, one clip at a time, the eight frames as a loop (tap pauses), a scrubber, arrows and
  * swipes between clips, a counter, and two groups: the clips that need Ana and the ones already classified, by her or by
  * Biscuit. Biscuit's guess is the dark button, so one tap confirms; the other taps correct. On a clip Biscuit classified
- * itself, Not Right hands it back. Everything with a number or an explanation in it is under Details.
+ * itself, Not Right hands it back. Everything with a number or an explanation in it renders only in the admin view.
  */
-export function ClipCarousel({ household: h, camera, onLabelled }) {
+export function ClipCarousel({ household: h, camera, onLabelled, admin = false }) {
   const [data, setData] = useState(null);
   const [group, setGroup] = useState("attention");
   const [index, setIndex] = useState(0);
@@ -148,13 +148,13 @@ export function ClipCarousel({ household: h, camera, onLabelled }) {
           </div>
         </div>
       )}
-      <Details open={Boolean(h.admin)}>
+      {admin && <Details open>
         {tuned && <span className="label plain">{tuned}</span>}
         {learned && <span className="label plain">{learned}</span>}
         {clip && <span className="label plain">{clipDetail(clip)}</span>}
         <span className="label plain">{counts.attention} to check · {counts.classified} classified · {camera?.movementsToday ?? 0} {camera?.movementsToday === 1 ? "movement" : "movements"} today · the dark button is Biscuit's guess; stored labels carrier, nothing, other, skip.</span>
         <span className="label plain">A car or the wind: anything that was not mail. Someone else: a person at the box who is not the carrier. Swipe or use the arrows to move between clips; tap the picture to pause. The frames are the box region only, 320 pixels wide, up to 8 over 6 seconds; unchecked clips go after 7 days, tapped ones 30 days after the tap unless they help Biscuit learn. Nothing here leaves this page except what you chose in the Mailbox Phone card.</span>
-      </Details>
+      </Details>}
     </section>
   );
 }

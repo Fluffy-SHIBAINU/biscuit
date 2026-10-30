@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import Details from "../components/Details.jsx";
 import { api } from "../lib/api.js";
 import { navigate, useSearch } from "../lib/navigate.js";
 import MailTime from "./MailTime.jsx";
@@ -48,9 +47,6 @@ export default function LinkCode() {
         <button type="button" className="btn ana" onClick={fresh}>New Code</button>
       )}
       <button type="button" className="btn ana" onClick={() => navigate(kind === "rosa" ? "/ana/link?kind=cam" : "/ana")}>{kind === "rosa" ? "Skip to the Mailbox Phone" : "Skip This, No Spare Phone"}</button>
-      <Details>
-        <span className="label plain">{kind === "rosa" ? "Opening Biscuit from the Home Screen icon is what lets it chime. " : "No spare phone, or no window on the box? Skip this. Set the usual mail time above and Biscuit chimes Rosa's own phone about then; she can also tap Mail came on her phone any time. "}The code works once and dies in ten minutes. Three wrong tries on the phone: make a new one here.</span>
-      </Details>
     </main>
   );
 }

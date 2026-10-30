@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import Details from "../components/Details.jsx";
 import { api } from "../lib/api.js";
 import { navigate } from "../lib/navigate.js";
 
@@ -27,9 +26,6 @@ export default function WhoFor() {
       {error && <p className="lead small bad">{error}</p>}
       <div className="spacer" />
       <button type="button" className="btn ana primary" disabled={!f.seniorName.trim()} onClick={next}>Next</button>
-      <Details>
-        <span className="label plain">Only the name is required. Nothing here goes to a hospital.</span>
-      </Details>
     </main>
   );
 }

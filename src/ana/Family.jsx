@@ -6,7 +6,8 @@ import { seenWords } from "../lib/clips.js";
 import { readerName } from "../lib/letters.js";
 import { helpLine, lettersLine, readersLine, recentLine, saidLine } from "../lib/lines.js";
 import { mailTimeLine } from "../lib/mailtime.js";
-import { navigate } from "../lib/navigate.js";
+import { navigate, useSearch } from "../lib/navigate.js";
+import { isAdminView } from "../lib/admin.js";
 import { pushSupported, subscribePush } from "../lib/push.js";
 import { ClipCarousel, ClipConsent, ClipConsentDetails } from "./Clips.jsx";
 import MailTime from "./MailTime.jsx";
@@ -38,6 +39,7 @@ export default function Family() {
   const [fam, setFam] = useState(null);
   const [state, setState] = useState("loading");
   const [note, setNote] = useState("");
+  const search = useSearch();
   const load = () => api("/family").then((f) => { setFam(f); setState("ok"); }).catch((e) => setState(e?.status === 401 ? "signin" : e?.status === 404 ? "new" : "error"));
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, []);
   if (state === "signin") return <SignIn />;
@@ -45,7 +47,9 @@ export default function Family() {
   if (state !== "ok") return <main className="screen ana"><span className="label">Biscuit · Family Page</span><p className="lead small">{state === "error" ? "Couldn't load the page. Try again in a moment." : "One Moment"}</p></main>;
 
   const { household: h, letters, said, events, camera, help, devices, readers } = fam;
-  const admin = Boolean(h.admin);
+  // The admin view: the founder's household and ?admin=1, never anyone else; nothing of it is rendered otherwise.
+  const adminView = isAdminView(search, h.admin);
+  const Admin = ({ children }) => (adminView ? <Details open>{children}</Details> : null);
   const needs = letters.filter((l) => l.status === "handoff" || l.needsReview);
   const rosaPhone = devices.find((d) => d.kind === "rosa");
   const act = (path, msg) => () => api(path, { method: "POST" }).then(() => { setNote(msg); load(); }).catch(() => setNote("That didn't work. Try again."));
@@ -81,11 +85,11 @@ export default function Family() {
               {l.status === "handoff" && l.hospitalCcn && <a className="link" href={`${WAIVE}/start?ccn=${l.hospitalCcn}`} target="_blank" rel="noreferrer">Open in Waive</a>}
             </div>
           ))}
-          <Details open={admin}>
+          <Admin>
             <span className="label plain">When Biscuit reads a letter on {h.called}'s phone, its summary shows here: the sender, the amount, the dates and the quotes Biscuit spoke, never the picture or the full text. Letters she hid never appear. Read Twice means two readers agreed on what was said; Check means a line was read two ways and not spoken.</span>
-          </Details>
+          </Admin>
         </section>
-        {(h.keepClips || camera.clips?.total > 0) && <ClipCarousel household={h} camera={camera} onLabelled={load} />}
+        {(h.keepClips || camera.clips?.total > 0) && <ClipCarousel household={h} camera={camera} onLabelled={load} admin={adminView} />}
         <div className="stack">
           <section className="card night">
             <span className="label night">Needs You</span>
@@ -100,19 +104,19 @@ export default function Family() {
             <span className="label">Biscuit Said</span>
             {saidLine(said.length) && <p className="lead small muted">{saidLine(said.length)}</p>}
             {said.slice(0, 6).map((e, i) => <p key={i} className="said"><span className="label plain">{clock(e.at)}</span> “{e.text}”</p>)}
-            <Details open={admin}>
+            <Admin>
               <span className="label plain">What Biscuit said is kept. {h.called}'s voice is not.</span>
-            </Details>
+            </Admin>
           </section>
           <section className="card">
             <span className="label">Readers</span>
             <p className="lead small">{readersLine(readers)}</p>
-            <Details open={admin}>
+            <Admin>
               {readers && <span className="label plain">Last letter {when(readers.at)}. Two readers read every letter; {h.called} hears only what both read the same way.</span>}
               {!readers && <span className="label plain">Two readers read every letter; {h.called} hears only what both read the same way.</span>}
               {readers && readers.list.map((r) => <div key={r.name} className="row"><span className={`pill ${r.shadow ? "signal" : (READER_STATE[r.status] || READER_STATE.failed)[0]}`}>{r.shadow ? "Shadow" : (READER_STATE[r.status] || READER_STATE.failed)[1]}</span><span className="label plain">{readerName(r)}{r.shadow ? ` · ${r.status === "ok" ? `agreed on ${r.agreed} of ${r.of}` : (READER_STATE[r.status] || READER_STATE.failed)[1].toLowerCase()}` : ""}{Number.isFinite(r.ms) ? ` · ${(r.ms / 1000).toFixed(1)} s` : ""}</span></div>)}
               <span className="label plain">Meta's reader is Spark 1.3 on Meta Model API; the second reader is DeepSeek V4.1 Flash on Fireworks. Kindred's reader, Meta's Glimmer 30B trained on synthetic letters, reads in the shadow: logged here, never spoken.</span>
-            </Details>
+            </Admin>
           </section>
           <section className="card">
             <span className="label">Mailbox Phone</span>
@@ -122,20 +126,20 @@ export default function Family() {
               <button type="button" className="btn ana small" onClick={() => navigate("/ana/link?kind=cam")}>{camera.status === "not_set" ? "Set Up a Spare Phone" : "Find the Mailbox Again"}</button>
             </div>
             <ClipConsent household={h} camera={camera} onSaved={load} />
-            <Details open={admin}>
+            <Admin>
               <span className="label plain">{cameraLine(camera, clock)}</span>
               <span className="label plain">SAM calls today: {camera.samCallsToday ?? 0} of 800 · {camera.clips?.attention ?? 0} clips to check · {camera.clips?.classified ?? 0} classified{camera.floor != null ? ` · floor ${Number(camera.floor).toFixed(2)}` : ""}{camera.gate != null ? ` · gate ${camera.gate}` : ""}</span>
               <ClipConsentDetails />
               <span className="label plain">{h.keepClips ? "Watches the box region only · frames checked · a 6-second clip of the box kept for you to check, 7 days unchecked, 30 days after a tap · nothing streamed" : "Watches the box region only · frames checked, then discarded · nothing stored, nothing streamed"} · with no spare phone, {h.called}'s own phone chimes at the usual hour.</span>
-            </Details>
+            </Admin>
           </section>
           <section className="card">
             <span className="label">Mail Time</span>
             <p className="lead small">{mailTimeLine(h.mailMinutes)}</p>
             <MailTime initial={h.mailMinutes ?? null} onSaved={load} />
-            <Details open={admin}>
+            <Admin>
               <span className="label plain">The hour the mail usually comes, your guess. On days the mailbox phone does not see the box, or with no spare phone at all, {h.called}'s own phone chimes about this hour and says it is the usual time, not a sighting. Not set means no chime.{h.tz ? ` Her phone's zone: ${h.tz}.` : ""}</span>
-            </Details>
+            </Admin>
           </section>
           <section className="card">
             <span className="label">Help</span>
@@ -146,31 +150,31 @@ export default function Family() {
               {pushSupported() && <button type="button" className="btn ana small" onClick={() => subscribePush({ ana: true }).then(() => setNote("This device will buzz when Rosa presses Help.")).catch(() => setNote("Notifications were not allowed."))}>Get Notified on This Device</button>}
               <button type="button" className="btn ana small" onClick={() => navigate("/ana/link")}>{rosaPhone ? "Link Another Phone" : `Link ${h.called}'s Phone`}</button>
             </div>
-            <Details open={admin}>
+            <Admin>
               <span className="label plain">{h.called}'s phone calls 911 and this page is told at once. {help.lastTestAt ? `Last test ${when(help.lastTestAt)}, ${help.acked ? "reached this page" : "not acknowledged by this page"}.` : "No test sent yet; send one so you know it reaches you."}{help.openHelpAt ? ` Help open since ${when(help.openHelpAt)}.` : ""} Help opens the phone's own 911 call; Biscuit never dials by itself and tells family by notification only.</span>
-            </Details>
+            </Admin>
           </section>
           <section className="card">
             <span className="label">Recent</span>
             {recentLine(events.length) && <p className="lead small muted">{recentLine(events.length)}</p>}
             {events.slice(0, 8).map((e) => <p key={e.id} className="said"><span className="label plain">{when(e.at)}</span> {recentWords(e)}</p>)}
-            <Details open={admin}>
+            <Admin>
               {events.filter((e) => e.kind === "cam_motion").slice(0, 8).map((e) => <span key={e.id} className="label plain">{when(e.at)} · movement · level {e.data?.level ?? "unknown"} · seen: {e.data?.seen ?? "nothing"}</span>)}
               <span className="label plain">Events kept: when, what kind, what SAM saw and the motion level for a movement; never an image here.</span>
-            </Details>
+            </Admin>
           </section>
         </div>
       </div>
       <section className="card">
         <span className="label">Delete</span>
         <button type="button" className="btn ana small" onClick={() => { if (window.confirm("Delete this household? This cannot be undone.")) api("/household/ana", { method: "DELETE" }).then(() => navigate("/ana/new")); }}>Delete This Household</button>
-        <Details open={admin}>
+        <Admin>
           <span className="label plain">Removes everything Biscuit kept for this page and unlinks both phones. {h.called}'s own list stays on her phone until she deletes it there. Only a daily count of deletions remains.</span>
-        </Details>
+        </Admin>
       </section>
-      <Details open={admin}>
+      <Admin>
         <p className="foot">Nothing on this page goes to a hospital. You approve every application in Waive. Sharing is {h.called}'s choice, made with her yes: she chose whether letters appear here when she said yes to Biscuit. Say "stop" to Biscuit and he stops.</p>
-      </Details>
+      </Admin>
     </main>
   );
 }

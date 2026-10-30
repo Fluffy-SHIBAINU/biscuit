@@ -6,7 +6,6 @@ import { speak } from "../lib/speech.js";
 import { store, useStore } from "../lib/store.js";
 import { regionStyle, roundBox, videoSizeOf } from "./box.js";
 import BoxEditor from "./BoxEditor.jsx";
-import Details from "../components/Details.jsx";
 
 const STEP = { denied: "Camera · 1 of 3 · Can't See", place: "Camera · 2 of 3 · Live", looking: "Camera · 3 of 3 · Looking", found: "Camera · 3 of 3 · Found", wrong: "Camera · 3 of 3 · Tap the Box", notfound: "Camera · 3 of 3 · Not Found", draw: "Camera · 3 of 3 · Draw the Box" };
 
@@ -96,9 +95,6 @@ export default function Setup() {
       <button type="button" className="btn" onClick={open}>Try Again</button>
       {refusals >= 3 && <button type="button" className="btn secondary" onClick={() => { store.set({ cam: { skipped: true } }); navigate("/cam/rest"); }}>Set the Camera Up Later</button>}
       <div className="spacer" />
-      <Details>
-        <span className="label plain">Three refusals: this phone is skipped. Rosa can still tap Mail came on her phone, and Biscuit still reads letters.</span>
-      </Details>
     </main>
   );
 
@@ -125,10 +121,6 @@ export default function Setup() {
       {phase === "wrong" && <><button type="button" className="btn" disabled={!tap} onClick={() => find(tap)}>Use What I Tapped</button>{wrongs >= 2 ? <p className="lead small">Wrong twice: move the phone so only Rosa's box is in the picture, then look again.</p> : null}{drawMyself()}<button type="button" className="btn secondary" onClick={() => setPhase("place")}>Look Again</button></>}
       {phase === "notfound" && <>{looks < 2 && <button type="button" className="btn" onClick={() => find()}>Look Again <span className="hint">try 2 of 2</span></button>}<button type="button" className="btn secondary" onClick={() => { setTap(null); setPhase("wrong"); }}>Tap Where It Is</button>{drawMyself()}{looks >= 2 && <button type="button" className="btn secondary" onClick={() => { store.set({ cam: { skipped: true } }); navigate("/cam/rest"); }}>Set the Camera Up Later</button>}</>}
       {phase === "draw" && <><button type="button" className="btn" disabled={!drawn || busy} onClick={useDrawn}>Use This Box</button>{adjusting ? <button type="button" className="btn secondary" onClick={() => navigate("/cam")}>Keep the Box as It Is</button> : back === "found" ? <button type="button" className="btn secondary" onClick={() => setPhase("found")}>Back to What Biscuit Found</button> : <button type="button" className="btn secondary" onClick={() => setPhase("place")}>Find It for Me Instead</button>}</>}
-      <Details>
-        {phase === "found" && <span className="label plain">SAM 3.1 found a mailbox shape{score ? ` with confidence ${Math.round(score * 100)}%` : ""}; Biscuit will watch only this box, grown by a fifth on each side.</span>}
-        <span className="label plain">{phase === "place" ? "One picture to SAM 3.1 with the word “mailbox” · ask you to confirm · remember only the box region" : phase === "draw" ? "Nothing is sent while you draw · the box is kept as you drew it, no padding · once set, only the box is ever looked at" : "Pictures from the search are thrown away after the check. Once set, only the box region is ever looked at."}</span>
-      </Details>
     </main>
   );
 }
