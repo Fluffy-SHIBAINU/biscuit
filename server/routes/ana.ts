@@ -171,7 +171,7 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
       const now = new Date();
       const devices = await db.select().from(device).where(eq(device.householdId, h.id));
       const letters = await db.select().from(letter).where(and(eq(letter.householdId, h.id), ne(letter.status, "hidden"))).orderBy(desc(letter.readAt)).limit(50);
-      const events = await db.select().from(event).where(and(eq(event.householdId, h.id), inArray(event.kind, ["said", "mail_seen", "mail_due", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack", "consent", "look_requested", "cam_motion", "cam_frozen"]))).orderBy(desc(event.at)).limit(60);
+      const events = await db.select().from(event).where(and(eq(event.householdId, h.id), inArray(event.kind, ["said", "mail_seen", "mail_due", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack", "consent", "look_requested", "cam_motion", "cam_frozen", "rosa_said"]))).orderBy(desc(event.at)).limit(60);
       // Movements the phone sent today, in the household's own day.
       const tz = validTz(h.tz) ?? DEFAULT_TZ;
       const today = localParts(now, tz).day;

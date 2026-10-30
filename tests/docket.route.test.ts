@@ -62,6 +62,14 @@ describe.skipIf(!process.env.DATABASE_URL)("docket, letters, handoff, events", (
     expect((await req("/api/biscuit/events", { method: "POST", body: JSON.stringify({ kind: "nope" }) })).status).toBe(400);
   });
 
+  test("a letter that is not Rosa's is stored as a date, a kind and the status, whatever the phone sends", async () => {
+    const id = crypto.randomUUID();
+    const res = await req("/api/biscuit/letter", { method: "POST", body: JSON.stringify({ id, readAt: "2026-10-30T15:00:00Z", kind: "bill", status: "not_mine", needsReview: true, sender: "Aurora Medical Center", hospitalCcn: "520102", amountCents: 24000, statementOn: "2026-10-03", dueOn: "2026-11-02", quotes: [{ field: "amount_due", quote: "Amount Due: $240.00" }], answers: { q1: "yes" } }) });
+    expect(res.status).toBe(200);
+    const [row] = await getDb().select().from(letter).where(eq(letter.id, id));
+    expect(row).toMatchObject({ status: "not_mine", needsReview: true, kind: "bill", sender: null, hospitalCcn: null, amountCents: null, statementOn: null, dueOn: null, quotes: [], answers: {} });
+  });
+
   test("the phone tells its zone with the docket and hears the usual mail hour; a bad zone changes nothing", async () => {
     let docket = await (await req("/api/biscuit/docket?tz=America/Denver")).json();
     expect(docket).toMatchObject({ mailMinutes: null, hasCam: false });
@@ -72,6 +80,24 @@ describe.skipIf(!process.env.DATABASE_URL)("docket, letters, handoff, events", (
     expect(docket.mailMinutes).toBe(780);
     [h] = await getDb().select().from(household).where(eq(household.id, householdId));
     expect(h.tz).toBe("America/Denver");
+  });
+});
+
+describe.skipIf(!process.env.DATABASE_URL)("what Rosa asks Biscuit to tell Ana reaches the family page", () => {
+  test("a rosa_said event is listed in Ana's Recent, in Rosa's words", async () => {
+    const db = getDb();
+    await db.delete(household).where(eq(household.ownerEmail, "rosa-said-test@biscuit.local"));
+    const [h] = await db.insert(household).values({ ownerEmail: "rosa-said-test@biscuit.local", seniorName: "Rosa", called: "Rosa" }).returning();
+    const t = newToken();
+    await db.insert(device).values({ householdId: h.id, kind: "rosa", tokenHash: t.hash });
+    const app = createApp({ anaEnv: { KINDRED_AUTH_BYPASS: "rosa-said-test@biscuit.local" } });
+    const res = await app.request("/api/biscuit/events", { method: "POST", headers: { authorization: `Bearer ${t.token}`, "content-type": "application/json" }, body: JSON.stringify({ kind: "rosa_said", data: { text: "I'm fine today. " + "x".repeat(400) } }) });
+    expect(res.status).toBe(200);
+    const fam = await (await app.request("/api/biscuit/family", { headers: { "content-type": "application/json" } })).json();
+    const said = fam.events.find((e: any) => e.kind === "rosa_said");
+    expect(said.data.text.startsWith("I'm fine today.")).toBe(true);
+    expect(said.data.text.length).toBeLessThanOrEqual(300);
+    await db.delete(household).where(eq(household.ownerEmail, "rosa-said-test@biscuit.local"));
   });
 });
 

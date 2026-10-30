@@ -54,7 +54,7 @@ export default function Family() {
   const rosaPhone = devices.find((d) => d.kind === "rosa");
   const act = (path, msg) => () => api(path, { method: "POST" }).then(() => { setNote(msg); load(); }).catch(() => setNote("That didn't work. Try again."));
   const RECENT = { cam_frozen: "The camera fell asleep; the mailbox phone needs a tap.", mail_seen: "Mail came.", mail_due: "Chimed: the mail usually comes about now.", handoff: "Waive case started.", help: "Help pressed.", help_cancel: "Help cancelled.", help_ok: `${h.called} said she's OK.`, help_test: "Help test sent.", help_test_ack: "Help test reached this page.", consent: `${h.called} said yes to Biscuit.` };
-  const recentWords = (e) => RECENT[e.kind] || (e.kind === "look_requested" ? `Asked ${h.called} for another look at the letter from ${e.data?.sender || "a sender"}.` : e.kind === "cam_motion" ? (e.data?.seen ? `Movement at the box · saw ${seenWords(e.data.seen)}.` : "Movement at the box · nothing recognised.") : e.kind);
+  const recentWords = (e) => RECENT[e.kind] || (e.kind === "rosa_said" ? `${h.called} said: “${e.data?.text || ""}”` : e.kind === "look_requested" ? `Asked ${h.called} for another look at the letter from ${e.data?.sender || "a sender"}.` : e.kind === "cam_motion" ? (e.data?.seen ? `Movement at the box · saw ${seenWords(e.data.seen)}.` : "Movement at the box · nothing recognised.") : e.kind);
 
   return (
     <main className="screen ana wide">

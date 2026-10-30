@@ -56,3 +56,9 @@ test("readOnceLine names the reader that was away and the one that read alone", 
 test("statusLine names a letter addressed to someone else", () => {
   expect(statusLine({ status: "not_mine", facts: [] })).toBe("Addressed to someone else. Ana told.");
 });
+
+// A letter addressed to someone else is someone else's business: the summary that leaves the phone is a date, a kind and the status, nothing more.
+test("summaryOf a letter that is not Rosa's keeps no sender, amount, dates or quotes", () => {
+  const sum = summaryOf({ id: "y", readAt: "2026-10-30T15:00:00Z", kind: "bill", sender: "Aurora Medical Center", hospital: { ccn: "520102" }, status: "not_mine", needsReview: true, facts: [{ field: "amount_due", value: "$240.00", quote: "Amount Due: $240.00", verified: true }, { field: "addressee", value: "Sangful Yoon", quote: "Sangful Yoon", verified: true }] });
+  expect(sum).toEqual({ id: "y", readAt: "2026-10-30T15:00:00Z", kind: "bill", status: "not_mine", needsReview: true });
+});

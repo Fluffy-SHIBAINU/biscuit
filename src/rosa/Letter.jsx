@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import Dog from "../components/Dog.jsx";
 import { frameCheck, postLetter, readLetter } from "../lib/api.js";
 import { summaryOf } from "../lib/letters.js";
 import { grabJpeg, openCamera, stopCamera } from "../lib/camera.js";
@@ -19,8 +20,8 @@ export default function Letter() {
   const stream = useRef(null);
   const busy = useRef(false);
   const [check, setCheck] = useState(null);
-  const [elapsed, setElapsed] = useState(0);
   const [phase, setPhase] = useState("looking");
+  const [shot, setShot] = useState("");
 
   async function capture() {
     if (busy.current) return;
@@ -28,9 +29,14 @@ export default function Letter() {
     setPhase("reading");
     try {
       const jpeg = await grabJpeg(video.current, 2000, 2_000_000);
+      // The picture is taken: the camera stops and the screen shows the picture Biscuit is reading.
+      stopCamera(stream.current);
+      setShot(URL.createObjectURL(jpeg));
       speak(["I've got it. One moment while I read."]);
       const r = await readLetter(jpeg);
-      const entry = { id: crypto.randomUUID(), readAt: new Date().toISOString(), kind: r.kind, sender: r.sender, facts: r.facts, transcription: r.transcription, hospital: r.hospital, status: r.mismatch ? "not_mine" : "read", needsReview: Boolean(r.mismatch), readBy: r.readBy, checks: r.checks || [], readers: r.readers || [] };
+      // The whole reading stays with the letter on this phone so a tap on Your papers can play it again; a letter addressed to someone else keeps only the lines Biscuit spoke.
+      const minimal = Boolean(r.mismatch);
+      const entry = { ...r, id: crypto.randomUUID(), readAt: new Date().toISOString(), status: minimal ? "not_mine" : "read", needsReview: minimal, checks: r.checks || [], readers: r.readers || [], ...(minimal ? { sender: null, facts: [], transcription: null, hospital: null, checks: [], offerLines: [], sheet: null, questions: [] } : {}) };
       store.set((s) => ({ docket: [entry, ...s.docket], lastReading: { ...r, id: entry.id }, lookRequest: s.lookRequest && s.lookRequest.sender === r.sender ? null : s.lookRequest }));
       if (store.get().household?.shareLetters !== false) postLetter(summaryOf(entry)).catch(() => {});
       navigate("/reading");
@@ -46,7 +52,6 @@ export default function Letter() {
   useEffect(() => {
     let alive = true;
     let timer = null;
-    const started = Date.now();
     (async () => {
       try {
         stream.current = await openCamera(video.current);
@@ -58,7 +63,6 @@ export default function Letter() {
       }
       timer = setInterval(async () => {
         if (!alive || busy.current || !video.current?.videoWidth) return;
-        setElapsed(Math.round((Date.now() - started) / 1000));
         try {
           busy.current = true;
           const result = await frameCheck(await grabJpeg(video.current, 1280, 300_000));
@@ -71,18 +75,27 @@ export default function Letter() {
         }
       }, 1000);
     })();
-    return () => { alive = false; if (timer) clearInterval(timer); stopCamera(stream.current); stopSpeaking(); };
+    return () => { alive = false; if (timer) clearInterval(timer); stopCamera(stream.current); stopSpeaking(); if (shot) URL.revokeObjectURL(shot); };
   }, []);
 
   const s = statusLine(check);
   return (
     <main className="screen">
       <div className="row between"><span className="label">Show me the letter</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); navigate("/"); }}>Stop</a></div>
-      <h1 className="display small">Hold the letter in the frame.</h1>
-      <div className="frame"><video ref={video} autoPlay playsInline muted /></div>
-      <section className="card status"><span className={`pill ${check?.ok ? "ok" : "warn"}`}>{phase === "reading" ? "Reading" : s.pill}</span><p className="lead small">{phase === "reading" ? "Reading it now." : s.text}</p></section>
+      {phase === "reading" ? (
+        <>
+          <div className="row"><Dog /><h1 className="display small">Reading it now.</h1></div>
+          {shot && <img className="shot" src={shot} alt="The letter Biscuit is reading" />}
+        </>
+      ) : (
+        <>
+          <h1 className="display small">Hold the letter in the frame.</h1>
+          <div className="frame"><video ref={video} autoPlay playsInline muted /></div>
+          <section className="card status"><span className={`pill ${check?.ok ? "ok" : "warn"}`}>{s.pill}</span><p className="lead small">{s.text}</p></section>
+        </>
+      )}
       <div className="spacer" />
-      {elapsed >= 10 && phase !== "reading" && <button type="button" className="btn secondary" onClick={capture}>Take it anyway</button>}
+      {phase !== "reading" && <button type="button" className="btn big" onClick={capture}>Take the picture</button>}
       <p className="foot mono">Frame check: SAM 3.1 · read by Muse Spark on Kindred's server, twice when the second reader is on · nothing kept after reading</p>
     </main>
   );

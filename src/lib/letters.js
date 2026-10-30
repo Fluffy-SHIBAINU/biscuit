@@ -39,6 +39,8 @@ export function spokenValue(fact) {
 
 /** What the server may keep: no text, only the verified values and their quotes. */
 export function summaryOf(entry) {
+  // A letter addressed to someone else is someone else's business: a date, a kind and the status leave the phone, nothing more.
+  if (entry.status === "not_mine") return { id: entry.id, readAt: entry.readAt, kind: entry.kind, status: "not_mine", needsReview: true };
   const facts = entry.facts || [];
   return {
     id: entry.id,

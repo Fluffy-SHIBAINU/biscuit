@@ -10,8 +10,8 @@ import { isNull } from "drizzle-orm";
 import { startUrl } from "../waive.js";
 import { HELP_PAYLOAD, MAIL_PAYLOAD, sendPush, type PushPayload, type Sender } from "../push.js";
 
-const DEVICE_EVENTS: EventKind[] = ["mail_seen", "mail_tapped", "help", "help_cancel", "help_ok", "consent", "said", "cam_online", "cam_offline", "cam_battery", "cam_paused"];
-const STATUSES = ["read", "handoff", "waiting_hospital", "tossed", "unknown_number", "hidden"];
+const DEVICE_EVENTS: EventKind[] = ["mail_seen", "mail_tapped", "help", "help_cancel", "help_ok", "consent", "said", "rosa_said", "cam_online", "cam_offline", "cam_battery", "cam_paused"];
+const STATUSES = ["read", "handoff", "waiting_hospital", "tossed", "unknown_number", "not_mine", "hidden"];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const cut = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : "");
 
@@ -39,6 +39,8 @@ export function docketRoutes(deps: { auth: MiddlewareHandler<AuthVars>; events: 
         status: STATUSES.includes(b.status) ? b.status : "read", needsReview: Boolean(b.needsReview),
         readBy: READ_BY.includes(b.readBy) ? b.readBy : null, checks: cleanChecks(b.checks),
       };
+      // A letter addressed to someone else is someone else's business: the row keeps the date, the kind and the status, nothing more.
+      if (row.status === "not_mine") Object.assign(row, { sender: null, hospitalCcn: null, amountCents: null, statementOn: null, dueOn: null, quotes: [], answers: {}, checks: [], needsReview: true });
       const db = getDb();
       await db.insert(letter).values(row).onConflictDoUpdate({ target: letter.id, set: { ...row, id: undefined, householdId: undefined } });
       // A fresh read from the same sender answers Ana's "another look".
@@ -71,7 +73,7 @@ export function docketRoutes(deps: { auth: MiddlewareHandler<AuthVars>; events: 
       if (!DEVICE_EVENTS.includes(kind) || !EVENT_KINDS.includes(kind)) return c.json({ error: "bad_kind" }, 400);
       const camKinds = ["mail_seen", "cam_online", "cam_offline", "cam_battery", "cam_paused"];
       if (c.var.device.kind === "cam" ? !camKinds.includes(kind) : camKinds.includes(kind) && kind !== "mail_seen") return c.json({ error: "wrong_device" }, 403);
-      if (kind === "said" && typeof b?.data?.text === "string") b.data.text = b.data.text.slice(0, 300);
+      if ((kind === "said" || kind === "rosa_said") && typeof b?.data?.text === "string") b.data.text = b.data.text.slice(0, 300);
       const data = b?.data && typeof b.data === "object" ? b.data : {};
       const id = await deps.events.record(c.var.household.id, c.var.device.id, kind, data);
       const h = c.var.household;
