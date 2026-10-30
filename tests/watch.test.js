@@ -46,3 +46,17 @@ test("noteOutcome reads a send's reply and sets the detector's cadence", () => {
   expect(d.cooldownMs).toBe(5_000);
   expect(noteOutcome(null, { seen: "envelope" })).toBe(true);
 });
+
+// When reopening the camera does not bring the frames back, the page reloads itself: after two frozen heartbeats, and
+// never more than once in ten minutes, so a camera that is truly gone cannot make the phone reload forever.
+import { RELOAD_AFTER_BEATS, RELOAD_GAP_MS, shouldReload } from "../src/cam/watch.js";
+test("shouldReload waits for two frozen heartbeats and ten minutes since the last reload", () => {
+  expect(RELOAD_AFTER_BEATS).toBe(2);
+  expect(RELOAD_GAP_MS).toBe(600_000);
+  const now = 1_000_000_000;
+  expect(shouldReload({ frozenBeats: 1, lastReloadAt: null, now })).toBe(false);
+  expect(shouldReload({ frozenBeats: 2, lastReloadAt: null, now })).toBe(true);
+  expect(shouldReload({ frozenBeats: 5, lastReloadAt: now - 599_000, now })).toBe(false);
+  expect(shouldReload({ frozenBeats: 2, lastReloadAt: now - 600_000, now })).toBe(true);
+  expect(shouldReload({ frozenBeats: 0, lastReloadAt: null, now })).toBe(false);
+});

@@ -94,3 +94,25 @@ export function startWatcher(video, region, { onFrames, onClip, clip, onLevel, i
   }, intervalMs);
   return () => { stopped = true; clearInterval(timer); };
 }
+
+/**
+ * The last resort when reopening the camera does not bring the frames back: the page reloads itself, after this many
+ * frozen heartbeats in a row, and never more than once in this many milliseconds, so a camera that is truly gone cannot
+ * make the phone reload forever. The time of the last reload lives in localStorage so it survives the reload.
+ */
+export const RELOAD_AFTER_BEATS = 2;
+export const RELOAD_GAP_MS = 600_000;
+export const RELOAD_KEY = "biscuit_cam_reload_at";
+
+export function shouldReload({ frozenBeats, lastReloadAt, now }) {
+  if (frozenBeats < RELOAD_AFTER_BEATS) return false;
+  return lastReloadAt == null || now - lastReloadAt >= RELOAD_GAP_MS;
+}
+
+export function readReloadAt(storage = globalThis.localStorage) {
+  try { const v = Number(storage?.getItem(RELOAD_KEY)); return Number.isFinite(v) && v > 0 ? v : null; } catch { return null; }
+}
+
+export function writeReloadAt(now, storage = globalThis.localStorage) {
+  try { storage?.setItem(RELOAD_KEY, String(now)); } catch { /* the gap is then not remembered; the two-beat rule still holds */ }
+}

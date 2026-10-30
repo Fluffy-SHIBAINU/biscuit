@@ -5,7 +5,7 @@ import { navigate } from "../lib/navigate.js";
 import { speak } from "../lib/speech.js";
 import { store, useStore } from "../lib/store.js";
 import { MotionDetector } from "./motion.js";
-import { applyGate, frameFields, shouldSend, startWatcher } from "./watch.js";
+import { applyGate, frameFields, readReloadAt, shouldReload, shouldSend, startWatcher, writeReloadAt } from "./watch.js";
 import { labelWords, pct } from "../lib/clips.js";
 import { regionStyle, videoSizeOf } from "./box.js";
 
@@ -63,6 +63,7 @@ export default function Watching() {
       const health = () => trackDead() || detector.frozen();
       const wake = async () => { try { await navigator.wakeLock?.request("screen"); } catch { /* optional */ } };
       let restarting = false;
+      let frozenBeats = 0;
       const arm = () => { const t = stream.current?.getVideoTracks?.()[0]; if (t) t.onmute = t.onended = () => setTimeout(() => { if (!gone && health()) restart(); }, 2000); };
       const restart = async () => {
         if (restarting || gone) return;
@@ -87,7 +88,12 @@ export default function Watching() {
           const dead = health();
           setAsleep(dead);
           const r = await heartbeat(level, chg, dead ? "frozen" : "live");
-          if (dead) restart();
+          if (dead) {
+            // Reopen the camera; when that does not bring the frames back for two heartbeats, the page reloads itself (at most once in ten minutes).
+            frozenBeats += 1;
+            await restart();
+            if (health() && shouldReload({ frozenBeats, lastReloadAt: readReloadAt(), now: Date.now() })) { writeReloadAt(Date.now()); window.location.reload(); return; }
+          } else frozenBeats = 0;
           setGate({ paused: Boolean(r.paused) });
           clipsRef.current = Boolean(r.clips); setClips(clipsRef.current);
           applyGate(detector, r.gate);
