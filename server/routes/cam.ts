@@ -167,7 +167,16 @@ export function camRoutes(deps: { auth: MiddlewareHandler<AuthVars>; sam?: SamDe
       const battery = Number.isInteger(b?.battery) && b.battery >= 0 && b.battery <= 100 ? b.battery : null;
       const charging = typeof b?.charging === "boolean" ? b.charging : null;
       await getDb().update(device).set({ lastSeenAt: new Date(), battery, charging }).where(eq(device.id, c.var.device.id));
-      const [row] = await getDb().select({ paused: cam.paused, gate: cam.gate }).from(cam).where(eq(cam.householdId, c.var.household.id)).limit(1);
+      const [row] = await getDb().select({ paused: cam.paused, gate: cam.gate, frozenAt: cam.frozenAt }).from(cam).where(eq(cam.householdId, c.var.household.id)).limit(1);
+      // The phone says whether its camera still gives frames. A frozen stream with a live heartbeat is "asleep" on Ana's page,
+      // recorded once; the first live report clears it.
+      const video = b?.video === "frozen" ? "frozen" : b?.video === "live" ? "live" : null;
+      if (row && video === "frozen" && !row.frozenAt) {
+        await getDb().update(cam).set({ frozenAt: new Date() }).where(eq(cam.householdId, c.var.household.id));
+        await deps.events.record(c.var.household.id, c.var.device.id, "cam_frozen", {});
+      } else if (row && video === "live" && row.frozenAt) {
+        await getDb().update(cam).set({ frozenAt: null }).where(eq(cam.householdId, c.var.household.id));
+      }
       // The gate the taps set and whether Ana keeps clips: the phone raises or lowers its motion threshold and says on screen what is kept.
       return c.json({ ok: true, paused: row?.paused ?? false, gate: row?.gate ?? null, clips: Boolean(c.var.household.keepClips) });
     });

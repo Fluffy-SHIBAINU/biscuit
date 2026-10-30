@@ -32,15 +32,16 @@ export function clipItem(r: { id: number; at: Date; test: boolean; seen: string 
 const CLIP_COLS = { id: camSample.id, at: camSample.at, test: camSample.test, seen: camSample.seen, level: camSample.level, scores: camSample.scores, label: camSample.label, labelledAt: camSample.labelledAt, labelledBy: camSample.labelledBy, guess: camSample.guess, poster: sql<string | null>`${camSample.frames}->>0`, frameCount: sql<number>`jsonb_array_length(${camSample.frames})` };
 const WITH_FRAMES = sql`jsonb_array_length(${camSample.frames}) > 0`;
 
-export type CameraStatus = "online" | "offline" | "paused" | "not_set";
+export type CameraStatus = "online" | "offline" | "paused" | "asleep" | "not_set";
 export const HEARTBEAT_MS = 60_000;
 export const OFFLINE_AFTER_MS = 3 * HEARTBEAT_MS;
 
-/** Online while a heartbeat arrived within three heartbeats; paused and not_set from the camera row. */
-export function cameraStatus(row: { paused: boolean } | null, lastHeartbeatAt: Date | null, now: Date): CameraStatus {
+/** Online while a heartbeat arrived within three heartbeats; asleep when the phone is heard but reports a frozen camera; paused and not_set from the camera row. */
+export function cameraStatus(row: { paused: boolean; frozenAt?: Date | null } | null, lastHeartbeatAt: Date | null, now: Date): CameraStatus {
   if (!row) return "not_set";
   if (row.paused) return "paused";
   if (!lastHeartbeatAt || now.getTime() - lastHeartbeatAt.getTime() > OFFLINE_AFTER_MS) return "offline";
+  if (row.frozenAt) return "asleep";
   return "online";
 }
 
@@ -170,7 +171,7 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
       const now = new Date();
       const devices = await db.select().from(device).where(eq(device.householdId, h.id));
       const letters = await db.select().from(letter).where(and(eq(letter.householdId, h.id), ne(letter.status, "hidden"))).orderBy(desc(letter.readAt)).limit(50);
-      const events = await db.select().from(event).where(and(eq(event.householdId, h.id), inArray(event.kind, ["said", "mail_seen", "mail_due", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack", "consent", "look_requested", "cam_motion"]))).orderBy(desc(event.at)).limit(60);
+      const events = await db.select().from(event).where(and(eq(event.householdId, h.id), inArray(event.kind, ["said", "mail_seen", "mail_due", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack", "consent", "look_requested", "cam_motion", "cam_frozen"]))).orderBy(desc(event.at)).limit(60);
       // Movements the phone sent today, in the household's own day.
       const tz = validTz(h.tz) ?? DEFAULT_TZ;
       const today = localParts(now, tz).day;
@@ -196,7 +197,7 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
         letters,
         said: events.filter((e) => e.kind === "said").map((e) => ({ at: e.at, text: (e.data as any)?.text ?? "" })),
         events: events.filter((e) => e.kind !== "said").map((e) => ({ id: e.id, kind: e.kind, at: e.at, data: e.data })),
-        camera: { status: cameraStatus(camRow ?? null, camDevice?.lastSeenAt ?? null, now), movementsToday, paused: camRow?.paused ?? false, battery: camDevice?.battery ?? null, charging: camDevice?.charging ?? null, lastMotionAt: camRow?.lastMotionAt ?? null, setAt: camRow?.setAt ?? null, regionSource: camRow?.regionSource ?? null, samCallsToday: camRow?.samDay === now.toISOString().slice(0, 10) ? camRow.samCallsToday : 0, floor: camRow?.floor ?? null, gate: camRow?.gate ?? null, tuning: camRow?.tuning ?? null, clips: { pending: Number(clipCount?.pending ?? 0), total: Number(clipCount?.total ?? 0), attention: Number(clipCount?.pending ?? 0), classified: Number(clipCount?.classified ?? 0) } },
+        camera: { status: cameraStatus(camRow ?? null, camDevice?.lastSeenAt ?? null, now), movementsToday, frozenAt: camRow?.frozenAt ?? null, paused: camRow?.paused ?? false, battery: camDevice?.battery ?? null, charging: camDevice?.charging ?? null, lastMotionAt: camRow?.lastMotionAt ?? null, setAt: camRow?.setAt ?? null, regionSource: camRow?.regionSource ?? null, samCallsToday: camRow?.samDay === now.toISOString().slice(0, 10) ? camRow.samCallsToday : 0, floor: camRow?.floor ?? null, gate: camRow?.gate ?? null, tuning: camRow?.tuning ?? null, clips: { pending: Number(clipCount?.pending ?? 0), total: Number(clipCount?.total ?? 0), attention: Number(clipCount?.pending ?? 0), classified: Number(clipCount?.classified ?? 0) } },
         help: { lastTestAt: lastTest?.at ?? null, acked, openHelpAt: closed ? null : openHelp?.at ?? null },
         readers: lastRead ? { at: lastRead.at, readBy: readData.readBy ?? "single", list: [...(Array.isArray(readData.readers) ? readData.readers : []), ...shadowEntry] } : null,
       });

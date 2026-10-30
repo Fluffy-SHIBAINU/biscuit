@@ -33,6 +33,8 @@ export function meanAbsDiff(a, b) {
  */
 export const COOLDOWN_MS = [5_000, 15_000, 30_000, 60_000];
 export const QUIET_RESET_MS = 120_000;
+/** A live camera never repeats a frame exactly (sensor noise); this many identical samples in a row, thirty seconds at 500 ms, mean the stream has frozen. */
+export const FROZEN_SAMPLES = 60;
 
 /** Motion: the mean absolute difference is at or above the threshold on two consecutive samples; then a cooldown. */
 export class MotionDetector {
@@ -43,11 +45,16 @@ export class MotionDetector {
     this.quietResetMs = quietResetMs;
     this.step = 0; this.activeCooldownMs = this.steps[0];
     this.prev = null; this.streak = 0; this.lastSentAt = -Infinity; this.lastActiveAt = -Infinity; this.lastDiff = 0;
+    this.zeroStreak = 0;
   }
+  /** The stream has stopped changing: `samples` identical frames in a row. */
+  frozen(samples = FROZEN_SAMPLES) { return this.zeroStreak >= samples; }
   /** The cooldown the next send gets. */
   get cooldownMs() { return this.steps[this.step]; }
   sample(gray, now) {
-    const diff = this.prev ? meanAbsDiff(gray, this.prev) : 0;
+    const hadPrev = Boolean(this.prev);
+    const diff = hadPrev ? meanAbsDiff(gray, this.prev) : 0;
+    this.zeroStreak = hadPrev && diff === 0 ? this.zeroStreak + 1 : 0;
     this.prev = gray; this.lastDiff = diff;
     const active = diff >= this.threshold;
     if (active) this.lastActiveAt = now;

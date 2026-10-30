@@ -31,3 +31,9 @@ test("cameraSummary", () => {
   expect(cameraSummary({ status: "online", lastMotionAt: "2026-10-29T00:52:00Z" }, { keepClips: true }, clock)).toBe("Watching the Box · Last Movement 8:52 PM · Keeping Short Clips");
   expect(cameraSummary({ status: "online", lastMotionAt: null }, { keepClips: false }, clock)).toBe("Watching the Box · Nothing Has Moved Yet");
 });
+
+test("a frozen camera reads as asleep for the daughter, and the admin line says since when", () => {
+  const clock = () => "12:04 PM";
+  expect(cameraSummary({ status: "asleep", lastMotionAt: "2026-10-30T16:03:55Z" }, { keepClips: true }, clock)).toBe("Camera Asleep · Tap the Mailbox Phone");
+  expect(cameraLine({ status: "asleep", battery: null, charging: null, lastMotionAt: "2026-10-30T16:03:55Z", frozenAt: "2026-10-30T16:04:50Z", movementsToday: 43, regionSource: "hand" }, clock)).toBe("last movement 12:04 PM · 43 movements today · camera asleep since 12:04 PM · box set by hand");
+});

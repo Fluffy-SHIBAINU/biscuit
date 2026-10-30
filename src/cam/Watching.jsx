@@ -24,6 +24,9 @@ export default function Watching() {
   const [status, setStatus] = useState("starting");
   // What the motion gate sees right now, so the phone can say why it is or is not sending.
   const [motion, setMotion] = useState(null);
+  // The camera stream froze (the page lives, the frames do not): the screen says so and a tap restarts it.
+  const [asleep, setAsleep] = useState(false);
+  const restartRef = useRef(() => {});
   const [battery, setBattery] = useState(null);
   const [charging, setCharging] = useState(null);
   const [events, setEvents] = useState([]);
@@ -48,11 +51,30 @@ export default function Watching() {
     let hb = null;
     let bat = null;
     let gone = false;
+    let onVisible = null;
     (async () => {
       try { stream.current = await openCamera(video.current); } catch { navigate("/cam/setup"); return; }
       try { await navigator.wakeLock?.request("screen"); } catch { /* optional */ }
       try { bat = await navigator.getBattery?.(); } catch { bat = null; }
       const detector = new MotionDetector();
+      // A frozen stream: the track ended or muted (the screen went dark, another app took the camera), or thirty seconds of
+      // identical frames. The heartbeat tells the server, the screen says so, and the camera is opened again.
+      const trackDead = () => { const t = stream.current?.getVideoTracks?.()[0]; return !t || t.readyState === "ended" || t.muted === true; };
+      const health = () => trackDead() || detector.frozen();
+      const wake = async () => { try { await navigator.wakeLock?.request("screen"); } catch { /* optional */ } };
+      let restarting = false;
+      const arm = () => { const t = stream.current?.getVideoTracks?.()[0]; if (t) t.onmute = t.onended = () => setTimeout(() => { if (!gone && health()) restart(); }, 2000); };
+      const restart = async () => {
+        if (restarting || gone) return;
+        restarting = true;
+        try { stopCamera(stream.current); stream.current = await openCamera(video.current); detector.prev = null; detector.zeroStreak = 0; arm(); setAsleep(false); await wake(); }
+        catch { /* still asleep; the next heartbeat or a tap tries again */ }
+        finally { restarting = false; }
+      };
+      restartRef.current = restart;
+      arm();
+      onVisible = () => { if (document.visibilityState === "visible" && !gone) { wake(); if (health()) restart(); } };
+      document.addEventListener("visibilitychange", onVisible);
       const beat = async () => {
         const level = bat ? Math.round(bat.level * 100) : null;
         const chg = bat ? bat.charging : null;
@@ -62,7 +84,10 @@ export default function Watching() {
           if (level <= 12 && !warned.current[12]) { warned.current[12] = true; speak(["Plug me in. I'm almost out."]); }
         }
         try {
-          const r = await heartbeat(level, chg);
+          const dead = health();
+          setAsleep(dead);
+          const r = await heartbeat(level, chg, dead ? "frozen" : "live");
+          if (dead) restart();
           setGate({ paused: Boolean(r.paused) });
           clipsRef.current = Boolean(r.clips); setClips(clipsRef.current);
           applyGate(detector, r.gate);
@@ -102,15 +127,15 @@ export default function Watching() {
         },
       });
     })();
-    return () => { gone = true; if (hb) clearInterval(hb); stopWatch(); stopCamera(stream.current); };
+    return () => { gone = true; if (onVisible) document.removeEventListener("visibilitychange", onVisible); if (hb) clearInterval(hb); stopWatch(); stopCamera(stream.current); };
   }, []);
 
   return (
-    <main className="screen night dim">
-      <div className="row between"><span className="label night">Biscuit · Mailbox Phone</span><span className={`pill ${paused ? "warn" : "ok"}`}>{paused ? "Paused" : status === "watching" ? "Watching" : "Starting"}</span></div>
+    <main className="screen night dim" onClick={asleep ? () => restartRef.current() : undefined}>
+      <div className="row between"><span className="label night">Biscuit · Mailbox Phone</span><span className={`pill ${paused ? "warn" : "ok"}`}>{asleep ? "Asleep" : paused ? "Paused" : status === "watching" ? "Watching" : "Starting"}</span></div>
       <h1 className="display small">Watching Rosa's Mailbox.</h1>
       <div className="frame"><video ref={video} autoPlay playsInline muted />{region && <div className="region" style={regionStyle(region, videoSizeOf(video.current))} />}</div>
-      <p className="lead small">{paused && battery !== null && battery < 10 ? "Paused · Plug Me In" : paused ? "Paused" : `${events.length ? `Last Movement ${events[0].at}` : "Nothing Has Moved Yet"} · ${clips ? "Keeping Short Clips for Ana" : collect ? "Collecting Frames" : "Frames Checked and Gone"}`}</p>
+      <p className="lead small">{asleep ? "Camera Asleep · Tap Here" : paused && battery !== null && battery < 10 ? "Paused · Plug Me In" : paused ? "Paused" : `${events.length ? `Last Movement ${events[0].at}` : "Nothing Has Moved Yet"} · ${clips ? "Keeping Short Clips for Ana" : collect ? "Collecting Frames" : "Frames Checked and Gone"}`}</p>
       <p className="lead small muted">Keep This Page Open and Plugged In</p>
       {collect && <>
         <section className="card night">

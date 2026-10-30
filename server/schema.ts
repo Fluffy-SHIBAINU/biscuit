@@ -4,7 +4,7 @@ export const DEVICE_KINDS = ["rosa", "cam", "ana"] as const;
 export type DeviceKind = (typeof DEVICE_KINDS)[number];
 export const EVENT_KINDS = [
   "mail_seen", "mail_due", "mail_tapped", "letter_read", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack",
-  "cam_online", "cam_offline", "cam_battery", "cam_paused", "cam_motion", "consent", "said", "delete", "look_requested", "shadow_read",
+  "cam_online", "cam_offline", "cam_battery", "cam_paused", "cam_motion", "cam_frozen", "consent", "said", "delete", "look_requested", "shadow_read",
 ] as const;
 export const READ_BY = ["single", "twice", "once"] as const;
 export type ReadBy = (typeof READ_BY)[number];
@@ -107,6 +107,8 @@ export const cam = pgTable("biscuit_cam", {
   samCallsToday: integer("sam_calls_today").notNull().default(0),
   samDay: date("sam_day"),
   paused: boolean("paused").notNull().default(false),
+  /** Set while the mailbox phone reports a frozen camera stream (heartbeats keep coming, frames do not); cleared when it reports live again. */
+  frozenAt: ts("frozen_at"),
   /** Who set the box (REGION_SOURCES); null for a box set before this was recorded. */
   regionSource: text("region_source", { enum: REGION_SOURCES }),
   /** Learned from Ana's taps on this one mailbox (server/clips.ts): the SAM score floor and the phone's motion gate, null until the taps support a number; `tuning` is the summary her page shows. */

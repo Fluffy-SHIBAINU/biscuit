@@ -9,7 +9,8 @@ export async function findMailbox(jpegBlob, point) {
 }
 /** The watched box and who set it: "sam" for SAM's find (padded), "hand" for a box the person drew (as drawn). */
 export const setRegion = (region, source) => api("/cam/region", { method: "POST", json: { region, source } });
-export const heartbeat = (battery, charging) => api("/cam/heartbeat", { method: "POST", json: { battery, charging } });
+/** The minute's heartbeat: power, and whether the camera still gives frames ("live" or "frozen"). */
+export const heartbeat = (battery, charging, video) => api("/cam/heartbeat", { method: "POST", json: { battery, charging, ...(video ? { video } : {}) } });
 export const sendFrames = (blobs, test = false, extra = {}) => {
   const form = new FormData();
   blobs.forEach((b, i) => form.set(`frame${i + 1}`, b, `f${i + 1}.jpg`));

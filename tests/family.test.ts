@@ -11,6 +11,11 @@ test("cameraStatus", () => {
   expect(cameraStatus({ paused: false }, new Date(now.getTime() - 179_000), now)).toBe("online");
   expect(cameraStatus({ paused: false }, new Date(now.getTime() - 181_000), now)).toBe("offline");
   expect(cameraStatus({ paused: true }, now, now)).toBe("paused");
+  // The phone keeps its heartbeat while its camera has frozen: asleep, not online; a dead heartbeat still means offline.
+  expect(cameraStatus({ paused: false, frozenAt: now }, now, now)).toBe("asleep");
+  expect(cameraStatus({ paused: false, frozenAt: now }, new Date(now.getTime() - 181_000), now)).toBe("offline");
+  expect(cameraStatus({ paused: true, frozenAt: now }, now, now)).toBe("paused");
+  expect(cameraStatus({ paused: false, frozenAt: null }, now, now)).toBe("online");
 });
 
 const EMAIL = "family-test@biscuit.local";

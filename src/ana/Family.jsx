@@ -18,7 +18,7 @@ const KIND = { bill: "Bill", notice: "Notice", utility: "Utility", ad: "Advertis
 const when = (iso) => (iso ? new Date(iso).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "");
 const clock = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "");
 const money = (c) => (Number.isInteger(c) ? `$${(c / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : null);
-const CAMERA_LINE = { online: "Online", offline: "Offline", paused: "Paused", not_set: "Not Set Up" };
+const CAMERA_LINE = { online: "Online", offline: "Offline", paused: "Paused", asleep: "Camera Asleep", not_set: "Not Set Up" };
 const FIELD_PHRASE = { amount_due: "The amount", statement_date: "The statement date", due_date: "The due date", sender: "The sender", hospital_name: "The hospital's name", account_last4: "The account number", phone_numbers: "A phone number", financial_assistance: "The help-paying line" };
 const READER_STATE = { ok: ["ok", "OK"], timeout: ["bad", "Timed Out"], failed: ["bad", "Error"], unreadable: ["warn", "Couldn't Read"] };
 
@@ -53,7 +53,7 @@ export default function Family() {
   const needs = letters.filter((l) => l.status === "handoff" || l.needsReview);
   const rosaPhone = devices.find((d) => d.kind === "rosa");
   const act = (path, msg) => () => api(path, { method: "POST" }).then(() => { setNote(msg); load(); }).catch(() => setNote("That didn't work. Try again."));
-  const RECENT = { mail_seen: "Mail came.", mail_due: "Chimed: the mail usually comes about now.", handoff: "Waive case started.", help: "Help pressed.", help_cancel: "Help cancelled.", help_ok: `${h.called} said she's OK.`, help_test: "Help test sent.", help_test_ack: "Help test reached this page.", consent: `${h.called} said yes to Biscuit.` };
+  const RECENT = { cam_frozen: "The camera fell asleep; the mailbox phone needs a tap.", mail_seen: "Mail came.", mail_due: "Chimed: the mail usually comes about now.", handoff: "Waive case started.", help: "Help pressed.", help_cancel: "Help cancelled.", help_ok: `${h.called} said she's OK.`, help_test: "Help test sent.", help_test_ack: "Help test reached this page.", consent: `${h.called} said yes to Biscuit.` };
   const recentWords = (e) => RECENT[e.kind] || (e.kind === "look_requested" ? `Asked ${h.called} for another look at the letter from ${e.data?.sender || "a sender"}.` : e.kind === "cam_motion" ? (e.data?.seen ? `Movement at the box · saw ${seenWords(e.data.seen)}.` : "Movement at the box · nothing recognised.") : e.kind);
 
   return (
@@ -120,7 +120,7 @@ export default function Family() {
           </section>
           <section className="card">
             <span className="label">Mailbox Phone</span>
-            <div className="row wrap"><span className={`pill ${camera.status === "online" ? "ok" : camera.status === "not_set" ? "warn" : "bad"}`}>{CAMERA_LINE[camera.status]}</span>{camera.status === "online" && <span className="lead small">{cameraSummary(camera, h, clock)}</span>}</div>
+            <div className="row wrap"><span className={`pill ${camera.status === "online" ? "ok" : camera.status === "not_set" || camera.status === "asleep" ? "warn" : "bad"}`}>{CAMERA_LINE[camera.status]}</span>{camera.status === "online" && <span className="lead small">{cameraSummary(camera, h, clock)}</span>}</div>
             <div className="row wrap">
               {camera.status === "paused" ? <button type="button" className="btn ana small" onClick={act("/cam/resume", "Watching again.")}>Resume Watching</button> : camera.status !== "not_set" && <button type="button" className="btn ana small" onClick={act("/cam/pause", "Paused. Nothing leaves the mailbox phone until you resume.")}>Pause Watching</button>}
               <button type="button" className="btn ana small" onClick={() => navigate("/ana/link?kind=cam")}>{camera.status === "not_set" ? "Set Up a Spare Phone" : "Find the Mailbox Again"}</button>

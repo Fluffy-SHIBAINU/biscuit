@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { MotionDetector, meanAbsDiff, toGray } from "../src/cam/motion.js";
+import { FROZEN_SAMPLES, MotionDetector, meanAbsDiff, toGray } from "../src/cam/motion.js";
 
 test("meanAbsDiff and toGray", () => {
   expect(meanAbsDiff(new Uint8Array([10, 20]), new Uint8Array([20, 40]))).toBe(15);
@@ -104,4 +104,20 @@ test("a fixed cooldown still works for the envelope test's detector", () => {
   expect(d.cooldownMs).toBe(2_000);
   expect(d.sample(still, 2_400)).toBe("cooldown");
   expect(d.sample(moved, 2_600)).toBe("motion");
+});
+
+// A live camera never gives two identical frames (sensor noise); a stream that stops changing for thirty seconds is frozen.
+test("a stream that stops changing reads as frozen, and any change wakes it", () => {
+  expect(FROZEN_SAMPLES).toBe(60);
+  const m = new MotionDetector();
+  const same = new Uint8Array(100).fill(10);
+  for (let i = 0; i < 60; i++) m.sample(same, i * 500);
+  expect(m.frozen()).toBe(false);
+  m.sample(same, 60 * 500);
+  expect(m.frozen()).toBe(true);
+  m.sample(new Uint8Array(100).fill(11), 61 * 500);
+  expect(m.frozen()).toBe(false);
+  expect(m.frozen(1)).toBe(false);
+  m.sample(new Uint8Array(100).fill(11), 62 * 500);
+  expect(m.frozen(1)).toBe(true);
 });
