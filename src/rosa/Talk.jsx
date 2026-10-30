@@ -22,15 +22,18 @@ export default function Talk() {
   const [reply, setReply] = useState("");
   const [level, setLevel] = useState(0);
   const alive = useRef(true);
+  // The talk goes on by itself after each reply; two quiet turns in a row and Biscuit stops listening until the next tap.
+  const quiet = useRef(0);
 
-  const say = async (lines) => { setReply(lines.join(" ")); setPhase("speaking"); await speak(lines); if (alive.current) setPhase("done"); };
+  const say = async (lines, { again = true } = {}) => { setReply(lines.join(" ")); setPhase("speaking"); await speak(lines); if (!alive.current) return; setPhase("done"); if (again) turn(); };
 
   /** Rosa's words go to Ana's page as what Rosa said, in her words, by her choice, each time. */
   async function tellAna(text) {
     const words = (text || "").trim();
     if (!words) { await askWhatToTell(); return; }
     postEvent("rosa_said", { text: words.slice(0, 300) }).catch(() => {});
-    await say([`I told Ana: ${words}.`]);
+    quiet.current = 0;
+    await say([`I told Ana: ${words}.`, "Anything else?"]);
   }
 
   async function askWhatToTell() {
@@ -46,7 +49,7 @@ export default function Talk() {
       if (!alive.current) return;
       setHeard(text);
       if (handleVoiceCommand(text)) return;
-      if (!text.trim()) { await say(["I didn't catch that. Tap Tell Ana and say it again."]); return; }
+      if (!text.trim()) { await say(["I didn't catch that. Tap Tell Ana and say it again."], { again: false }); return; }
       await tellAna(text);
     } catch { if (alive.current) await say(["I couldn't hear you. Check the microphone and try again."]); }
   }
@@ -63,7 +66,14 @@ export default function Talk() {
     }
     if (intent === "mail") { navigate("/mail?from=home"); return; }
     if (intent === "tell") { await tellAna(message); return; }
-    await say(intent === "nothing" ? ["I didn't catch that.", ...MENU_LINES] : MENU_LINES);
+    if (intent === "nothing") {
+      quiet.current += 1;
+      if (quiet.current >= 2) { await say(["I'll stop listening for now. Tap Talk when you want me."], { again: false }); return; }
+      await say(["I didn't catch that.", ...MENU_LINES]);
+      return;
+    }
+    quiet.current = 0;
+    await say(MENU_LINES);
   }
 
   async function turn() {
@@ -79,7 +89,7 @@ export default function Talk() {
       await act(text);
     } catch (err) {
       if (!alive.current) return;
-      await say([err?.status === 401 ? "This phone isn't linked yet. Ask Ana." : "I couldn't hear you. Check the microphone and try again."]);
+      await say([err?.status === 401 ? "This phone isn't linked yet. Ask Ana." : "I couldn't hear you. Check the microphone and try again."], { again: false });
     }
   }
 
@@ -89,7 +99,7 @@ export default function Talk() {
   return (
     <main className="screen">
       <div className="row between"><span className="label">Biscuit · Kindred</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); stopSpeaking(); navigate("/"); }}>Stop</a></div>
-      <div className="row"><Dog /><h1 className="display">{phase === "listening" ? "I'm listening." : phase === "thinking" ? "One moment." : phase === "speaking" ? "Here's what I'll do." : `What next, ${name}?`}</h1></div>
+      <div className="row"><Dog /><h1 className="display">{phase === "listening" ? "I'm all ears!" : phase === "thinking" ? "One moment." : phase === "speaking" ? "Here's what I'll do." : `What next, ${name}?`}</h1></div>
       {phase === "listening" && <div className="bars" aria-hidden="true">{[0, 1, 2, 3].map((i) => <span key={i} className={level ? "on" : ""} />)}</div>}
       {heard && <section className="card"><span className="label">You said</span><p className="lead quote">“{heard}”</p></section>}
       {reply && <section className="card"><span className="label">Biscuit says</span><p className="lead">{reply}</p></section>}
@@ -99,7 +109,7 @@ export default function Talk() {
         <button type="button" className="btn secondary" onClick={() => { stopSpeaking(); navigate("/docket"); }}>My papers</button>
         <button type="button" className="btn secondary" onClick={() => { stopSpeaking(); askWhatToTell(); }}>Tell Ana</button>
       </div>
-      {phase === "done" && <button type="button" className="btn secondary" onClick={turn}>Talk again</button>}
+      {phase === "done" && <button type="button" className="btn secondary" onClick={() => { quiet.current = 0; turn(); }}>Talk again</button>}
       <button type="button" className="btn secondary" onClick={() => { stopSpeaking(); navigate("/"); }}>Done</button>
       <p className="foot">Biscuit listens only after you tap Talk. Your voice is turned into words and not kept; what you ask him to tell Ana is kept for her, in your words.</p>
     </main>

@@ -21,7 +21,7 @@ export function lookRequestOf(letters) {
 export function greeting(now = new Date(), name = "Rosa") {
   const h = now.getHours();
   const part = h < 12 ? "morning" : h < 18 ? "afternoon" : "evening";
-  return `Good ${part}, ${name}.`;
+  return `Good ${part}, ${name}!`;
 }
 
 export default function Home() {

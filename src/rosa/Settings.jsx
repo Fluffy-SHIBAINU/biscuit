@@ -1,13 +1,18 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { navigate } from "../lib/navigate.js";
-import { speak } from "../lib/speech.js";
+import { speak, voicesReady } from "../lib/speech.js";
+import { pickVoice } from "../lib/voice.js";
 import { store, useStore } from "../lib/store.js";
 
 export default function Settings() {
   const s = useStore();
   const [arm, setArm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [voices, setVoices] = useState([]);
+  useEffect(() => { voicesReady().then((v) => setVoices(v.filter((x) => (x.lang || "").toLowerCase().startsWith("en")))); }, []);
+  const chosen = pickVoice(voices, { name: s.voiceName || null });
+  const choose = (name) => { store.set({ voiceName: name || null }); speak(["This is how I sound. Is this all right?"]); };
   async function wipe() {
     setBusy(true);
     try { await api("/household", { method: "DELETE" }); } catch { /* the phone is wiped either way */ }
@@ -21,6 +26,7 @@ export default function Settings() {
       <h1 className="display small">Biscuit on this phone.</h1>
       <section className="card facts">
         <div className="fact"><strong>Voice</strong><span className="label plain">{s.buttonsMode ? "buttons mode" : "on"}</span>{s.buttonsMode && <button type="button" className="btn secondary" onClick={() => store.set({ buttonsMode: false })}>Try voice again</button>}</div>
+        <div className="fact"><strong>Biscuit's voice</strong><span className="label plain">{s.neuralVoice ? "Biscuit's own voice" : chosen ? chosen.name : "the phone's voice"}</span>{!s.neuralVoice && voices.length > 1 && <select className="field-select" value={s.voiceName || ""} onChange={(e) => choose(e.target.value)} aria-label="Which voice Biscuit uses"><option value="">Best on this phone</option>{voices.map((v) => <option key={v.voiceURI || v.name} value={v.name}>{v.name}</option>)}</select>}</div>
         <div className="fact"><strong>Mail chime</strong><span className="label plain">{s.pushSubscribed ? "on" : "off · turn it on from Home"}</span></div>
         <div className="fact"><strong>Sharing with Ana</strong><span className="label plain">{s.household?.shareLetters === false ? "off" : "on"}</span></div>
       </section>

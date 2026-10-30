@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { navigate, usePath } from "./lib/navigate.js";
-import { useStore } from "./lib/store.js";
+import { store, useStore } from "./lib/store.js";
+import { api } from "./lib/api.js";
 import Home from "./rosa/Home.jsx";
 import Talk from "./rosa/Talk.jsx";
 import EnterCode from "./rosa/EnterCode.jsx";
@@ -42,6 +43,8 @@ export default function App() {
   const path = usePath();
   if (!workerListening) { workerListening = true; listenToWorker(); }
   const s = useStore();
+  // Whether the server has a neural voice for Biscuit; without one the phone's own voice speaks.
+  useEffect(() => { if (s.deviceToken && s.kind === "rosa") api("/speak/voice").then((r) => store.set({ neuralVoice: Boolean(r?.neural) })).catch(() => {}); }, [s.deviceToken, s.kind]);
   if (path === "/ana/new") return <WhoFor />;
   if (path === "/ana/link") return <LinkCode />;
   if (path === "/ana" || path.startsWith("/ana/")) return <Family />;

@@ -1,6 +1,6 @@
 // Talk to Biscuit: the words become one of five moves. Patterns, not a model: anything unclear gets the menu, never a guess.
 
-export const MENU_LINES = ["I can read a letter, go through your papers, or tell Ana something.", "Which one?"];
+export const MENU_LINES = ["I can read a letter, go through your papers, or pass a message to Ana.", "What'll it be?"];
 
 const TELL = /^\s*(?:please\s+)?(?:tell|let)\s+an+a\b(?:\s+know)?[,:]?\s*(.*)$/i;
 

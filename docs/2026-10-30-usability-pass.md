@@ -48,6 +48,44 @@ What changed: a letter addressed to someone else is stored as a date, a kind and
 no sender, no amount, no quotes, on the phone and on the server alike (the server strips them even if a phone sends
 them). README's privacy list says so.
 
+## 6. The voice was flat
+
+Finding: "The voice is so awkward it needs to be more lively and human like."
+
+Fix, two layers. The phone's own voice is chosen with care now (`src/lib/voice.js`, tested): an enhanced or premium
+English voice over the compact default, a warm male voice first since Biscuit is "he", talking pace rather than 0.9,
+and every line spoken a sentence at a time so it breathes; Settings lets Rosa or Ana pick any English voice the phone
+has and hear it. The second layer is a neural voice when the server has one: `TTS_URL` names a text-to-speech
+deployment (a Baseten Kokoro model on the Baseten credit; `TTS_API_KEY`, `TTS_VOICE`), the phone asks
+`/api/biscuit/speak` for each line's audio and plays it, fetching the next line while one plays; without the URL, or
+when a call fails, the phone's own voice takes over mid-sentence. Nothing about the lines is kept on the server. The
+Meta Model API has no text-to-speech model, so the voice cannot come from there.
+
+## 7. Talk to Biscuit ended after one exchange
+
+Finding: "it stops talking after one question. It needs to be like continuous conversation."
+
+Fix: after each reply Biscuit listens again by itself; after telling Ana something he asks "Anything else?". Two quiet
+turns in a row and he says he will stop listening until the next tap; Stop, Done and the moves that leave the screen
+end it too.
+
+## 8. The frame check was silent
+
+Finding: when the picture is not acceptable, say so aloud, not only on screen.
+
+Fix: each change in the frame check's words ("A little closer. The bottom edge is cut off.", "That's it. Hold still.")
+is spoken, at most once every three seconds.
+
+## 9. Biscuit's character
+
+Finding: "Biscuit should be like dog woof woof border collie style cheerful helper."
+
+Fix: the lines Biscuit says for himself are quick, warm and eager, the way a border collie greets you: "Good morning,
+Rosa!", "Woof! Mail's here, Rosa. Want me to take a look?", "Show me the letter! Hold it in the frame and I'll snap it
+when it's clear.", "Got it! One moment while I read.", "I'm all ears!", "Done! Ana has it on her page." The lines that
+carry a letter's facts, a number, a hand-off or Help stay plain: a cheerful dog, never a flippant one, and "Woof" only
+where mail arrives.
+
 ## Rulings
 
 - Your Papers keeps "Read them to me" as the third button; the first is Show me a letter, since that is what Rosa does
@@ -57,3 +95,4 @@ them). README's privacy list says so.
 - The intent layer is patterns, not a model: a letter is a letter, the mail is the mail, and anything unclear gets the
   menu rather than a guess.
 - Rosa's screens stay in sentence case; they are spoken lines.
+- The character lives in Biscuit's own lines, not in the facts: nothing a letter says gets an exclamation mark, and Help never does.

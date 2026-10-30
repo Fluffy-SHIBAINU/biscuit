@@ -9,7 +9,7 @@ import { store } from "../lib/store.js";
 
 export function statusLine(check) {
   if (!check) return { pill: "Looking", text: "Hold the letter in the frame." };
-  if (check.ok) return { pill: "Hold still", text: "That's it. Hold still." };
+  if (check.ok) return { pill: "Hold still", text: "That's it! Hold still." };
   if (check.cutEdge) return { pill: "Not yet", text: `A little closer. The ${check.cutEdge} is cut off.` };
   if (check.coverage > 0) return { pill: "Not yet", text: "A little closer." };
   return { pill: "Looking", text: "Hold the letter in the frame." };
@@ -22,6 +22,8 @@ export default function Letter() {
   const [check, setCheck] = useState(null);
   const [phase, setPhase] = useState("looking");
   const [shot, setShot] = useState("");
+  // What the frame check says is also said aloud, once per change and not more than every three seconds.
+  const spoken = useRef({ text: "", at: 0 });
 
   async function capture() {
     if (busy.current) return;
@@ -32,7 +34,7 @@ export default function Letter() {
       // The picture is taken: the camera stops and the screen shows the picture Biscuit is reading.
       stopCamera(stream.current);
       setShot(URL.createObjectURL(jpeg));
-      speak(["I've got it. One moment while I read."]);
+      speak(["Got it! One moment while I read."]);
       const r = await readLetter(jpeg);
       // The whole reading stays with the letter on this phone so a tap on Your papers can play it again; a letter addressed to someone else keeps only the lines Biscuit spoke.
       const minimal = Boolean(r.mismatch);
@@ -55,7 +57,7 @@ export default function Letter() {
     (async () => {
       try {
         stream.current = await openCamera(video.current);
-        speak(["Hold the letter in the frame. I'll take the picture myself when it's clear."]);
+        speak(["Show me the letter! Hold it in the frame and I'll snap it when it's clear."]);
       } catch {
         await speak(["I can't see. Allow the camera for Biscuit and try again."]);
         navigate("/");
@@ -69,6 +71,8 @@ export default function Letter() {
           busy.current = false;
           if (!alive) return;
           setCheck(result);
+          const line = statusLine(result).text;
+          if (line !== spoken.current.text && Date.now() - spoken.current.at > 3000 && line !== "Hold the letter in the frame.") { spoken.current = { text: line, at: Date.now() }; speak([line]); }
           if (result.ok) { clearInterval(timer); await capture(); }
         } catch {
           busy.current = false;
