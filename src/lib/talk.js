@@ -15,3 +15,15 @@ export function intentOf(text) {
   if (/\b(papers?|what do i have|what have i got|my list|the list|anything waiting)\b/i.test(t)) return { intent: "papers" };
   return { intent: "menu" };
 }
+
+/** On "addressed to someone else, not to you": Rosa overrules with "it's mine", "read it" or a plain yes. */
+export function saidMine(text) {
+  return /\b(mine|read it|yes|yeah|yep)\b/i.test(text || "") && !/\b(no|not mine|that's right|correct)\b/i.test(text || "");
+}
+
+/** After a reading, "Did I get anything wrong?": a yes, a wrong or a "not right" means a note for Ana. */
+export function saidWrong(text) {
+  const t = text || "";
+  if (!t.trim() || /^\s*(no|nope|nothing|no thanks|all good|that's right|fine)\b/i.test(t)) return false;
+  return /\b(yes|yeah|wrong|not right|incorrect|mistake|missed|should be|actually)\b/i.test(t);
+}

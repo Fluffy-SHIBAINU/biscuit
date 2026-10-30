@@ -36,9 +36,8 @@ export default function Letter() {
       setShot(URL.createObjectURL(jpeg));
       speak(["Got it! One moment while I read."]);
       const r = await readLetter(jpeg);
-      // The whole reading stays with the letter on this phone so a tap on Your papers can play it again; a letter addressed to someone else keeps only the lines Biscuit spoke.
-      const minimal = Boolean(r.mismatch);
-      const entry = { ...r, id: crypto.randomUUID(), readAt: new Date().toISOString(), status: minimal ? "not_mine" : "read", needsReview: minimal, checks: r.checks || [], readers: r.readers || [], ...(minimal ? { sender: null, facts: [], transcription: null, hospital: null, checks: [], offerLines: [], sheet: null, questions: [] } : {}) };
+      // The whole reading stays with the letter on this phone so a tap on Your papers can play it again, and so Rosa can overrule a wrong "not to you"; what leaves the phone for someone else's letter is a date, a kind and the status (summaryOf).
+      const entry = { ...r, id: crypto.randomUUID(), readAt: new Date().toISOString(), status: r.mismatch ? "not_mine" : "read", needsReview: Boolean(r.mismatch), checks: r.checks || [], readers: r.readers || [] };
       store.set((s) => ({ docket: [entry, ...s.docket], lastReading: { ...r, id: entry.id }, lookRequest: s.lookRequest && s.lookRequest.sender === r.sender ? null : s.lookRequest }));
       if (store.get().household?.shareLetters !== false) postLetter(summaryOf(entry)).catch(() => {});
       navigate("/reading");

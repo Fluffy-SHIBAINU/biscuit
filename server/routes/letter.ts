@@ -107,10 +107,14 @@ export function letterRoutes(deps: { auth: MiddlewareHandler<AuthVars>; spark?: 
           return deps.events.record(home.id, c.var.device.id, "shadow_read", { letterEventId: eventId, name: "shadow", label: s.label ?? SHADOW_LABEL, status: s.status, ms: s.ms, ...(s.error ? { error: s.error } : {}), agreed, of });
         }).catch(() => undefined));
       }
+      const offerLines = unknown ? ["This asks you to call a number I don't know. Shall I tell Ana?"] : extraction.kind === "bill" ? composeOffer(sheet, {}) : [];
+      // Biscuit can be wrong about the name: on a mismatch the reply also carries the reading as if the letter were hers, so one "it's mine" plays it.
+      const mine = mismatch ? { lines: [...composeReading(gate.facts.filter((f) => f.spoken), extraction.kind, { notABill }), ...(gate.differLine ? [gate.differLine] : [])], offerLines } : undefined;
       return c.json({
         transcription, facts: gate.facts, kind: extraction.kind, sender: read.senderName, hospital, sheet, unknownNumber: unknown, mismatch,
         readBy: gate.readBy, readers, checks: gate.checks, lines,
-        offerLines: mismatch ? [] : unknown ? ["This asks you to call a number I don't know. Shall I tell Ana?"] : extraction.kind === "bill" ? composeOffer(sheet, {}) : [],
+        offerLines: mismatch ? [] : offerLines,
+        ...(mine ? { mine } : {}),
       });
     });
 }

@@ -45,8 +45,8 @@ What was wrong: the server's list of letter statuses did not include "not mine",
 was stored as an ordinary read with its full summary. Found by the test written for this change.
 
 What changed: a letter addressed to someone else is stored as a date, a kind and the status "not mine", nothing else:
-no sender, no amount, no quotes, on the phone and on the server alike (the server strips them even if a phone sends
-them). README's privacy list says so.
+no sender, no amount, no quotes (the server strips them even if a phone sends them). The phone itself keeps the reading,
+so Rosa can overrule a wrong "not to you" (section 10); nothing of it leaves unless she does. README's privacy list says so.
 
 ## 6. The voice was flat
 
@@ -86,6 +86,19 @@ when it's clear.", "Got it! One moment while I read.", "I'm all ears!", "Done! A
 carry a letter's facts, a number, a hand-off or Help stay plain: a cheerful dog, never a flippant one, and "Woof" only
 where mail arrives.
 
+## 10. "Not to you" could be wrong, and the reading had no way to be corrected
+
+Finding: "sometimes the app is wrong and I can override the field (user). Let the user override with voice. Let Biscuit
+ask (Do you want me to change anything) instead of stopping there."
+
+Fix: on "This is addressed to X, not to you", Biscuit adds "If this letter is yours after all, say it's mine, and I'll
+read it." A spoken "it's mine" (or the It's mine, read it button) turns the letter into hers: the reading plays (the
+reply already carries the lines as if it were hers), the full summary goes to Ana's page, the docket entry follows.
+After any reading Biscuit asks "Did I get anything wrong?"; a yes gets "Tell me what, and I'll pass it to Ana", and
+her words go to Ana's page as what Rosa said, with the letter marked for review. A no, or a tap on Go on, continues.
+Nothing a letter says is changed by voice: a number Biscuit speaks still comes from a verified quote, and a correction
+is a note for Ana, who can look at the letter and act.
+
 ## Rulings
 
 - Your Papers keeps "Read them to me" as the third button; the first is Show me a letter, since that is what Rosa does
@@ -95,4 +108,5 @@ where mail arrives.
 - The intent layer is patterns, not a model: a letter is a letter, the mail is the mail, and anything unclear gets the
   menu rather than a guess.
 - Rosa's screens stay in sentence case; they are spoken lines.
+- A spoken correction never edits a fact; it becomes a note for Ana. The verified-quote rule stands.
 - The character lives in Biscuit's own lines, not in the facts: nothing a letter says gets an exclamation mark, and Help never does.

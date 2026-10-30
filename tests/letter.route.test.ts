@@ -217,5 +217,10 @@ test("a letter addressed to Rosa is read with her name first; one addressed to s
   expect(body2.lines).toEqual(["This is addressed to Mabel Thompson, not to you.", "I'll stop here and tell Ana."]);
   expect(body2.offerLines).toEqual([]);
   expect(body2.facts.find((f: any) => f.field === "amount_due")).toMatchObject({ verified: true });
+  // Biscuit can be wrong about the name: the reply also carries the reading as if the letter were hers, so one "it's mine" plays it.
+  expect(body2.mine.lines[0]).toBe("This is addressed to Mabel Thompson.");
+  expect(body2.mine.lines).toContain("This is from Massachusetts General Hospital.");
+  expect(body2.mine.offerLines).toEqual(["Shall I send this to Ana?"]);
+  expect(body.mine).toBeUndefined();
 });
 
