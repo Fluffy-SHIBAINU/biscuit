@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 import type { AuthVars } from "../auth.js";
+import { toPcm16Wav } from "../wav.js";
 
 export const SPEAK_MAX_CHARS = 600;
 export const DEFAULT_TTS_VOICE = "am_michael";
@@ -36,10 +37,11 @@ export function speakRoutes(deps: { auth: MiddlewareHandler<AuthVars>; env?: Rec
         if (type.startsWith("audio/")) bytes = Buffer.from(await res.arrayBuffer());
         else {
           const json: any = await res.json();
-          const b64 = json?.output ?? json?.audio ?? json?.audio_base64 ?? json?.data;
+          const b64 = json?.base64 ?? json?.output ?? json?.audio ?? json?.audio_base64 ?? json?.data;
           if (typeof b64 !== "string") throw new Error("tts shape");
           bytes = Buffer.from(b64.replace(/^data:audio\/\w+;base64,/, ""), "base64");
         }
+        bytes = toPcm16Wav(bytes);
         return new Response(new Uint8Array(bytes), { headers: { "content-type": "audio/wav", "cache-control": "private, max-age=86400" } });
       } catch (err: any) {
         console.log(JSON.stringify({ tts: "failed", error: String(err?.message ?? err).slice(0, 120) }));
