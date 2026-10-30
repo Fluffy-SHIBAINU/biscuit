@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
 import { runChimeTick } from "../chime.js";
 import { retireClips } from "../clips.js";
+import { runReminderTick } from "../reminders.js";
 import { getDb } from "../db.js";
 import type { Events } from "../events.js";
 import type { Sender } from "../push.js";
@@ -17,8 +18,10 @@ export function chimeRoutes(deps: { env?: Record<string, string | undefined>; ev
     if (!secret || !same(given, secret)) return c.json({ error: "unauthorized" }, 401);
     const now = new Date();
     const r = await runChimeTick(getDb(), now, { events: deps.events, send: deps.send });
+    let remindersSent = 0;
+    try { remindersSent = (await runReminderTick(getDb(), now, { events: deps.events, send: deps.send })).remindersSent; } catch (err: any) { console.log(JSON.stringify({ reminders: "tick_failed", error: String(err?.message ?? err).slice(0, 200) })); }
     let clipsRetired: number | null = null;
     try { clipsRetired = await retireClips(getDb(), now); } catch (err: any) { console.log(JSON.stringify({ clips: "retire_failed", error: String(err?.message ?? err).slice(0, 200) })); }
-    return c.json({ ...r, clipsRetired, at: now.toISOString() });
+    return c.json({ ...r, remindersSent, clipsRetired, at: now.toISOString() });
   });
 }

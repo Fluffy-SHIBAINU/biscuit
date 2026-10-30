@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import Dog from "../components/Dog.jsx";
-import { postEvent, transcribe } from "../lib/api.js";
+import { api, postEvent, transcribe } from "../lib/api.js";
 import { statusLine } from "../lib/letters.js";
 import { navigate } from "../lib/navigate.js";
 import { listen, speak, stopSpeaking } from "../lib/speech.js";
-import { handleVoiceCommand } from "../lib/commands.js";
+import { handleVoiceCommand, triggerHelpByVoice } from "../lib/commands.js";
 import { MENU_LINES, intentOf } from "../lib/talk.js";
 import { store, useStore } from "../lib/store.js";
 
@@ -22,6 +22,9 @@ export default function Talk() {
   const [reply, setReply] = useState("");
   const [level, setLevel] = useState(0);
   const alive = useRef(true);
+  // The conversation so far, on this phone only: the last turns go with each question so Biscuit can follow along.
+  const history = useRef([]);
+  const nowLocal = () => new Date().toLocaleString([], { weekday: "long", hour: "numeric", minute: "2-digit" });
   // The talk goes on by itself after each reply; two quiet turns in a row and Biscuit stops listening until the next tap.
   const quiet = useRef(0);
 
@@ -69,12 +72,27 @@ export default function Talk() {
     if (intent === "nothing") {
       quiet.current += 1;
       if (quiet.current >= 2) { await say(["I'll stop listening for now. Tap Talk when you want me."], { again: false }); return; }
-      await say(["I didn't catch that.", ...MENU_LINES]);
+      await say(["I didn't catch that. Say it again?"]);
       return;
     }
     quiet.current = 0;
-    await say(MENU_LINES);
+    await companion(text);
   }
+
+  /** Anything else is a conversation: the companion answers in Biscuit's voice, remembers what she tells him, and does a job when the words are one. */
+  async function companion(text) {
+    const turns = [...history.current, { role: "user", content: text }].slice(-12);
+    let r;
+    try { r = await api("/companion", { method: "POST", json: { messages: turns, nowLocal: nowLocal() } }); }
+    catch { await say(["I lost my train of thought. Say that again?"]); return; }
+    if (!alive.current) return;
+    history.current = [...turns, { role: "assistant", content: r.reply }].slice(-12);
+    const after = r.action === "read_letter" ? "/letter" : r.action === "papers" ? "/docket" : r.action === "mail_came" ? "/mail?from=home" : null;
+    if (r.action === "help") { triggerHelpByVoice(); return; }
+    if (after) { setReply(r.reply); setPhase("speaking"); await speak([r.reply]); if (alive.current) navigate(after); return; }
+    await say([r.reply]);
+  }
+
 
   async function turn() {
     setPhase("listening"); setHeard(""); setReply("");

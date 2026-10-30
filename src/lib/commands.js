@@ -16,8 +16,13 @@ export function triggerHelpByVoice() {
 }
 
 /** Shared voice commands for every listening screen. True when the words were a command and were handled. */
+export const saidHome = (text) => /\b(go home|home screen|main screen|start over)\b/i.test(text || "");
+export const saidPapers = (text) => /\b(my papers|what do i have|what have i got)\b/i.test(text || "");
+
 export function handleVoiceCommand(text) {
   if (saidStop(text)) { stopSpeaking(); navigate("/"); return true; }
   if (saidHelp(text)) { triggerHelpByVoice(); return true; }
+  if (saidHome(text)) { stopSpeaking(); navigate("/"); return true; }
+  if (saidPapers(text)) { stopSpeaking(); navigate("/docket"); return true; }
   return false;
 }

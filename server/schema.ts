@@ -4,7 +4,7 @@ export const DEVICE_KINDS = ["rosa", "cam", "ana"] as const;
 export type DeviceKind = (typeof DEVICE_KINDS)[number];
 export const EVENT_KINDS = [
   "mail_seen", "mail_due", "mail_tapped", "letter_read", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack",
-  "cam_online", "cam_offline", "cam_battery", "cam_paused", "cam_motion", "cam_frozen", "consent", "said", "rosa_said", "delete", "look_requested", "shadow_read",
+  "cam_online", "cam_offline", "cam_battery", "cam_paused", "cam_motion", "cam_frozen", "consent", "said", "rosa_said", "reminder_due", "delete", "look_requested", "shadow_read",
 ] as const;
 export const READ_BY = ["single", "twice", "once"] as const;
 export type ReadBy = (typeof READ_BY)[number];
@@ -40,6 +40,10 @@ export const household = pgTable("biscuit_household", {
   /** Minutes after local midnight when the mail usually comes (Ana's guess; Rosa's phone chimes then if the box was not seen), and the household's IANA zone, said by Rosa's phone. */
   mailMinutes: integer("mail_minutes"),
   tz: text("tz"),
+  /** Where home is, for the weather: a town Rosa or Ana named, geocoded once. */
+  place: text("place"),
+  lat: doublePrecision("lat"),
+  lon: doublePrecision("lon"),
   /** Clips, Ana's two choices on her page, both off until she turns them on: keep short clips of the box for her to check, and let the clips she tapped into the de-identified export. Each time is when the choice was turned on. */
   keepClips: boolean("keep_clips").notNull().default(false),
   keepClipsAt: ts("keep_clips_at"),
@@ -134,6 +138,27 @@ export const camSample = pgTable("biscuit_cam_sample", {
   /** Biscuit's guess as the clip was made, and who labelled it (null for a tap recorded before this was kept: Ana's). */
   guess: jsonb("guess").$type<Guess>(),
   labelledBy: text("labelled_by", { enum: LABELLED_BY }),
+});
+
+/** What Biscuit remembers about Rosa, from what she tells him and nothing else: short facts by topic, deletable one by one on her phone. */
+export const memory = pgTable("biscuit_memory", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  householdId: uuid("household_id").notNull().references(() => household.id, { onDelete: "cascade" }),
+  topic: text("topic").notNull(),
+  fact: text("fact").notNull(),
+  source: text("source").notNull().default("rosa"),
+  at: ts("at").notNull().defaultNow(),
+});
+
+/** A reminder Rosa set by voice: a chime at a clock time, every day or on the days named; never advice. */
+export const reminder = pgTable("biscuit_reminder", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  householdId: uuid("household_id").notNull().references(() => household.id, { onDelete: "cascade" }),
+  label: text("label").notNull(),
+  minutes: integer("minutes").notNull(),
+  days: jsonb("days").$type<string[] | null>(),
+  lastFiredAt: ts("last_fired_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
 });
 
 export const rate = pgTable("biscuit_rate", {

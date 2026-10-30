@@ -13,6 +13,7 @@ import { camRoutes, type CamStore } from "./routes/cam.js";
 import { helpRoutes } from "./routes/help.js";
 import { chimeRoutes } from "./routes/chime.js";
 import { speakRoutes } from "./routes/speak.js";
+import { companionRoutes, type Converse, type Geocoder, type Weather } from "./routes/companion.js";
 import type { Sender } from "./push.js";
 import { dbLimiter, type Limiter } from "./limits.js";
 import { getDb } from "./db.js";
@@ -22,7 +23,7 @@ import type { Chooser } from "./questions.js";
 
 export const VERSION = "0.1.0";
 
-export type AppOptions = { lookup?: Lookup; asr?: AsrFn; spark?: SparkDeps; reader2?: SparkDeps | null; shadow?: SparkDeps | null; waitUntil?: (p: Promise<unknown>) => void; readTimeoutMs?: number; sam?: SamDeps; events?: Events; chooser?: Chooser; sheet?: SheetFn; anaEnv?: Record<string, string | undefined>; camEnv?: Record<string, string | undefined>; camStore?: CamStore; chimeEnv?: Record<string, string | undefined>; ttsEnv?: Record<string, string | undefined>; ttsFetch?: typeof fetch; pushSend?: Sender; limiter?: Limiter | null; claimLimiter?: Limiter; frameLimiter?: Limiter };
+export type AppOptions = { lookup?: Lookup; asr?: AsrFn; spark?: SparkDeps; reader2?: SparkDeps | null; shadow?: SparkDeps | null; waitUntil?: (p: Promise<unknown>) => void; readTimeoutMs?: number; sam?: SamDeps; events?: Events; chooser?: Chooser; sheet?: SheetFn; anaEnv?: Record<string, string | undefined>; camEnv?: Record<string, string | undefined>; camStore?: CamStore; chimeEnv?: Record<string, string | undefined>; ttsEnv?: Record<string, string | undefined>; ttsFetch?: typeof fetch; companion?: Converse; geocoder?: Geocoder; weather?: Weather; pushSend?: Sender; limiter?: Limiter | null; claimLimiter?: Limiter; frameLimiter?: Limiter };
 
 export function createApp(opts: AppOptions = {}): Hono {
   const app = new Hono();
@@ -44,6 +45,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   app.use("/api/biscuit/push/subscribe", auth, rosaOnly);
   app.use("/api/biscuit/speak", auth, rosaOnly);
   app.use("/api/biscuit/speak/voice", auth, rosaOnly);
+  for (const path of ["companion", "memories", "memories/:id", "reminders", "reminders/:id"]) app.use(`/api/biscuit/${path}`, auth, rosaOnly);
   for (const path of ["find", "region", "heartbeat", "frames", "clip/:id"]) app.use(`/api/biscuit/cam/${path}`, auth, requireKind("cam"));
   app.on(["DELETE", "PATCH"], "/api/biscuit/household", auth, rosaOnly);
   const events = opts.events ?? dbEvents;
@@ -59,6 +61,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   app.route("/api/biscuit", helpRoutes({ auth, anaAuth: anaAuth({ env: opts.anaEnv }), events, send: opts.pushSend }));
   app.route("/api/biscuit", chimeRoutes({ env: opts.chimeEnv, events, send: opts.pushSend }));
   app.route("/api/biscuit", speakRoutes({ auth, env: opts.ttsEnv, fetcher: opts.ttsFetch }));
+  app.route("/api/biscuit", companionRoutes({ auth, events, converse: opts.companion, geocoder: opts.geocoder, weather: opts.weather }));
   app.route("/api/biscuit", questionRoutes({ auth, chooser: opts.chooser }));
   app.route("/api/biscuit", sheetRoutes({ auth, sheet: opts.sheet }));
   return app;

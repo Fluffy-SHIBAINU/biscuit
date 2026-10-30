@@ -106,3 +106,29 @@ test("the openai provider prefers a bearer key when one is set, and the default 
   await app2.request("/api/biscuit/speak", { method: "POST", headers, body: JSON.stringify({ text: "Hi." }) });
   expect(JSON.parse(calls[1].init.body)).toEqual({ text: "Hi.", voice: "am_michael", speed: 1 });
 });
+
+// Gemini text-to-speech (the production voice): generateContent with AUDIO out, a style prefix, a prebuilt voice; base64 PCM at
+// 24 kHz comes back and leaves as a 16-bit WAV. Repeated lines are served from memory.
+test("the gemini provider asks for audio with a style prefix and a voice, wraps the PCM, and caches a repeated line", async () => {
+  const calls: any[] = [];
+  const pcm = Buffer.alloc(8); pcm.writeInt16LE(1000, 0); pcm.writeInt16LE(-1000, 2);
+  const fetcher = (async (url: string, init: any) => { calls.push({ url, init }); return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: "audio/L16;codec=pcm;rate=24000", data: pcm.toString("base64") } }] } }] }), { status: 200, headers: { "content-type": "application/json" } }); }) as any;
+  const app = createApp({ lookup: linked, ttsEnv: { TTS_PROVIDER: "gemini", TTS_API_KEY: "g1", TTS_VOICE: "Puck", TTS_MODEL: "gemini-3.8-flash-tts" }, ttsFetch: fetcher });
+  expect(await (await app.request("/api/biscuit/speak/voice", { headers })).json()).toEqual({ neural: true });
+  const res = await app.request("/api/biscuit/speak", { method: "POST", headers, body: JSON.stringify({ text: "Woof! Mail's here, Rosa." }) });
+  expect(res.status).toBe(200);
+  const out = Buffer.from(await res.arrayBuffer());
+  expect(out.toString("ascii", 0, 4)).toBe("RIFF");
+  expect(out.readUInt32LE(24)).toBe(24000);
+  expect(out.readUInt16LE(34)).toBe(16);
+  expect(out.readInt16LE(44)).toBe(1000);
+  expect(calls[0].url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash-tts:generateContent");
+  expect(calls[0].init.headers["x-goog-api-key"]).toBe("g1");
+  const body = JSON.parse(calls[0].init.body);
+  expect(body.contents[0].parts[0].text).toMatch(/cheerful.*Woof! Mail's here, Rosa\.$/s);
+  expect(body.generationConfig.responseModalities).toEqual(["AUDIO"]);
+  expect(body.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName).toBe("Puck");
+  const again = await app.request("/api/biscuit/speak", { method: "POST", headers, body: JSON.stringify({ text: "Woof! Mail's here, Rosa." }) });
+  expect(again.status).toBe(200);
+  expect(calls).toHaveLength(1);
+});
