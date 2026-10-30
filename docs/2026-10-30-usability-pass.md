@@ -59,7 +59,13 @@ has and hear it. The second layer is a neural voice when the server has one: `TT
 deployment (a Baseten Kokoro model on the Baseten credit; `TTS_API_KEY`, `TTS_VOICE`), the phone asks
 `/api/biscuit/speak` for each line's audio and plays it, fetching the next line while one plays; without the URL, or
 when a call fails, the phone's own voice takes over mid-sentence. Nothing about the lines is kept on the server. The
-Meta Model API has no text-to-speech model, so the voice cannot come from there.
+Meta Model API has no text-to-speech model, so the voice cannot come from there; the Baseten hackathon key is locked to one
+chat model, so Kokoro cannot be deployed on it either. For the demo the neural voice comes from the founder's own Mac:
+VoiceStudio (open source) speaks OpenAI's speech API on port 3900, `scripts/voice/tunnel.sh` starts it headless and opens an
+ngrok tunnel with basic auth, and `TTS_PROVIDER=openai` points the route at it. Measured on that Mac, warm: Kokoro on MLX and
+KittenTTS render at about real time (a 3-second line starts after 3 seconds; the phone fetches the next line while one
+plays), while OmniVoice, the most human engine, takes 5 to 10 times the length of the speech and is kept for recorded
+narration. When the Mac is asleep or the tunnel is down, the phone's own voice speaks.
 
 ## 7. Talk to Biscuit ended after one exchange
 

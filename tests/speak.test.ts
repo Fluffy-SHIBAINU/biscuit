@@ -79,3 +79,30 @@ test("the base64 key Kokoro uses is understood", async () => {
   expect(r.status).toBe(200);
   expect(Buffer.from(await r.arrayBuffer()).equals(wav)).toBe(true);
 });
+
+// VoiceStudio on the founder's Mac speaks OpenAI's speech API behind an ngrok tunnel: TTS_PROVIDER=openai sends model, input,
+// voice, response_format wav and speed, signs with Bearer or with the tunnel's basic auth, and gets raw WAV back.
+test("the openai provider sends OpenAI's speech request and signs with the tunnel's basic auth", async () => {
+  const calls: any[] = [];
+  const fetcher = (async (url: string, init: any) => { calls.push({ url, init }); return new Response(wav, { status: 200, headers: { "content-type": "audio/wav" } }); }) as any;
+  const app = createApp({ lookup: linked, ttsEnv: { TTS_URL: "https://biscuit-voice.ngrok-free.app/v1/audio/speech", TTS_PROVIDER: "openai", TTS_MODEL: "mlx-audio", TTS_VOICE: "am_michael", TTS_BASIC_AUTH: "biscuit:s3cret", TTS_SPEED: "1.05" }, ttsFetch: fetcher });
+  const res = await app.request("/api/biscuit/speak", { method: "POST", headers, body: JSON.stringify({ text: "Woof! Mail's here, Rosa." }) });
+  expect(res.status).toBe(200);
+  expect(Buffer.from(await res.arrayBuffer()).equals(wav)).toBe(true);
+  const body = JSON.parse(calls[0].init.body);
+  expect(body).toEqual({ model: "mlx-audio", input: "Woof! Mail's here, Rosa.", voice: "am_michael", response_format: "wav", speed: 1.05 });
+  expect(calls[0].init.headers.authorization).toBe("Basic " + Buffer.from("biscuit:s3cret").toString("base64"));
+  expect(calls[0].init.headers["ngrok-skip-browser-warning"]).toBe("1");
+});
+
+test("the openai provider prefers a bearer key when one is set, and the default provider is still Kokoro's shape", async () => {
+  const calls: any[] = [];
+  const fetcher = (async (url: string, init: any) => { calls.push({ url, init }); return new Response(wav, { status: 200, headers: { "content-type": "audio/wav" } }); }) as any;
+  const app = createApp({ lookup: linked, ttsEnv: { TTS_URL: "https://x/v1/audio/speech", TTS_PROVIDER: "openai", TTS_API_KEY: "k9" }, ttsFetch: fetcher });
+  await app.request("/api/biscuit/speak", { method: "POST", headers, body: JSON.stringify({ text: "Hi." }) });
+  expect(calls[0].init.headers.authorization).toBe("Bearer k9");
+  expect(JSON.parse(calls[0].init.body).model).toBe("tts-1");
+  const app2 = createApp({ lookup: linked, ttsEnv: { TTS_URL: "https://x/predict", TTS_API_KEY: "k" }, ttsFetch: fetcher });
+  await app2.request("/api/biscuit/speak", { method: "POST", headers, body: JSON.stringify({ text: "Hi." }) });
+  expect(JSON.parse(calls[1].init.body)).toEqual({ text: "Hi.", voice: "am_michael", speed: 1 });
+});

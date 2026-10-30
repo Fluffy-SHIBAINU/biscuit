@@ -6,10 +6,15 @@ import { toPcm16Wav } from "../wav.js";
 export const SPEAK_MAX_CHARS = 600;
 export const DEFAULT_TTS_VOICE = "am_michael";
 
+export const TTS_TIMEOUT_MS = 20_000;
+
 /**
- * A neural voice for Biscuit when the server has one: TTS_URL names a text-to-speech deployment (a Baseten Kokoro model's
- * predict URL), TTS_API_KEY (or BASETEN_API_KEY) signs the call, TTS_VOICE picks the voice. The phone asks for a line's
- * audio and plays it; without a URL, or when the call fails, the phone's own voice speaks. Nothing about the line is kept.
+ * A neural voice for Biscuit when the server has one. TTS_URL names a text-to-speech endpoint; TTS_PROVIDER picks its shape:
+ * "kokoro" (default; a Baseten Kokoro predict URL: {text, voice, speed} in, {"base64": wav} out) or "openai" (OpenAI's
+ * /v1/audio/speech shape: {model, input, voice, response_format, speed} in, raw audio out; what VoiceStudio on the founder's
+ * Mac speaks behind an ngrok tunnel). TTS_API_KEY signs with Bearer (openai) or Api-Key (kokoro); TTS_BASIC_AUTH ("user:pass")
+ * signs a tunnel's basic auth instead. The phone asks for a line's audio and plays it; without a URL, or when the call fails or
+ * takes too long, the phone's own voice speaks. Nothing about the line is kept.
  */
 export function speakRoutes(deps: { auth: MiddlewareHandler<AuthVars>; env?: Record<string, string | undefined>; fetcher?: typeof fetch }) {
   const env = deps.env ?? process.env;
@@ -24,12 +29,22 @@ export function speakRoutes(deps: { auth: MiddlewareHandler<AuthVars>; env?: Rec
       const text = typeof b?.text === "string" ? b.text.trim().slice(0, SPEAK_MAX_CHARS) : "";
       if (!text) return c.json({ error: "no_text" }, 400);
       const key = env.TTS_API_KEY?.trim() || env.BASETEN_API_KEY?.trim() || "";
+      const basic = env.TTS_BASIC_AUTH?.trim() || "";
+      const provider = env.TTS_PROVIDER?.trim() === "openai" ? "openai" : "kokoro";
+      const speed = Number(env.TTS_SPEED) || 1;
+      const voice = env.TTS_VOICE?.trim() || DEFAULT_TTS_VOICE;
+      const authorization = provider === "openai"
+        ? (key ? `Bearer ${key}` : basic ? `Basic ${Buffer.from(basic).toString("base64")}` : "")
+        : (key ? `Api-Key ${key}` : basic ? `Basic ${Buffer.from(basic).toString("base64")}` : "");
+      const body = provider === "openai"
+        ? { model: env.TTS_MODEL?.trim() || "tts-1", input: text, voice, response_format: "wav", speed }
+        : { text, voice, speed };
       try {
         const res = await fetcher(url, {
           method: "POST",
-          headers: { "content-type": "application/json", ...(key ? { authorization: `Api-Key ${key}` } : {}) },
-          body: JSON.stringify({ text, voice: env.TTS_VOICE?.trim() || DEFAULT_TTS_VOICE, speed: Number(env.TTS_SPEED) || 1 }),
-          signal: AbortSignal.timeout(8000),
+          headers: { "content-type": "application/json", "ngrok-skip-browser-warning": "1", ...(authorization ? { authorization } : {}) },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(TTS_TIMEOUT_MS),
         });
         if (!res.ok) throw new Error(`tts ${res.status}`);
         const type = res.headers.get("content-type") || "";
