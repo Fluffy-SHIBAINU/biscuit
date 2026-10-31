@@ -53,16 +53,19 @@ const liveDeps = {
 };
 
 let busy = false;
+export const TRANSCRIBE_TIMEOUT_MS = 15_000;
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))]);
 /** The ear's default handler: a clip becomes words on the server, and the words are routed. One at a time. */
 export async function onUtterance({ blob, spoke }) {
   if (!spoke || !blob || busy) return;
   busy = true;
   try {
-    talkState.set({ phase: "thinking" });
+    talkState.set({ phase: "thinking", note: "" });
     let text = "";
-    try { text = await transcribe(blob); } catch { talkState.set({ phase: "idle" }); return; }
-    talkState.set({ heard: text, phase: text.trim() ? "thinking" : "idle" });
-    await routeHeard(text, liveDeps);
-    talkState.set({ phase: "idle" });
+    try { text = await withTimeout(transcribe(blob), TRANSCRIBE_TIMEOUT_MS); } catch (err) { talkState.set({ phase: "idle", note: err?.message === "timeout" ? "The words took too long to come back." : "I couldn't reach my ears on the server." }); return; }
+    if (!text.trim()) { talkState.set({ phase: "idle", note: "I heard a sound but no words." }); return; }
+    talkState.set({ heard: text, phase: "thinking" });
+    const outcome = await routeHeard(text, liveDeps);
+    talkState.set({ phase: "idle", note: outcome === "ignored" ? "Not for me, I think." : outcome === "error" ? "I lost the thread on the server." : "" });
   } finally { busy = false; }
 }

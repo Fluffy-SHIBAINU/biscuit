@@ -1,7 +1,7 @@
 // What the ear bar shows: the phase, the last thing heard and Biscuit's last reply. On this phone only.
 import { useSyncExternalStore } from "react";
 
-let state = { phase: "idle", heard: "", reply: "", at: 0 };
+let state = { phase: "idle", heard: "", reply: "", note: "", speechBlocked: false, at: 0 };
 const listeners = new Set();
 export const talkState = {
   get: () => state,

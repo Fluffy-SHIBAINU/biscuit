@@ -2,6 +2,7 @@ import { downsample, encodeWav, isSilent } from "./audio.js";
 import { store } from "./store.js";
 import { pickVoice, sentences } from "./voice.js";
 import { core as ear, earRunning, hearNext } from "./ear.js";
+import { talkState } from "./talkState.js";
 
 let current = [];
 let currentAudio = null;
@@ -34,7 +35,10 @@ async function speakDevice(lines, { rate = 1.0 } = {}) {
   if (!pieces.length) return;
   await new Promise((resolve) => {
     const guard = setTimeout(resolve, 5000 + pieces.join(" ").length * 90);
-    const done = () => { clearTimeout(guard); resolve(); };
+    // A phone that has had no tap yet may refuse to speak at all: after 1.5 s with no sound, say so on the bar, which offers a tap.
+    let started = false;
+    const silent = setTimeout(() => { if (!started && !window.speechSynthesis.speaking) { talkState.set({ speechBlocked: true }); clearTimeout(guard); resolve(); } }, 1500);
+    const done = () => { clearTimeout(guard); clearTimeout(silent); resolve(); };
     current = pieces.map((text) => {
       const u = new SpeechSynthesisUtterance(text);
       u.rate = rate; u.volume = volume; u.pitch = 1.0; u.lang = voice?.lang || "en-US";
@@ -42,6 +46,7 @@ async function speakDevice(lines, { rate = 1.0 } = {}) {
       return u;
     });
     const last = current[current.length - 1];
+    current[0].onstart = () => { started = true; if (talkState.get().speechBlocked) talkState.set({ speechBlocked: false }); };
     last.onend = done;
     last.onerror = done;
     current.forEach((u) => window.speechSynthesis.speak(u));

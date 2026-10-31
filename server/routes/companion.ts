@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 import type { AuthVars } from "../auth.js";
 import { DEFAULT_TZ, localParts, mailTimeLabel, validTz } from "../chime.js";
-import { converse, type CompanionContext, type CompanionTurn, type Turn } from "../companion.js";
+import { FALLBACK_REPLY, converse, type CompanionContext, type CompanionTurn, type Turn } from "../companion.js";
 import { getDb } from "../db.js";
 import type { Events } from "../events.js";
 import { event, household, letter, memory, reminder } from "../schema.js";
@@ -64,7 +64,10 @@ export function companionRoutes(deps: { auth: MiddlewareHandler<AuthVars>; event
       const [seen] = await db.select({ at: event.at }).from(event).where(and(eq(event.householdId, h.id), eq(event.kind, "mail_seen"))).orderBy(desc(event.at)).limit(1);
       const mail = seen && localParts(seen.at, tz).day === localParts(now, tz).day ? `the mail came at ${clockIn(seen.at, tz)}` : null;
       const context: CompanionContext = { called: h.called, nowLocal, memories: mems.map((m) => ({ topic: m.topic, fact: m.fact })), weather: weatherNow, papers, mail, reminders: rems.map((r) => ({ label: r.label, time: mailTimeLabel(r.minutes) })) };
-      const turn = await talk({ messages, context });
+      let turn = await talk({ messages, context });
+      // Words with his name in them are for Biscuit, whatever the model decided: silence to "Biscuit, ..." is the worst answer.
+      const lastWords = messages.length && messages[messages.length - 1].role === "user" ? messages[messages.length - 1].content : "";
+      if (turn.ignore && /\bbiscuit\b/i.test(lastWords)) turn = { ...turn, ignore: false, reply: FALLBACK_REPLY };
       let reply = turn.reply;
       if (turn.ignore) return c.json({ reply: "", action: "none", ignore: true, remembered: [], forgot: [], reminder: null, place: null });
       const remembered: string[] = [];

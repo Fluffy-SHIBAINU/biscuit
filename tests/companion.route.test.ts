@@ -19,6 +19,7 @@ describe.skipIf(!process.env.DATABASE_URL)("the companion, memories and reminder
     const last = input.messages[input.messages.length - 1]?.content ?? "";
     if (/forget everything/.test(last)) return { reply: "Forgotten.", action: "none", tellAna: null, remember: [], forget: ["I", "%", "_", "\\", "the"], reminder: null, place: null };
     if (/forget/.test(last)) return { reply: "Forgotten.", action: "none", tellAna: null, remember: [], forget: ["oatmeal"], reminder: null, place: null };
+    if (/Biscuit, television/.test(last)) return { reply: "", action: "none", ignore: true, tellAna: null, remember: [], forget: [], reminder: null, place: null };
     if (/television/.test(last)) return { reply: "", action: "none", ignore: true, tellAna: null, remember: [], forget: [], reminder: null, place: null };
     if (/Narnia/.test(last)) return { reply: "Narnia it is.", action: "none", tellAna: null, remember: [], forget: [], reminder: null, place: "Narnia" };
     if (/gossip/.test(last)) return { reply: "Mm-hm.", action: "none", tellAna: "Rosa hates the neighbour", remember: [], forget: [], reminder: null, place: null };
@@ -95,6 +96,10 @@ describe.skipIf(!process.env.DATABASE_URL)("the companion, memories and reminder
     expect(await facts()).toEqual(["likes oatmeal with raisins", "lives in Boston"]);
     const tv = await (await say("and now the television weather")).json();
     expect(tv).toMatchObject({ reply: "", action: "none", ignore: true });
+    // words with his name in them are never "not for Biscuit", whatever the model said
+    const named = await (await say("Biscuit, television is boring tonight")).json();
+    expect(named.ignore).toBe(false);
+    expect(named.reply).toMatch(/Tell me again/);
     const lost = await (await say("I live in Narnia")).json();
     expect(lost.reply).toMatch(/couldn't find Narnia/);
     expect(lost.place).toBeNull();
