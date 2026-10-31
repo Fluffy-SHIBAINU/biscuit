@@ -7,7 +7,7 @@ needed."
 
 ## What it is
 
-Talk to Biscuit becomes an open conversation. Rosa says anything; Biscuit answers in his own voice (cheerful, short,
+Talk to Biscuit becomes an open conversation (and, later the same day, the Talk button itself goes: Biscuit hears all the time, `2026-10-30-always-hearing.md`). Rosa says anything; Biscuit answers in his own voice (cheerful, short,
 one question at a time) and, when the words are a job, does the job: a letter, her papers, the mail, a message for Ana,
 Help. He remembers what she tells him about herself, food she likes, how she cooks, when she takes her pills, her
 hobbies, her pets, where she lives for the weather, and brings it back later. Every screen that speaks also listens

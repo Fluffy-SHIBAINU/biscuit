@@ -7,7 +7,7 @@ import { listen, speak, stopSpeaking } from "../lib/speech.js";
 import { saidHelp, saidStop } from "../lib/commands.js";
 import { store, useStore } from "../lib/store.js";
 
-export const CONSENT_TEXT = (name) => `I'm Biscuit. I speak up when the mail comes and when you ask. I read your letters out loud and keep a list of them on this phone. Ana sees what I read, unless you tell me not to share one. If you press Help, this phone calls 911 and Ana is told. Say stop and I stop. Shall I go on?`;
+export const CONSENT_TEXT = (name) => `I'm Biscuit. I listen while this phone is open so you can just talk to me; tap Pause and I stop listening. I speak up when the mail comes. I read your letters out loud and keep a list of them on this phone. Ana sees what I read, unless you tell me not to share one. If you press Help, this phone calls 911 and Ana is told. Say stop and I stop. Shall I go on?`;
 
 export default function Consent() {
   const s = useStore();

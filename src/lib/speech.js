@@ -1,6 +1,7 @@
 import { downsample, encodeWav, isSilent } from "./audio.js";
 import { store } from "./store.js";
 import { pickVoice, sentences } from "./voice.js";
+import { core as ear, earRunning, hearNext } from "./ear.js";
 
 let current = [];
 let currentAudio = null;
@@ -87,15 +88,21 @@ export function speak(lines, opts = {}) {
   if (!lines.length) return Promise.resolve();
   stopSpeaking();
   startedAt = Date.now();
-  if (store.get().neuralVoice) return speakNeural(lines, opts);
-  return speakDevice(lines, opts);
+  // The ear is closed while Biscuit talks, so he never answers himself.
+  ear.mute(true);
+  const done = store.get().neuralVoice ? speakNeural(lines, opts) : speakDevice(lines, opts);
+  return done.finally(() => ear.mute(false));
 }
 
 const _stop = stopSpeaking;
 export { _stop as stopAllSpeech };
 
-/** Records until 1.2 s of silence after speech began, or 6 s; returns a 16 kHz mono WAV blob. */
+/**
+ * The next thing Rosa says, as a 16 kHz mono WAV blob: from the open ear when it is listening, else a one-off recording that
+ * ends at 1.2 s of silence after speech began, or at maxMs. `spoke` is false when nothing was said.
+ */
 export async function listen({ maxMs = 6000, silenceMs = 1200, onLevel } = {}) {
+  if (earRunning()) return hearNext({ maxMs, onLevel });
   const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
   const Ctx = window.AudioContext || window.webkitAudioContext;
   const ctx = new Ctx();

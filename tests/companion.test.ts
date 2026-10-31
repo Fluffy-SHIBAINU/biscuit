@@ -27,9 +27,11 @@ test("normalizeCompanion keeps the shape and drops anything outside it", () => {
   expect(n.reminder).toEqual({ label: "pills", minutes: 480 });
   expect(n.place).toBe("Boston, MA");
   const bad = normalizeCompanion({ reply: "", action: "dial_911", reminder: { label: "pills", time: "25:00" }, remember: Array.from({ length: 6 }, (_, i) => ({ topic: "food", fact: `fact ${i}` })) });
-  expect(bad.reply).toBe("I didn't follow that. Tell me again?");
+  // A reminder the model promised but the server could not set is said so, instead of the promise standing.
+  expect(bad.reply).toMatch(/couldn't set that reminder/);
   expect(bad.action).toBe("none");
   expect(bad.reminder).toBeNull();
+  expect(normalizeCompanion({ reply: "", action: "dial_911" }).reply).toBe("I didn't follow that. Tell me again?");
   expect(bad.remember).toHaveLength(3);
   expect(COMPANION_SCHEMA.required).toContain("reply");
 });
@@ -46,4 +48,24 @@ test("converse asks the model for the JSON shape and falls back to a plain line 
   const down = await converse({ messages: [{ role: "user", content: "hello" }], context: ctx }, async () => { throw new Error("down"); });
   expect(down.reply).toMatch(/didn't follow|try again/i);
   expect(down.action).toBe("none");
+});
+
+// Review of October 30: a model-chosen "help" must never start the Help flow, the words the room says may be for someone
+// else, a promised reminder that could not be set is said so, and doses never pass through.
+test("normalizeCompanion: no help action from the model, an ignore flag, a reconciled reminder, no doses", () => {
+  expect((COMPANION_SCHEMA.properties as any).action.enum).not.toContain("help");
+  expect((COMPANION_SCHEMA.properties as any).ignore.type).toBe("boolean");
+  expect(normalizeCompanion({ reply: "Do you want help?", action: "help" }).action).toBe("none");
+  const tv = normalizeCompanion({ reply: "", action: "none", ignore: true });
+  expect(tv.ignore).toBe(true);
+  expect(tv.reply).toBe("");
+  expect(normalizeCompanion({ reply: "Sure.", ignore: false }).ignore).toBe(false);
+  const noon = normalizeCompanion({ reply: "I'll chime at noon for your heart pills.", reminder: { label: "heart pills", time: "noon" } });
+  expect(noon.reminder).toEqual({ label: "heart pills", minutes: 720 });
+  const vague = normalizeCompanion({ reply: "I'll chime for your heart pills.", reminder: { label: "heart pills", time: "later" } });
+  expect(vague.reminder).toBeNull();
+  expect(vague.reply).toMatch(/couldn't set that reminder/);
+  const dose = normalizeCompanion({ reply: "Take two more tablets, 400 mg should do.", reminder: { label: "2 x 400 mg ibuprofen", time: "8:00 PM" } });
+  expect(dose.reply).toMatch(/pharmacist or doctor/);
+  expect(dose.reminder?.label).toBe("ibuprofen");
 });

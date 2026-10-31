@@ -129,3 +129,14 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .details > div { margin-top: 8px; }
 .details.night { border-top-color: var(--night-border); }
 .details.night > summary { color: var(--night-muted); }
+
+/* Biscuit's ear: the bar at the foot of Rosa's screens. */
+.screen { padding-bottom: 110px; }
+.earbar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 12px; padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); background: var(--sheet); border-top: 1.5px solid var(--rule-strong); max-width: 480px; margin: 0 auto; }
+.eardot { width: 14px; height: 14px; border-radius: 50%; background: var(--rule-strong); flex: 0 0 auto; transition: transform .15s, background .15s; }
+.eardot.on { background: var(--signal); }
+.eardot.loud { background: var(--signal); transform: scale(1.5); }
+.eardot.paused { background: var(--bad); }
+.eartext { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.earline { font-size: 16px; line-height: 1.3; color: var(--ink); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.btn.earbtn { width: auto; height: 56px; padding: 0 20px; font-size: 19px; flex: 0 0 auto; }

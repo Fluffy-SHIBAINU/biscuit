@@ -23,6 +23,9 @@ import Siri from "./rosa/Siri.jsx";
 import Done from "./rosa/Done.jsx";
 import Settings from "./rosa/Settings.jsx";
 import { listenToWorker } from "./lib/push.js";
+import EarBar from "./components/EarBar.jsx";
+import { core as ear, earCheck, earWanted, keepEarOpen } from "./lib/ear.js";
+import { onUtterance } from "./lib/hear.js";
 import Family from "./ana/Family.jsx";
 import WhoFor from "./ana/WhoFor.jsx";
 import LinkCode from "./ana/LinkCode.jsx";
@@ -45,6 +48,14 @@ export default function App() {
   const s = useStore();
   // Whether the server has a neural voice for Biscuit; without one the phone's own voice speaks.
   useEffect(() => { if (s.deviceToken && s.kind === "rosa") api("/speak/voice").then((r) => store.set({ neuralVoice: Boolean(r?.neural) })).catch(() => {}); }, [s.deviceToken, s.kind]);
+  // Biscuit hears all day on Rosa's phone once she has agreed; the bar at the foot shows it and pauses it.
+  const rosaHome = Boolean(s.deviceToken && s.kind === "rosa" && s.consentedAt) && !path.startsWith("/ana") && !path.startsWith("/cam");
+  useEffect(() => { if (!earWanted(s) && !s.earPaused) return; ear.setHandler(onUtterance); keepEarOpen(); earCheck(); }, [s.deviceToken, s.kind, s.consentedAt, s.earPaused, path]);
+  const page = route(path, s);
+  return <>{page}{rosaHome && <EarBar />}</>;
+}
+
+function route(path, s) {
   if (path === "/ana/new") return <WhoFor />;
   if (path === "/ana/link") return <LinkCode />;
   if (path === "/ana" || path.startsWith("/ana/")) return <Family />;

@@ -49,7 +49,7 @@ export default function Mail() {
       <button type="button" className="btn big" onClick={() => { stopSpeaking(); navigate("/letter"); }}>Yes, look</button>
       <button type="button" className="btn secondary" onClick={() => { stopSpeaking(); navigate("/"); }}>Not now</button>
       <div className="spacer" />
-      <p className="foot">This opened from a notification you tapped. Biscuit speaks when the mail comes and when you ask. Nothing listens otherwise.</p>
+      <p className="foot">This opened from a notification you tapped. Say yes or no, or tap.</p>
     </main>
   );
 }

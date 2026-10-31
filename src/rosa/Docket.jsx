@@ -32,7 +32,6 @@ export default function Docket() {
       )}
       <div className="spacer" />
       <button type="button" className="btn big" onClick={() => { stopSpeaking(); navigate("/letter"); }}>Show me a letter</button>
-      <button type="button" className="btn secondary" onClick={() => { stopSpeaking(); navigate("/talk"); }}>Talk to Biscuit</button>
       {letters.length > 0 && <button type="button" className="btn secondary" onClick={readAll}>Read them to me</button>}
       <p className="foot">Dates come from your letters and from the hospital's written policy. Ana sees the same list.</p>
     </main>

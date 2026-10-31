@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike, ne } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, ne } from "drizzle-orm";
 import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 import type { AuthVars } from "../auth.js";
@@ -14,6 +14,18 @@ export type Geocoder = (name: string) => Promise<{ label: string; lat: number; l
 export type Weather = (lat: number, lon: number) => Promise<string | null>;
 
 const WEATHER_TTL_MS = 30 * 60_000;
+// A failed weather call is tried again sooner than a good one is kept.
+const WEATHER_MISS_TTL_MS = 5 * 60_000;
+// Words the model may put in forget that would match nearly every fact; a term must be real before it deletes anything.
+const FORGET_STOPWORDS = new Set(["i", "a", "an", "the", "my", "me", "it", "that", "this", "she", "her", "he", "his", "is", "am", "are", "to", "of", "in", "on", "at", "and", "or", "for", "with", "likes", "like", "has", "have", "thing", "about"]);
+export const FORGET_MAX_ROWS = 3;
+const escapeLike = (s: string) => s.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+/** A forget term that may delete: at least three letters and not a stopword. */
+export function forgetTerm(f: string): string | null {
+  const t = f.trim().replace(/^[\s"'.,!?]+|[\s"'.,!?]+$/g, "");
+  if (t.length < 3 || FORGET_STOPWORDS.has(t.toLowerCase())) return null;
+  return t;
+}
 const weatherCache = new Map<string, { at: number; line: string | null }>();
 const clockIn = (d: Date, tz: string) => new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", minute: "2-digit" }).format(d);
 
@@ -28,7 +40,7 @@ export function companionRoutes(deps: { auth: MiddlewareHandler<AuthVars>; event
   const weather = deps.weather ?? ((lat, lon) => weatherLine(lat, lon));
   const cachedWeather = async (householdId: string, lat: number, lon: number) => {
     const hit = weatherCache.get(householdId);
-    if (hit && Date.now() - hit.at < WEATHER_TTL_MS) return hit.line;
+    if (hit && Date.now() - hit.at < (hit.line ? WEATHER_TTL_MS : WEATHER_MISS_TTL_MS)) return hit.line;
     const line = await weather(lat, lon).catch(() => null);
     weatherCache.set(householdId, { at: Date.now(), line });
     return line;
@@ -41,7 +53,8 @@ export function companionRoutes(deps: { auth: MiddlewareHandler<AuthVars>; event
       const db = getDb();
       const tz = validTz(h.tz) ?? DEFAULT_TZ;
       const now = new Date();
-      const mems = await db.select().from(memory).where(eq(memory.householdId, h.id)).orderBy(asc(memory.at)).limit(40);
+      // The newest forty memories, oldest first in the prompt, so a new fact always reaches Biscuit.
+      const mems = (await db.select().from(memory).where(eq(memory.householdId, h.id)).orderBy(desc(memory.at)).limit(40)).reverse();
       const rems = await db.select().from(reminder).where(eq(reminder.householdId, h.id)).orderBy(asc(reminder.minutes));
       const nowLocal = typeof b?.nowLocal === "string" && b.nowLocal.trim() ? b.nowLocal.trim().slice(0, 60) : new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "long", hour: "numeric", minute: "2-digit" }).format(now);
       const weatherNow = h.lat != null && h.lon != null ? await cachedWeather(h.id, h.lat, h.lon) : null;
@@ -52,18 +65,41 @@ export function companionRoutes(deps: { auth: MiddlewareHandler<AuthVars>; event
       const mail = seen && localParts(seen.at, tz).day === localParts(now, tz).day ? `the mail came at ${clockIn(seen.at, tz)}` : null;
       const context: CompanionContext = { called: h.called, nowLocal, memories: mems.map((m) => ({ topic: m.topic, fact: m.fact })), weather: weatherNow, papers, mail, reminders: rems.map((r) => ({ label: r.label, time: mailTimeLabel(r.minutes) })) };
       const turn = await talk({ messages, context });
+      let reply = turn.reply;
+      if (turn.ignore) return c.json({ reply: "", action: "none", ignore: true, remembered: [], forgot: [], reminder: null, place: null });
       const remembered: string[] = [];
-      for (const m of turn.remember) { await db.insert(memory).values({ householdId: h.id, topic: m.topic, fact: m.fact }); remembered.push(m.fact); }
-      for (const f of turn.forget) await db.delete(memory).where(and(eq(memory.householdId, h.id), ilike(memory.fact, `%${f}%`)));
+      for (const m of turn.remember) {
+        // The same fact twice is one memory.
+        const dup = await db.select({ id: memory.id }).from(memory).where(and(eq(memory.householdId, h.id), ilike(memory.fact, escapeLike(m.fact)))).limit(1);
+        if (!dup.length) await db.insert(memory).values({ householdId: h.id, topic: m.topic, fact: m.fact });
+        remembered.push(m.fact);
+      }
+      // Forget by the words she used: a real term, matched as a substring with wildcards escaped, at most a few rows a term.
+      const forgot: string[] = [];
+      for (const f of turn.forget) {
+        const term = forgetTerm(f);
+        if (!term) continue;
+        const hits = await db.select({ id: memory.id, fact: memory.fact }).from(memory).where(and(eq(memory.householdId, h.id), ilike(memory.fact, `%${escapeLike(term)}%`))).orderBy(desc(memory.at)).limit(FORGET_MAX_ROWS);
+        if (!hits.length) continue;
+        await db.delete(memory).where(and(eq(memory.householdId, h.id), inArray(memory.id, hits.map((r) => r.id))));
+        forgot.push(...hits.map((r) => r.fact));
+      }
       let reminderOut: { label: string; time: string } | null = null;
-      if (turn.reminder) { await db.insert(reminder).values({ householdId: h.id, label: turn.reminder.label, minutes: turn.reminder.minutes, days: null }); reminderOut = { label: turn.reminder.label, time: mailTimeLabel(turn.reminder.minutes) }; }
+      if (turn.reminder) {
+        const same = await db.select({ id: reminder.id }).from(reminder).where(and(eq(reminder.householdId, h.id), eq(reminder.minutes, turn.reminder.minutes), ilike(reminder.label, escapeLike(turn.reminder.label)))).limit(1);
+        if (!same.length) await db.insert(reminder).values({ householdId: h.id, label: turn.reminder.label, minutes: turn.reminder.minutes, days: null });
+        reminderOut = { label: turn.reminder.label, time: mailTimeLabel(turn.reminder.minutes) };
+      }
       let place: string | null = null;
       if (turn.place) {
         const g = await geocoder(turn.place).catch(() => null);
         if (g) { await db.update(household).set({ place: g.label, lat: g.lat, lon: g.lon }).where(eq(household.id, h.id)); weatherCache.delete(h.id); place = g.label; }
+        // The reply may say "Boston it is" while nothing was found: say so instead.
+        else reply = `I couldn't find ${turn.place}. Tell me the town and the state.`;
       }
-      if (turn.tellAna) await deps.events.record(h.id, c.var.device.id, "rosa_said", { text: turn.tellAna });
-      return c.json({ reply: turn.reply, action: turn.action, remembered, forgot: turn.forget, reminder: reminderOut, place });
+      // Words for Ana only when the job was to pass them on, marked as relayed by Biscuit, not quoted from Rosa's mouth.
+      if (turn.action === "tell_ana" && turn.tellAna) await deps.events.record(h.id, c.var.device.id, "rosa_said", { text: turn.tellAna, via: "companion" });
+      return c.json({ reply, action: turn.action, ignore: false, remembered, forgot, reminder: reminderOut, place });
     })
     .get("/memories", deps.auth, async (c) => {
       const rows = await getDb().select().from(memory).where(eq(memory.householdId, c.var.household.id)).orderBy(desc(memory.at));

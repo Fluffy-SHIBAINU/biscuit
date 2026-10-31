@@ -79,8 +79,8 @@ export default function Home() {
       )}
       {!s.pushSubscribed && pushSupported() && <button type="button" className="btn secondary" onClick={turnOnChime}>Turn on the mail chime</button>}
       {chimeError && <p className="foot bad">{chimeError}</p>}
-      <button type="button" className="btn big" onClick={() => navigate("/talk")}>Talk to Biscuit</button>
-      <button type="button" className="btn secondary" onClick={() => navigate("/letter")}>Show me a letter</button>
+      <button type="button" className="btn big" onClick={() => navigate("/letter")}>Show me a letter</button>
+      <button type="button" className="btn secondary" onClick={() => navigate("/docket")}>My papers</button>
       {s.consentedAt && <button type="button" ref={helpRef} className={`btn danger hold ${armed ? "armed" : ""}`} style={{ "--hold": holding }}>{armed ? "Let go to call 911" : "Help"} <span className="hint">{armed ? "Ana is told when you let go" : "hold 2 s · calls 911, tells Ana"}</span></button>}
       <div className="spacer" />
       {waiting && (
@@ -89,7 +89,7 @@ export default function Home() {
           <p className="lead small">{waiting.waitingLine || `${waiting.sender}'s answer.`}</p>
         </section>
       )}
-      <p className="foot">Biscuit is a computer helper from Kindred. Say <strong>stop</strong> and he stops. <a href="/settings" className="link" onClick={(e) => { e.preventDefault(); navigate("/settings"); }}>Settings</a></p>
+      <p className="foot">Biscuit is a computer helper from Kindred. Just talk to him. Say <strong>stop</strong> and he stops; say <strong>pause</strong> and he stops listening. <a href="/settings" className="link" onClick={(e) => { e.preventDefault(); navigate("/settings"); }}>Settings</a></p>
     </main>
   );
 }

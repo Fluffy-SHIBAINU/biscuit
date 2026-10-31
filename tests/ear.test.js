@@ -1,0 +1,75 @@
+import { expect, test } from "vitest";
+import { EarCore, Segmenter } from "../src/lib/ear.js";
+
+const RATE = 16000;
+const frame = (ms, loud) => new Float32Array(Math.round(RATE * ms / 1000)).fill(loud ? 0.3 : 0.001);
+
+// The ear hears all the time: a segmenter cuts the stream into utterances at 1.2 s of quiet, keeps a little sound from
+// before the first word, drops blips shorter than 300 ms, and cuts a very long one at 10 s.
+test("the segmenter cuts an utterance at silence, with a pre-roll, and ignores blips", () => {
+  const seg = new Segmenter({ sampleRate: RATE, silenceMs: 1200, minVoicedMs: 300, maxMs: 10_000, prerollMs: 300 });
+  let t = 0;
+  const push = (ms, loud) => { t += ms; return seg.push(frame(ms, loud), t); };
+  for (let i = 0; i < 10; i++) expect(push(100, false)).toBeNull();
+  expect(seg.inUtterance).toBe(false);
+  expect(push(100, true)).toBeNull();
+  expect(seg.inUtterance).toBe(true);
+  for (let i = 0; i < 4; i++) expect(push(100, true)).toBeNull();
+  for (let i = 0; i < 11; i++) expect(push(100, false)).toBeNull();
+  const utt = push(100, false);
+  expect(utt).not.toBeNull();
+  expect(utt.voicedMs).toBeCloseTo(500, -1);
+  // 300 ms of pre-roll + 500 ms voiced + 1200 ms quiet
+  expect(utt.samples.length).toBe(Math.round(RATE * 2.0));
+  expect(seg.inUtterance).toBe(false);
+  // a 100 ms blip followed by quiet is nothing
+  push(100, true);
+  for (let i = 0; i < 11; i++) push(100, false);
+  expect(push(100, false)).toBeNull();
+  // a long one is cut at 10 s even without quiet
+  let cut = null;
+  for (let i = 0; i < 120 && !cut; i++) cut = push(100, true);
+  expect(cut).not.toBeNull();
+  expect(cut.ms).toBeLessThanOrEqual(10_100);
+});
+
+// Who gets an utterance: a screen that asked for the next one, else the default handler; nothing while Biscuit speaks.
+test("the ear core hands an utterance to a waiting screen first, else to the handler, and drops what it hears while speaking", async () => {
+  let now = 0;
+  const timers = [];
+  const core = new EarCore({ now: () => now, setTimer: (fn, ms) => { timers.push({ fn, at: now + ms }); return timers.length; }, clearTimer: (id) => { timers[id - 1] = null; } });
+  const handled = [];
+  core.setHandler((u) => handled.push(u));
+  core.begin(); expect(core.end({ blob: "a", ms: 900 })).toBe("handled");
+  expect(handled).toEqual([{ blob: "a", ms: 900, spoke: true }]);
+  const p = core.next({ maxMs: 6000 });
+  core.begin(); expect(core.end({ blob: "b", ms: 700 })).toBe("claimed");
+  expect(await p).toEqual({ blob: "b", ms: 700, spoke: true });
+  expect(handled).toHaveLength(1);
+  core.mute(true);
+  core.begin(); expect(core.end({ blob: "echo", ms: 500 })).toBe("dropped");
+  core.mute(false);
+  // a 300 ms grace after Biscuit stops, so the tail of his own voice is not heard
+  core.begin(); expect(core.end({ blob: "tail", ms: 200 })).toBe("dropped");
+  now = 400;
+  core.begin(); expect(core.end({ blob: "c", ms: 400 })).toBe("handled");
+  // one that began while Biscuit was still speaking is dropped even when it ends after
+  core.mute(true); core.begin(); core.mute(false); now = 2000;
+  expect(core.end({ blob: "overlap", ms: 1500 })).toBe("dropped");
+  expect(handled.map((u) => u.blob)).toEqual(["a", "c"]);
+});
+
+test("a waiting screen hears nothing after its time is up, unless words are already under way", async () => {
+  let now = 0;
+  const timers = [];
+  const core = new EarCore({ now: () => now, setTimer: (fn, ms) => { timers.push({ fn, at: now + ms }); return timers.length; }, clearTimer: (id) => { timers[id - 1] = null; } });
+  const fire = () => { for (const t of timers) if (t && t.at <= now) { t.fn(); timers[timers.indexOf(t)] = null; } };
+  const quiet = core.next({ maxMs: 6000 });
+  now = 6000; fire();
+  expect(await quiet).toEqual({ blob: null, ms: 0, spoke: false });
+  const late = core.next({ maxMs: 6000 });
+  core.begin();
+  now = 12_500; fire();
+  expect(core.end({ blob: "d", ms: 2000 })).toBe("claimed");
+  expect(await late).toEqual({ blob: "d", ms: 2000, spoke: true });
+});
