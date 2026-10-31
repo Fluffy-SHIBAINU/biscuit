@@ -8,9 +8,19 @@ let current = [];
 let currentAudio = null;
 // One player for Biscuit's neural voice, unlocked by the first tap (iPhones play only an element that a gesture has started
 // once; a fresh element per line stays silent). Every line is played through this one.
-const SILENT_WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=";
+const SILENT_WAV = "data:audio/wav;base64," + (typeof btoa === "function" ? btoa(String.fromCharCode(...new Uint8Array(encodeWav(new Float32Array(800), 8000)))) : "");
 let player = null;
 let playerUnlocked = false;
+// The surest way to play a clip on an iPhone without a tap each time: an AudioContext that a tap once resumed, playing
+// decoded buffers. The audio element is the second way, the phone's own voice the third.
+let voiceCtx = null;
+let currentSource = null;
+function theVoiceCtx() {
+  const Ctx = typeof window !== "undefined" && (window.AudioContext || window.webkitAudioContext);
+  if (!Ctx) return null;
+  if (!voiceCtx || voiceCtx.state === "closed") voiceCtx = new Ctx();
+  return voiceCtx;
+}
 function thePlayer() {
   if (!player && typeof Audio !== "undefined") { player = new Audio(); player.setAttribute("playsinline", ""); player.preload = "auto"; }
   return player;
@@ -20,6 +30,7 @@ export function stopSpeaking() {
   stoppedAt = Date.now();
   current = [];
   if (currentAudio) { try { currentAudio.pause(); } catch { /* already stopped */ } currentAudio = null; }
+  if (currentSource) { try { currentSource.stop(); } catch { /* already stopped */ } currentSource = null; }
   if ("speechSynthesis" in window) window.speechSynthesis.cancel();
 }
 
@@ -48,6 +59,8 @@ export function primeSpeech() {
     if ("speechSynthesis" in window) { const u = new SpeechSynthesisUtterance("."); u.volume = 0; u.rate = 2; window.speechSynthesis.speak(u); }
     const a = thePlayer();
     if (a) { a.src = SILENT_WAV; a.volume = 0; a.play().then(() => { playerUnlocked = true; }).catch(() => {}); }
+    const ctx = theVoiceCtx();
+    if (ctx) { ctx.resume().catch(() => {}); const src = ctx.createBufferSource(); src.buffer = ctx.createBuffer(1, 1, ctx.sampleRate); src.connect(ctx.destination); src.start(0); }
   } catch { /* nothing to unlock */ }
   if (talkState.get().speechBlocked) talkState.set({ speechBlocked: false });
 }
@@ -88,11 +101,31 @@ async function fetchLine(text) {
   const token = store.get().deviceToken;
   const res = await fetch("/api/biscuit/speak", { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify({ text }) });
   if (!res.ok) throw new Error(`speak ${res.status}`);
-  return URL.createObjectURL(await res.blob());
+  return res.blob();
 }
 
-/** Plays one line through the shared player. Resolves false when the phone refused to play, so the device voice can take over. */
-function playUrl(url) {
+/** Plays one clip through the voice AudioContext. Resolves false when the context is not running or the clip will not decode. */
+async function playBuffer(blob) {
+  const ctx = theVoiceCtx();
+  if (!ctx) return false;
+  if (ctx.state !== "running") { await ctx.resume().catch(() => {}); if (ctx.state !== "running") return false; }
+  let buffer;
+  try { buffer = await ctx.decodeAudioData(await blob.arrayBuffer()); } catch { return false; }
+  return new Promise((resolve) => {
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const gain = ctx.createGain();
+    gain.gain.value = Math.min(1, 0.8 + 0.1 * (store.get().volumeStep || 0));
+    src.connect(gain); gain.connect(ctx.destination);
+    currentSource = src;
+    src.onended = () => { if (currentSource === src) currentSource = null; resolve(true); };
+    try { src.start(0); } catch { currentSource = null; resolve(false); }
+  });
+}
+
+/** Plays one line through the shared audio element. Resolves false when the phone refused to play. */
+function playUrl(blob) {
+  const url = URL.createObjectURL(blob);
   return new Promise((resolve) => {
     const a = thePlayer();
     if (!a) { URL.revokeObjectURL(url); resolve(false); return; }
@@ -113,13 +146,16 @@ function playUrl(url) {
 async function speakNeural(lines, opts) {
   let next = fetchLine(lines[0]);
   for (let i = 0; i < lines.length; i++) {
-    let url;
-    try { url = await next; } catch { await speakDevice(lines.slice(i), opts); return; }
+    let blob;
+    try { blob = await next; } catch { await speakDevice(lines.slice(i), opts); return; }
     if (i + 1 < lines.length) next = fetchLine(lines[i + 1]);
-    if (!current.length && !currentAudio && i > 0 && stoppedAt > startedAt) return;
-    const played = await playUrl(url);
     if (stoppedAt > startedAt) return;
-    // The phone would not play the clip (no tap yet, or a locked player): the device voice says this line and the rest.
+    // The context first (an iPhone plays it without a tap once a tap has woken it), the audio element second.
+    let played = await playBuffer(blob);
+    if (stoppedAt > startedAt) return;
+    if (!played) played = await playUrl(blob);
+    if (stoppedAt > startedAt) return;
+    // The phone would not play the clip (no tap yet): the device voice says this line and the rest, and the bar offers the tap.
     if (!played) { talkState.set({ speechBlocked: !playerUnlocked }); await speakDevice(lines.slice(i), opts); return; }
   }
 }
