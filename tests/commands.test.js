@@ -24,3 +24,11 @@ test("saidPause hears Rosa asking Biscuit to stop listening", () => {
   expect(saidPause("stop")).toBe(false);
   expect(saidPause("")).toBe(false);
 });
+
+// Second review: the ways people call for help when it is real. A false no here is the worst case.
+test("saidHelp hears a real call for help in its many forms", () => {
+  for (const t of ["Help, I've fallen and I can't get up", "Help! Help!", "Somebody help", "Help me, I can't breathe", "I need some help", "Biscuit, help, I fell", "call an ambulance", "I can't get up", "I've fallen"]) expect(saidHelp(t), t).toBe(true);
+  for (const t of ["can you help me with the crossword", "help me remember my pills", "that was a big help", "the helpline called", "help me find my glasses"]) expect(saidHelp(t), t).toBe(false);
+  expect(saidPause("Biscuit, pause.")).toBe(true);
+  expect(saidPause("Stop listening!")).toBe(true);
+});

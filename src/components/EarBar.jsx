@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { earError, earLevel, earStatus, resumeEar, pauseEar, startEar, subscribeEar } from "../lib/ear.js";
+import { earError, earLevel, earMuted, earStatus, resumeEar, pauseEar, startEar, subscribeEar } from "../lib/ear.js";
 import { useTalk } from "../lib/talkState.js";
 
 /**
@@ -15,7 +15,7 @@ export default function EarBar() {
   const title = status === "paused" ? "Biscuit is paused"
     : status === "blocked" ? (earError() === "unsupported" ? "This phone can't hear" : "Biscuit can't hear yet")
     : status !== "on" ? "Biscuit is waking up"
-    : t.phase === "speaking" ? "Biscuit is talking"
+    : t.phase === "speaking" || earMuted() ? "Biscuit is talking"
     : t.phase === "thinking" ? "One moment"
     : "Biscuit is listening";
   const line = t.phase === "speaking" || (t.reply && !t.heard) ? t.reply : t.heard ? `You said: ${t.heard}` : "";

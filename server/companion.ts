@@ -49,14 +49,16 @@ export function systemPrompt(ctx: CompanionContext): string {
 
 // Doses never pass through, whatever the prompt said: a reply that reads like dosing advice becomes the pharmacist line,
 // and a reminder label is the thing itself, with counts, milligrams and quantity words taken out.
-const DOSE_REPLY = /\b\d+\s*(mg|milligrams?|mcg|units?|tablets?|pills?|capsules?|drops?|teaspoons?|ml)\b|\b(take|have)\s+(another|two|three|four|double|an extra|one more)\b|\bdouble\s+(the|your)\s+dose\b|\bskip\s+(your|the|a)\s+(dose|pill|tablet)|\bdose\b/i;
+const MEDS = "(mg|milligrams?|mcg|units?|tablets?|pills?|capsules?|drops?|doses?|puffs?|injections?|insulin|aspirin|ibuprofen|tylenol|acetaminophen|medicine|medication)";
+const DOSE_REPLY = new RegExp(`\\b(\\d+|one|two|three|four|five|six|half|another|an extra|one more|double)\\s+(\\w+\\s+){0,2}${MEDS}\\b|\\bdouble\\s+(the|your)\\s+dose\\b|\\bskip\\s+(your|the|a)\\s+(dose|pill|tablet)|\\b(dose|dosage)\\b`, "i");
 const DOSE_LABEL = /\b\d+(\.\d+)?\s*(x|mg|milligrams?|mcg|units?|ml|tablets?|pills?|capsules?|doses?|drops?|times?)?\b|\bx\b/gi;
 export const PHARMACIST_REPLY = "That one is for your pharmacist or doctor. Want me to tell Ana to ask?";
 export const REMINDER_NOT_SET = "I couldn't set that reminder. Tell me a time, like eight in the morning.";
 
 export function cleanLabel(label: string): string {
   const bare = label.replace(DOSE_LABEL, " ").replace(/\s+/g, " ").trim();
-  return (bare || label.trim()).slice(0, 60);
+  // a label that was all dose ("400 mg") becomes the plain thing
+  return (bare || "medicine").slice(0, 60);
 }
 
 export function normalizeCompanion(raw: any): CompanionTurn {

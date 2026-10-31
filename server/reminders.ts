@@ -13,6 +13,7 @@ export const DAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 export type ReminderRow = { id: number; label: string; minutes: number; days: string[] | null; lastFiredAt: Date | null };
 
 const WORD_HOURS: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12 };
+const WORD_MINUTES: Record<string, number> = { "o'clock": 0, oclock: 0, five: 5, ten: 10, fifteen: 15, twenty: 20, "twenty five": 25, "twenty-five": 25, thirty: 30, "thirty five": 35, "thirty-five": 35, forty: 40, "forty five": 45, "forty-five": 45, fifty: 50, "fifty five": 55, "fifty-five": 55 };
 
 /**
  * A spoken or written time as minutes after midnight: "08:00", "8:00 AM", "9 pm", "noon", "midnight", "eight o'clock",
@@ -20,22 +21,26 @@ const WORD_HOURS: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, 
  * words say evening, night or afternoon.
  */
 export function parseTime(s: string): number | null {
-  let t = (s || "").toLowerCase().replace(/[.]/g, "").replace(/\s+/g, " ").trim();
+  let t = (s || "").toLowerCase().replace(/[.]/g, "").replace(/(\d)([ap]m)\b/g, "$1 $2").replace(/\s+/g, " ").trim();
   if (!t) return null;
   if (/^(at )?(noon|midday|12 noon)$/.test(t)) return 720;
   if (/^(at )?midnight$/.test(t)) return 0;
-  let half = false;
-  if (/^half past /.test(t)) { half = true; t = t.replace(/^half past /, ""); }
+  let extra = 0;
+  if (/^half past /.test(t)) { extra = 30; t = t.replace(/^half past /, ""); }
+  else if (/^(a )?quarter past /.test(t)) { extra = 15; t = t.replace(/^(a )?quarter past /, ""); }
+  const night = /\b(tonight|at night|night)\b/.test(t);
   let period: "am" | "pm" | null = null;
   const pm = /\b(pm|p m|tonight|evening|afternoon|at night|night)\b/; const am = /\b(am|a m|morning)\b/;
   if (pm.test(t)) period = "pm"; else if (am.test(t)) period = "am";
   t = t.replace(/\b(at|in the|o'?clock|oclock|tonight|evening|afternoon|night|morning|pm|p m|am|a m)\b/g, " ").replace(/\s+/g, " ").trim();
   t = t.replace(/^([a-z]+)\b/, (w) => (WORD_HOURS[w] ? String(WORD_HOURS[w]) : w));
+  // "eight thirty", "seven fifteen": the minutes as a word after the hour
+  t = t.replace(/^(\d{1,2}) ([a-z][a-z' -]*)$/, (_, hh, mm) => (WORD_MINUTES[mm] !== undefined ? `${hh}:${String(WORD_MINUTES[mm]).padStart(2, "0")}` : `${hh} ${mm}`));
   const m = /^(\d{1,2})(?::(\d{2}))?$/.exec(t);
   if (!m) return null;
-  let h = Number(m[1]); const min = half ? 30 : m[2] ? Number(m[2]) : 0;
+  let h = Number(m[1]); const min = extra || (m[2] ? Number(m[2]) : 0);
   if (min > 59) return null;
-  if (period) { if (h < 1 || h > 12) return null; h = h % 12 + (period === "pm" ? 12 : 0); }
+  if (period) { if (h < 1 || h > 12) return null; h = h === 12 && night ? 0 : h % 12 + (period === "pm" ? 12 : 0); }
   else if (h > 23) return null;
   return h * 60 + min;
 }

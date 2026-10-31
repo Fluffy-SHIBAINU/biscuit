@@ -62,7 +62,7 @@ export async function onUtterance({ blob, spoke }) {
     let text = "";
     try { text = await transcribe(blob); } catch { talkState.set({ phase: "idle" }); return; }
     talkState.set({ heard: text, phase: text.trim() ? "thinking" : "idle" });
-    const outcome = await routeHeard(text, liveDeps);
-    if (outcome === "ignored" || outcome === "empty") talkState.set({ phase: "idle" });
+    await routeHeard(text, liveDeps);
+    talkState.set({ phase: "idle" });
   } finally { busy = false; }
 }

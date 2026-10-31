@@ -3,6 +3,7 @@ import Dog from "../components/Dog.jsx";
 import { handoff, patchLetter, transcribe } from "../lib/api.js";
 import { navigate } from "../lib/navigate.js";
 import { listen, speak, speakAndKeep, stopSpeaking } from "../lib/speech.js";
+import { releaseEar } from "../lib/ear.js";
 import { handleVoiceCommand } from "../lib/commands.js";
 import { store, useStore } from "../lib/store.js";
 
@@ -33,7 +34,7 @@ export default function Offer() {
         else if (/\b(no|nope|not now|keep)\b/i.test(text)) no();
       } catch { /* buttons remain */ }
     })();
-    return () => { alive.current = false; stopSpeaking(); };
+    return () => { alive.current = false; stopSpeaking(); releaseEar(); };
   }, [r?.id]);
 
   async function yes() {

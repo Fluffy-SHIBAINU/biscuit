@@ -88,11 +88,14 @@ export function speak(lines, opts = {}) {
   if (!lines.length) return Promise.resolve();
   stopSpeaking();
   startedAt = Date.now();
-  // The ear is closed while Biscuit talks, so he never answers himself.
+  // The ear is closed while Biscuit talks, so he never answers himself. Only the newest speech may open it again: one that
+  // was cut short by this one settles later, and must not unmute the ear under it.
+  const id = ++speakSeq;
   ear.mute(true);
   const done = store.get().neuralVoice ? speakNeural(lines, opts) : speakDevice(lines, opts);
-  return done.finally(() => ear.mute(false));
+  return done.finally(() => { if (id === speakSeq) ear.mute(false); });
 }
+let speakSeq = 0;
 
 const _stop = stopSpeaking;
 export { _stop as stopAllSpeech };
@@ -103,6 +106,9 @@ export { _stop as stopAllSpeech };
  */
 export async function listen({ maxMs = 6000, silenceMs = 1200, onLevel } = {}) {
   if (earRunning()) return hearNext({ maxMs, onLevel });
+  // Paused means paused: no screen opens the microphone on its own once Rosa has agreed to the ear and then closed it.
+  const st = store.get();
+  if (st.consentedAt && st.earPaused) return { blob: null, ms: 0, spoke: false };
   const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
   const Ctx = window.AudioContext || window.webkitAudioContext;
   const ctx = new Ctx();

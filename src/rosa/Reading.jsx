@@ -4,6 +4,7 @@ import { patchLetter, postEvent, postLetter, transcribe } from "../lib/api.js";
 import { readOnceLine, summaryOf } from "../lib/letters.js";
 import { navigate } from "../lib/navigate.js";
 import { listen, speak, speakAndKeep, stopSpeaking } from "../lib/speech.js";
+import { releaseEar } from "../lib/ear.js";
 import { handleVoiceCommand } from "../lib/commands.js";
 import { saidMine, saidWrong } from "../lib/talk.js";
 import { store, useStore } from "../lib/store.js";
@@ -58,12 +59,15 @@ export default function Reading() {
     await speak(["Did I get anything wrong?"]);
     if (!alive.current) return;
     try {
-      const { blob, spoke } = await listen();
+      const { blob, spoke, displaced } = await listen();
+      // A newer question (a tap on Something's wrong) took over this wait: it is not silence, so nothing moves on.
+      if (displaced) return;
       const text = spoke ? await transcribe(blob) : "";
       if (!alive.current || handleVoiceCommand(text)) return;
       if (saidWrong(text)) {
         await speak(["Tell me what, and I'll pass it to Ana."]);
         const second = await listen();
+        if (second.displaced) return;
         const words = second.spoke ? await transcribe(second.blob) : "";
         if (!alive.current || handleVoiceCommand(words)) return;
         const note = words.trim() ? `About the letter from ${r.sender || "a sender"}: ${words.trim()}` : `The reading of the letter from ${r.sender || "a sender"} was wrong.`;
@@ -82,7 +86,8 @@ export default function Reading() {
     await speak(["If this letter is yours after all, say it's mine, and I'll read it."]);
     if (!alive.current) return;
     try {
-      const { blob, spoke } = await listen();
+      const { blob, spoke, displaced } = await listen();
+      if (displaced) return;
       const text = spoke ? await transcribe(blob) : "";
       if (!alive.current || handleVoiceCommand(text)) return;
       if (saidMine(text)) claimAsMine();
@@ -97,7 +102,7 @@ export default function Reading() {
       if (!alive.current || !r) return;
       if (r.mismatch) await askIfMine(); else if (!asked) await askIfWrong();
     })();
-    return () => { alive.current = false; stopSpeaking(); };
+    return () => { alive.current = false; stopSpeaking(); releaseEar(); };
   }, [r?.id, r?.mismatch]);
 
   if (!r) { navigate("/"); return null; }

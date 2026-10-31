@@ -131,7 +131,7 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .details.night > summary { color: var(--night-muted); }
 
 /* Biscuit's ear: the bar at the foot of Rosa's screens. */
-.screen { padding-bottom: 110px; }
+.screen { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
 .earbar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 12px; padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); background: var(--sheet); border-top: 1.5px solid var(--rule-strong); max-width: 480px; margin: 0 auto; }
 .eardot { width: 14px; height: 14px; border-radius: 50%; background: var(--rule-strong); flex: 0 0 auto; transition: transform .15s, background .15s; }
 .eardot.on { background: var(--signal); }

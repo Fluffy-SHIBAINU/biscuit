@@ -73,3 +73,38 @@ test("a waiting screen hears nothing after its time is up, unless words are alre
   expect(core.end({ blob: "d", ms: 2000 })).toBe("claimed");
   expect(await late).toEqual({ blob: "d", ms: 2000, spoke: true });
 });
+
+// Second review: words under way when Biscuit starts talking are his too (dropped); a claim displaced by a newer one or
+// by a screen change says so instead of pretending silence; a blip after the deadline still ends the wait.
+test("the core drops an utterance that Biscuit talked over, releases a stale claim, and ends a wait on a blip", async () => {
+  let now = 0, path = "/mail";
+  const timers = [];
+  const core = new EarCore({ now: () => now, pathNow: () => path, setTimer: (fn, ms) => { timers.push({ fn, at: now + ms }); return timers.length; }, clearTimer: (id) => { timers[id - 1] = null; } });
+  const fire = () => { for (const t of timers) if (t && t.at <= now) { t.fn(); timers[timers.indexOf(t)] = null; } };
+  const handled = [];
+  core.setHandler((u) => handled.push(u.blob));
+  // Rosa is mid-sentence when Biscuit begins to speak: the whole clip is dropped
+  core.begin(); core.mute(true); core.mute(false); now = 1000;
+  expect(core.end({ blob: "rosa+biscuit", ms: 3000 })).toBe("dropped");
+  // a newer claim displaces the older one, which learns it was displaced
+  const first = core.next({ maxMs: 6000 });
+  const second = core.next({ maxMs: 6000 });
+  expect(await first).toEqual({ blob: null, ms: 0, spoke: false, displaced: true });
+  core.begin(); expect(core.end({ blob: "b", ms: 500 })).toBe("claimed");
+  expect(await second).toEqual({ blob: "b", ms: 500, spoke: true });
+  // the screen that asked has gone: its claim is released and the words go to the handler
+  const stale = core.next({ maxMs: 6000 });
+  path = "/";
+  core.begin(); expect(core.end({ blob: "c", ms: 500 })).toBe("handled");
+  expect(await stale).toEqual({ blob: null, ms: 0, spoke: false, displaced: true });
+  expect(handled).toEqual(["c"]);
+  // release() ends a wait from a screen's cleanup
+  const gone = core.next({ maxMs: 6000 });
+  core.release();
+  expect(await gone).toEqual({ blob: null, ms: 0, spoke: false, displaced: true });
+  // the deadline passes while a sound is under way, and the sound turns out to be a blip: the wait ends as quiet
+  const waiting = core.next({ maxMs: 6000 });
+  core.begin(); now = 7000; fire();
+  core.blip();
+  expect(await waiting).toEqual({ blob: null, ms: 0, spoke: false });
+});

@@ -4,6 +4,7 @@ import { postEvent, transcribe } from "../lib/api.js";
 import { statusLine } from "../lib/letters.js";
 import { navigate } from "../lib/navigate.js";
 import { listen, speak, stopSpeaking } from "../lib/speech.js";
+import { releaseEar } from "../lib/ear.js";
 import { handleVoiceCommand } from "../lib/commands.js";
 import { MENU_LINES } from "../lib/talk.js";
 import { useTalk } from "../lib/talkState.js";
@@ -25,7 +26,7 @@ export default function Talk() {
   const t = useTalk();
   const [asking, setAsking] = useState(false);
   const alive = useRef(true);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; releaseEar(); }; }, []);
 
   async function askWhatToTell() {
     setAsking(true);

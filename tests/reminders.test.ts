@@ -55,3 +55,14 @@ test("a reminder stays due for ninety minutes so a late tick still chimes it onc
   expect(dueReminder(r, at(9, 31), tz)).toBe(false);
   expect(dueReminder({ ...r, lastFiredAt: at(8, 5) }, at(9, 0), tz)).toBe(false);
 });
+
+test("parseTime: no space before pm, twelve at night, word minutes, quarter past", () => {
+  expect(parseTime("8pm")).toBe(1200);
+  expect(parseTime("8:30pm")).toBe(1230);
+  expect(parseTime("12 tonight")).toBe(0);
+  expect(parseTime("twelve at night")).toBe(0);
+  expect(parseTime("12 pm")).toBe(720);
+  expect(parseTime("eight thirty")).toBe(510);
+  expect(parseTime("quarter past seven")).toBe(435);
+  expect(parseTime("seven fifteen in the evening")).toBe(1155);
+});

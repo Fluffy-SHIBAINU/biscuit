@@ -69,3 +69,12 @@ test("normalizeCompanion: no help action from the model, an ignore flag, a recon
   expect(dose.reply).toMatch(/pharmacist or doctor/);
   expect(dose.reminder?.label).toBe("ibuprofen");
 });
+
+// The dose guard trips on dosing, not on two letters or another cup of tea.
+test("the dose guard leaves ordinary replies alone", () => {
+  expect(normalizeCompanion({ reply: "You have two letters waiting, Rosa." }).reply).toBe("You have two letters waiting, Rosa.");
+  expect(normalizeCompanion({ reply: "Have another cup of tea and put your feet up." }).reply).toMatch(/another cup/);
+  expect(normalizeCompanion({ reply: "Take another pill if the first didn't work." }).reply).toMatch(/pharmacist or doctor/);
+  expect(normalizeCompanion({ reply: "Two tablets every four hours." }).reply).toMatch(/pharmacist or doctor/);
+  expect(normalizeCompanion({ reply: "Noted.", reminder: { label: "400 mg", time: "8:00 AM" } }).reminder?.label).toBe("medicine");
+});

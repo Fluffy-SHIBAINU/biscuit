@@ -3,6 +3,7 @@ import Dog from "../components/Dog.jsx";
 import { api, transcribe } from "../lib/api.js";
 import { navigate } from "../lib/navigate.js";
 import { listen, speak, stopSpeaking } from "../lib/speech.js";
+import { releaseEar } from "../lib/ear.js";
 import { handleVoiceCommand } from "../lib/commands.js";
 import { answerFrom } from "../lib/answers.js";
 import { store, useStore } from "../lib/store.js";
@@ -22,7 +23,7 @@ export default function Question() {
     api("/question", { method: "POST", json: { kind: r.kind, hasSheet: Boolean(r.sheet?.freeCare), known } })
       .then((res) => { if (alive.current) setQuestions(res.questions); })
       .catch(() => { if (alive.current) setQuestions([]); });
-    return () => { alive.current = false; stopSpeaking(); };
+    return () => { alive.current = false; stopSpeaking(); releaseEar(); };
   }, []);
 
   const q = questions?.[index];

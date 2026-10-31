@@ -3,6 +3,7 @@ import Dog from "../components/Dog.jsx";
 import { postEvent, transcribe } from "../lib/api.js";
 import { navigate } from "../lib/navigate.js";
 import { listen, speakAndKeep, stopSpeaking } from "../lib/speech.js";
+import { releaseEar } from "../lib/ear.js";
 import { handleVoiceCommand } from "../lib/commands.js";
 import { mailTimeLabel } from "../lib/mailtime.js";
 import { store, useStore } from "../lib/store.js";
@@ -33,7 +34,7 @@ export default function Mail() {
         else if (/\b(no|nope|not now|later)\b/i.test(text)) navigate("/");
       } catch { /* buttons remain */ }
     })();
-    return () => { alive.current = false; stopSpeaking(); };
+    return () => { alive.current = false; stopSpeaking(); releaseEar(); };
   }, []);
 
   return (

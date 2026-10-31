@@ -47,28 +47,43 @@ const GRACE_MS = 300;
 
 /** Who hears an utterance: a waiting screen first, else the handler; nothing while Biscuit speaks or just stopped. */
 export class EarCore {
-  constructor({ now = () => Date.now(), setTimer = (fn, ms) => setTimeout(fn, ms), clearTimer = (id) => clearTimeout(id) } = {}) {
-    Object.assign(this, { now, setTimer, clearTimer });
+  constructor({ now = () => Date.now(), pathNow = () => (typeof window === "undefined" ? "" : window.location.pathname), setTimer = (fn, ms) => setTimeout(fn, ms), clearTimer = (id) => clearTimeout(id), onChange = null } = {}) {
+    Object.assign(this, { now, pathNow, setTimer, clearTimer, onChange });
     this.handler = null; this.claim = null; this.muted = false; this.mutedUntil = 0; this.startedMuted = false; this.inUtterance = false;
   }
   setHandler(fn) { this.handler = fn; }
-  mute(on) { if (on) this.muted = true; else { this.muted = false; this.mutedUntil = this.now() + GRACE_MS; } }
+  /** Biscuit is talking: nothing is heard, and whatever was under way when he began is his too. */
+  mute(on) {
+    if (on) { this.muted = true; if (this.inUtterance) this.startedMuted = true; }
+    else { this.muted = false; this.mutedUntil = this.now() + GRACE_MS; }
+    if (this.onChange) this.onChange();
+  }
   isMuted() { return this.muted || this.now() < this.mutedUntil; }
-  /** The next utterance, or `{ blob: null, spoke: false }` after maxMs of quiet; words already under way at the deadline still arrive. */
+  static QUIET = Object.freeze({ blob: null, ms: 0, spoke: false });
+  static DISPLACED = Object.freeze({ blob: null, ms: 0, spoke: false, displaced: true });
+  /**
+   * The next utterance, or quiet (`spoke: false`) after maxMs; words already under way at the deadline still arrive. A newer
+   * claim, a screen change or release() ends an older wait with `displaced: true`, which a screen treats as "not for me".
+   */
   next({ maxMs = 6000 } = {}) {
-    if (this.claim) this.resolveClaim({ blob: null, ms: 0, spoke: false });
+    if (this.claim) this.resolveClaim({ ...EarCore.DISPLACED });
     return new Promise((resolve) => {
-      const claim = { resolve, timer: null, expired: false };
-      claim.timer = this.setTimer(() => { if (this.inUtterance && !this.isMuted()) claim.expired = true; else this.resolveClaim({ blob: null, ms: 0, spoke: false }); }, maxMs);
+      const claim = { resolve, timer: null, expired: false, path: this.pathNow() };
+      claim.timer = this.setTimer(() => { if (this.inUtterance && !this.isMuted()) claim.expired = true; else this.resolveClaim({ ...EarCore.QUIET }); }, maxMs);
       this.claim = claim;
     });
   }
   resolveClaim(result) { const c = this.claim; this.claim = null; if (!c) return; this.clearTimer(c.timer); c.resolve(result); }
+  /** A screen that asked is going away: its wait ends now. */
+  release() { if (this.claim) this.resolveClaim({ ...EarCore.DISPLACED }); }
   begin() { this.inUtterance = true; this.startedMuted = this.isMuted(); }
+  /** The sound under way was a blip, not words. A wait whose deadline passed meanwhile ends as quiet. */
+  blip() { this.inUtterance = false; if (this.claim?.expired) this.resolveClaim({ ...EarCore.QUIET }); }
   end({ blob, ms }) {
     this.inUtterance = false;
-    if (this.startedMuted || this.isMuted()) return "dropped";
+    if (this.startedMuted || this.isMuted()) { if (this.claim?.expired) this.resolveClaim({ ...EarCore.QUIET }); return "dropped"; }
     const utt = { blob, ms, spoke: true };
+    if (this.claim && this.claim.path !== this.pathNow()) this.release();
     if (this.claim) { this.resolveClaim(utt); return "claimed"; }
     if (this.handler) this.handler(utt);
     return "handled";
@@ -77,9 +92,10 @@ export class EarCore {
 
 // The live ear on the phone: one microphone stream, one audio graph, the segmenter and the core above.
 const live = { status: "off", error: null, stream: null, ctx: null, node: null, source: null, seg: null, retry: null, level: 0 };
-export const core = new EarCore();
 const watchers = new Set();
 const notify = () => watchers.forEach((w) => w());
+export const core = new EarCore({ onChange: notify });
+export const earMuted = () => core.isMuted();
 export function subscribeEar(fn) { watchers.add(fn); return () => watchers.delete(fn); }
 export function earStatus() { return live.status; }
 export function earLevel() { return live.level; }
@@ -94,7 +110,7 @@ function teardown() {
   live.stream?.getTracks().forEach((t) => { try { t.stop(); } catch { /* gone */ } });
   live.ctx?.close().catch(() => {});
   live.node = live.source = live.stream = live.ctx = live.seg = null;
-  if (core.inUtterance) core.inUtterance = false;
+  if (core.inUtterance) core.blip();
 }
 
 /** Should the ear be open now: a linked Rosa phone, consent given, not paused by her. */
@@ -124,7 +140,7 @@ export async function startEar() {
       if (!was && seg.inUtterance) core.begin();
       if (seg.level !== live.level) { live.level = seg.level; notify(); }
       if (utt) core.end({ blob: wavBlob(utt.samples, ctx.sampleRate), ms: utt.ms });
-      else if (was && !seg.inUtterance) core.inUtterance = false; // a blip, not words
+      else if (was && !seg.inUtterance) core.blip();
     };
     source.connect(node); node.connect(ctx.destination);
     stream.getTracks().forEach((t) => { t.onended = () => lost("ended"); t.onmute = () => lost("muted"); });
@@ -132,7 +148,10 @@ export async function startEar() {
     notify();
   } catch (err) {
     teardown();
-    live.status = "blocked"; live.error = err?.name || "failed"; notify();
+    // A refusal needs a tap (or the phone's settings); anything else (the phone was busy, a call came in) is tried again.
+    const refused = err?.name === "NotAllowedError" || err?.name === "SecurityError" || err?.name === "NotFoundError";
+    live.status = refused ? "blocked" : "off"; live.error = err?.name || "failed"; notify();
+    if (!refused) scheduleRetry();
   }
   return live.status;
 }
@@ -162,6 +181,8 @@ export function hearNext({ maxMs = 6000, onLevel } = {}) {
   if (onLevel) { unsub = subscribeEar(() => onLevel(live.level)); }
   return core.next({ maxMs }).finally(() => { if (unsub) unsub(); });
 }
+/** A screen that was waiting on the ear is leaving: the wait ends, and the next words go where they should. */
+export function releaseEar() { core.release(); }
 
 let wired = false;
 /** Opens or closes the ear to match what is wanted right now; safe to call often (each screen change, each store change). */

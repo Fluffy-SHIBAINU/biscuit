@@ -68,3 +68,31 @@ findings are fixed here:
 Also from the review's longer list: the prompt takes the newest forty memories (not the oldest), the same fact is one
 memory, the same reminder is one row, a failed weather call is retried after five minutes rather than cached for thirty.
 Left open: the speak route's line cache is bounded by count (300 lines), not bytes.
+
+## The second review, folded in
+
+The same kind of review ran over the ear commit. Confirmed and fixed:
+
+1. Two overlapping `speak()` calls shared one mute flag: a reading cut short by "Something's wrong" unmuted the ear under
+   the question, and Biscuit heard himself say "Did I get anything wrong?". Only the newest speech may open the ear.
+2. The tighter spoken "help" missed real calls: "Help, I've fallen and I can't get up", "Help! Help!", "Somebody help",
+   "I need some help". `saidHelp` now hears help as the first word whatever follows, repeated help, "I need help", a fall,
+   "can't get up", "can't breathe", "call an ambulance"; "help me with the crossword" and "help me remember" stay requests.
+3. Words under way when Biscuit began to speak were kept and his whole reply transcribed with them. Muting now marks the
+   utterance in flight as his.
+4. A screen's wait on the ear outlived the screen: words said at Home within six seconds of leaving Mail went to the dead
+   screen. Every listening screen releases the ear on unmount, and a claim from another path is released when words come.
+5. A displaced wait looked like silence, so a tap on "Something's wrong" sent Reading to the questions. A displaced wait
+   now says `displaced: true` and screens do nothing with it.
+6. A paused Biscuit still recorded through screens' own `listen()`. Paused means paused: once she has agreed to the ear
+   and closed it, no screen opens the microphone.
+
+Also: a wait whose deadline passed during a sound that turned out to be a blip ends as quiet instead of swallowing the next
+words; a busy or interrupted microphone is retried rather than left "blocked"; the bar says "Biscuit is talking" whenever
+the ear is muted and returns to "listening" after a command; the bar clears the phone's home indicator; `parseTime` reads
+"8pm", "eight thirty", "quarter past seven" and "12 tonight" (midnight); the dose guard no longer trips on "two letters"
+or "another cup of tea", and a label that was all dose becomes "medicine".
+
+Left open, by choice for now: a television left on in a loud room can keep the ear in ten-second clips (each a
+transcription call); the ear closes when the screen locks (no wake lock); "stop" cannot be heard inside one long reading
+because the ear is closed while he speaks; the speak route's line cache is bounded by count, not bytes.
