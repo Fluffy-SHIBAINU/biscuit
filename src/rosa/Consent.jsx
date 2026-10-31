@@ -50,9 +50,8 @@ export default function Consent() {
       <section className="card night"><p className="lead small">{CONSENT_TEXT(name)}</p></section>
       <label className="row toggle"><input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} /><span className="lead small">Ana may see the letters I read</span></label>
       <div className="spacer" />
-      {!paused && <><button type="button" className="btn big" onClick={yes}>Yes, go on</button><button type="button" className="btn secondary" onClick={no}>No</button></>}
-      {paused && <button type="button" className="btn secondary" onClick={() => setPaused(false)}>Ask me again</button>}
-      <p className="foot">Only the time of {name}'s yes is kept. It is the only record of consent.</p>
+      {!paused && <><button type="button" className="btn big" onClick={yes}>Yes, Go On</button><button type="button" className="btn secondary" onClick={no}>No</button></>}
+      {paused && <button type="button" className="btn secondary" onClick={() => setPaused(false)}>Ask Me Again</button>}
     </main>
   );
 }

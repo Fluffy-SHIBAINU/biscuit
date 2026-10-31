@@ -16,7 +16,7 @@ export default function Docket() {
   const replay = (l) => { stopSpeaking(); store.set({ lastReading: { ...l } }); navigate("/reading"); };
   return (
     <main className="screen">
-      <div className="row between"><span className="label">Your papers</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); stopSpeaking(); navigate("/"); }}>Home</a></div>
+      <div className="row between"><span className="label">Your Papers</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); stopSpeaking(); navigate("/"); }}>Home</a></div>
       <h1 className="display small">{letters.length === 0 ? "Nothing yet." : `${letters.length === 1 ? "One thing" : `${letters.length} things`}.${waiting ? ` ${waiting === 1 ? "One is" : `${waiting} are`} waiting on an answer.` : ""}`}</h1>
       {letters.length > 0 && (
         <section className="card facts">
@@ -31,9 +31,8 @@ export default function Docket() {
         </section>
       )}
       <div className="spacer" />
-      <button type="button" className="btn big" onClick={() => { stopSpeaking(); navigate("/letter"); }}>Show me a letter</button>
-      {letters.length > 0 && <button type="button" className="btn secondary" onClick={readAll}>Read them to me</button>}
-      <p className="foot">Dates come from your letters and from the hospital's written policy. Ana sees the same list.</p>
+      <button type="button" className="btn big" onClick={() => { stopSpeaking(); navigate("/letter"); }}>Show Me a Letter</button>
+      {letters.length > 0 && <button type="button" className="btn secondary" onClick={readAll}>Read Them to Me</button>}
     </main>
   );
 }

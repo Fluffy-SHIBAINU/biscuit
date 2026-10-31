@@ -54,7 +54,7 @@ export default function Question() {
   if (!r) return null;
   return (
     <main className="screen">
-      <div className="row between"><span className="label">One question</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); stopSpeaking(); navigate("/"); }}>Stop</a></div>
+      <div className="row between"><span className="label">One Question</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); stopSpeaking(); navigate("/"); }}>Stop</a></div>
       <div className="row"><Dog size={56} /><h1 className="display small">{q ? q.text : questions ? "No questions this time." : "One moment."}</h1></div>
       {q && listening && <p className="lead small muted">Listening. You can just say yes or no.</p>}
       <div className="spacer" />
@@ -64,10 +64,9 @@ export default function Question() {
         <>
           <button type="button" className="btn big" onClick={() => record("yes")}>Yes</button>
           <button type="button" className="btn secondary" onClick={() => record("no")}>No</button>
-          <button type="button" className="btn secondary" onClick={() => record("unsure")}>Not sure</button>
+          <button type="button" className="btn secondary" onClick={() => record("unsure")}>Not Sure</button>
         </>
       ) : null}
-      <p className="foot">Your answers stay on this phone. They help Biscuit know what to do next.</p>
     </main>
   );
 }

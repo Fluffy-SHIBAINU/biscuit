@@ -16,26 +16,36 @@ export default function EarBar() {
   const wanted = earWanted(st);
   const status = earStatus();
   const level = earLevel();
-  const title = !wanted && !st.earPaused ? "Biscuit isn't listening yet"
-    : status === "paused" || st.earPaused ? "Biscuit is paused"
-    : status === "blocked" ? (earError() === "unsupported" ? "This phone can't hear" : "Biscuit can't hear yet")
-    : status === "held" ? "Biscuit is talking"
-    : status !== "on" ? "Biscuit is waking up"
-    : t.phase === "speaking" || earMuted() ? "Biscuit is talking"
-    : t.phase === "thinking" ? "One moment"
-    : "Biscuit is listening";
-  const line = t.speechBlocked && t.reply ? `Biscuit wants to say: ${t.reply}` : t.note ? t.note : t.phase === "speaking" || (t.reply && !t.heard) ? t.reply : t.heard ? `You said: ${t.heard}` : "";
+  const title = !wanted && !st.earPaused ? "Biscuit Isn't Listening Yet"
+    : status === "paused" || st.earPaused ? "Biscuit Is Paused"
+    : status === "blocked" ? (earError() === "unsupported" ? "This Phone Can't Hear" : "Biscuit Can't Hear Yet")
+    : status === "held" ? "Biscuit Is Talking"
+    : status !== "on" ? "Biscuit Is Waking Up"
+    : t.phase === "speaking" || earMuted() ? "Biscuit Is Talking"
+    : t.phase === "thinking" ? "One Moment"
+    : "Biscuit Is Listening";
+  // What shows large under the title: his words while he speaks (or when he could not), else hers, else a short note.
+  const shown = t.speechBlocked && t.reply ? ["Biscuit Wants to Say", t.reply]
+    : t.phase === "speaking" || (t.reply && !t.heard) ? ["Biscuit Says", t.reply]
+    : t.note ? ["", t.note]
+    : t.heard ? ["You Said", t.heard]
+    : null;
   return (
     <div className={`earbar ${status === "on" ? "on" : ""}`} role="status" aria-live="polite">
-      <span className={`eardot ${status === "on" ? (level ? "loud" : "on") : status === "paused" ? "paused" : ""}`} aria-hidden="true" />
-      <div className="eartext">
-        <span className="label">{title}</span>
-        {line && <span className="earline">{line}</span>}
+      <div className="earhead">
+        <span className={`eardot ${status === "on" ? (level ? "loud" : "on") : status === "paused" ? "paused" : ""}`} aria-hidden="true" />
+        <span className="eartitle">{title}</span>
+        {t.speechBlocked && t.reply && status === "on" && <button type="button" className="btn earbtn" onClick={() => { primeSpeech(); speak([t.reply]); }}>Tap to Hear Him</button>}
+        {(status === "paused" || st.earPaused) && <button type="button" className="btn earbtn" onClick={() => resumeEar()}>Listen</button>}
+        {!st.earPaused && (!wanted || status === "blocked" || (status === "off" && earError())) && earError() !== "unsupported" && <button type="button" className="btn earbtn" onClick={() => { primeSpeech(); allowEar(); }}>Let Me Hear</button>}
+        {status === "on" && !st.earPaused && !(t.speechBlocked && t.reply) && <button type="button" className="btn earbtn secondary" onClick={() => pauseEar()}>Pause</button>}
       </div>
-      {t.speechBlocked && t.reply && status === "on" && <button type="button" className="btn earbtn" onClick={() => { primeSpeech(); speak([t.reply]); }}>Tap to hear him</button>}
-      {(status === "paused" || st.earPaused) && <button type="button" className="btn earbtn" onClick={() => resumeEar()}>Listen</button>}
-      {!st.earPaused && (!wanted || status === "blocked" || (status === "off" && earError())) && earError() !== "unsupported" && <button type="button" className="btn earbtn" onClick={() => { primeSpeech(); allowEar(); }}>Let me hear</button>}
-      {status === "on" && !st.earPaused && !(t.speechBlocked && t.reply) && <button type="button" className="btn earbtn secondary" onClick={() => pauseEar()}>Pause</button>}
+      {shown && (
+        <div className="earbody">
+          {shown[0] && <span className="label">{shown[0]}</span>}
+          <p className="earline">{shown[1]}</p>
+        </div>
+      )}
     </div>
   );
 }

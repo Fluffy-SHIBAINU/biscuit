@@ -20,11 +20,11 @@ export default function Done() {
   return (
     <main className="screen">
       <div className="row between"><span className="label">Set up for {name} · done</span><span className="label plain">{name}'s phone</span></div>
-      <div className="row"><Dog size={64} /><h1 className="display small">Biscuit is ready.</h1></div>
+      <div className="row"><Dog size={64} /><h1 className="display small">Biscuit Is Ready</h1></div>
       <section className="card facts">{rows.map(([t, d]) => <div key={t} className="fact"><strong>{t}</strong><span className="label plain">{d}</span></div>)}</section>
-      <section className="card"><span className="label">Ana's page</span><p className="lead small">biscuit.kindred-ai.dev/ana · letters read, what Biscuit said, the mailbox phone, the Help status. Nothing goes to a hospital from there.</p></section>
+      <section className="card"><span className="label">Ana's Page</span><p className="lead small">biscuit.kindred-ai.dev/ana · letters read, what Biscuit said, the mailbox phone, the Help status. Nothing goes to a hospital from there.</p></section>
       <div className="spacer" />
-      <button type="button" className="btn big" onClick={async () => { await speak([`Hello, ${name}. I'm Biscuit. I speak up when the mail comes and when you ask. Say stop and I stop.`]); navigate("/"); }}>Let Biscuit say hello</button>
+      <button type="button" className="btn big" onClick={async () => { await speak([`Hello, ${name}. I'm Biscuit. I speak up when the mail comes and when you ask. Say stop and I stop.`]); navigate("/"); }}>Let Biscuit Say Hello</button>
       <button type="button" className="btn secondary" onClick={() => navigate("/")}>Home</button>
     </main>
   );

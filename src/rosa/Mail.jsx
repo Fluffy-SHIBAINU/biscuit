@@ -42,15 +42,13 @@ export default function Mail() {
       <div className="row between"><span className="label">Biscuit · Kindred</span><span className="label plain">{s.lastMailSeen ? clock(s.lastMailSeen) : ""}</span></div>
       <div className="row"><Dog /><h1 className="display">{due ? `Mail time, ${name}!` : `Mail's here, ${name}!`}</h1></div>
       <section className="card">
-        <span className="label">{due ? "What Biscuit knows" : "What Biscuit saw"}</span>
+        <span className="label">{due ? "What Biscuit Knows" : "What Biscuit Saw"}</span>
         <p className="lead">{due ? `The mail usually comes about ${s.mailMinutes != null ? mailTimeLabel(s.mailMinutes) : "now"}. Nobody has seen it yet today.` : s.lastMailSeen ? `The mailbox moved at ${clock(s.lastMailSeen)}.` : "The mail came."}</p>
-        <span className="label plain">{due ? "No mailbox phone · a chime at the usual hour, not a sighting" : "Mailbox phone on the sill · watches the box only · no pictures kept"}</span>
       </section>
-      <p className="display small">Want me to look through it?</p>
-      <button type="button" className="btn big" onClick={() => { stopSpeaking(); navigate("/letter"); }}>Yes, look</button>
-      <button type="button" className="btn secondary" onClick={() => { stopSpeaking(); navigate("/"); }}>Not now</button>
+      <p className="display small">Want Me to Look Through It?</p>
+      <button type="button" className="btn big" onClick={() => { stopSpeaking(); navigate("/letter"); }}>Yes, Look</button>
+      <button type="button" className="btn secondary" onClick={() => { stopSpeaking(); navigate("/"); }}>Not Now</button>
       <div className="spacer" />
-      <p className="foot">This opened from a notification you tapped. Say yes or no, or tap.</p>
     </main>
   );
 }

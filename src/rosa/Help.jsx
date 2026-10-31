@@ -22,18 +22,17 @@ export default function Help() {
   }
   return (
     <main className="screen night">
-      <div className="row between"><span className="label night">Biscuit · help</span><span className="label plain">{new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span></div>
-      <div className="row"><Dog /><h1 className="display">Your phone is calling 911.</h1></div>
-      <a className="btn danger big" href="tel:911">Call 911 now</a>
+      <div className="row between"><span className="label night">Biscuit · Help</span><span className="label plain">{new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span></div>
+      <div className="row"><Dog /><h1 className="display">Your Phone Is Calling 911</h1></div>
+      <a className="btn danger big" href="tel:911">Call 911 Now</a>
       <p className="lead">{name}, stay where you are. Tell them where you are and what happened.</p>
       <section className="card night">
-        <div className="row"><span className="dot ok" />Ana's page told · her phone buzzed</div>
+        <div className="row"><span className="dot ok" />Ana's Page Told · Her Phone Buzzed</div>
         <div className="row">911 gets your location from the phone itself, not from Biscuit.</div>
         <div className="row">Cancel on the phone: Help ends, and Ana's page says you cancelled.</div>
       </section>
       <div className="spacer" />
-      <button type="button" className="btn secondary night" onClick={stop}>Stop <span className="hint">ends Help · tells Ana's page</span></button>
-      <p className="foot mono">Hold Help 2 seconds, or say “Biscuit, help”, to start this. Biscuit opens the phone's own emergency call and tells Ana's page the time. Nothing more.</p>
+      <button type="button" className="btn secondary night" onClick={stop}>Stop <span className="hint">Ends Help · Tells Ana's Page</span></button>
     </main>
   );
 }

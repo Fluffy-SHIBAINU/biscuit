@@ -65,31 +65,31 @@ export default function Home() {
       <div className="row between"><span className="label">Biscuit · Kindred</span><span className="label plain">{DAYS[now.getDay()]} {clock(now)}</span></div>
       <div className="row"><Dog /><h1 className="display">{greeting(now, name)}</h1></div>
       <section className="card">
-        <span className="label">Today's mail</span>
+        <span className="label">Today's Mail</span>
         <p className="lead">{todaysMailLine({ seenAt: s.lastMailSeen, now, mailMinutes: s.mailMinutes })}</p>
         <span className="label plain">{mailSourceLabel({ hasCam: s.hasCam, mailMinutes: s.mailMinutes })}</span>
         <a href="/mail?from=home" className="link" onClick={(e) => { e.preventDefault(); navigate("/mail?from=home"); }}>Mail came and I didn't say so? Tap here.</a>
       </section>
       {s.lookRequest && (
         <section className="card">
-          <span className="label">Ana asks</span>
+          <span className="label">Ana Asks</span>
           <p className="lead small">Ana would like another look at the letter from {s.lookRequest.sender}. Show it to me again when you can.</p>
-          <button type="button" className="btn secondary" onClick={() => navigate("/letter")}>Show it</button>
+          <button type="button" className="btn secondary" onClick={() => navigate("/letter")}>Show It</button>
         </section>
       )}
-      {!s.pushSubscribed && pushSupported() && <button type="button" className="btn secondary" onClick={turnOnChime}>Turn on the mail chime</button>}
+      {!s.pushSubscribed && pushSupported() && <button type="button" className="btn secondary" onClick={turnOnChime}>Turn On the Mail Chime</button>}
       {chimeError && <p className="foot bad">{chimeError}</p>}
-      <button type="button" className="btn big" onClick={() => navigate("/letter")}>Show me a letter</button>
-      <button type="button" className="btn secondary" onClick={() => navigate("/docket")}>My papers</button>
-      {s.consentedAt && <button type="button" ref={helpRef} className={`btn danger hold ${armed ? "armed" : ""}`} style={{ "--hold": holding }}>{armed ? "Let go to call 911" : "Help"} <span className="hint">{armed ? "Ana is told when you let go" : "hold 2 s · calls 911, tells Ana"}</span></button>}
+      <button type="button" className="btn big" onClick={() => navigate("/letter")}>Show Me a Letter</button>
+      <button type="button" className="btn secondary" onClick={() => navigate("/docket")}>My Papers</button>
+      {s.consentedAt && <button type="button" ref={helpRef} className={`btn danger hold ${armed ? "armed" : ""}`} style={{ "--hold": holding }}>{armed ? "Let Go to Call 911" : "Help"} <span className="hint">{armed ? "Ana Is Told When You Let Go" : "Hold 2 s · Calls 911, Tells Ana"}</span></button>}
       <div className="spacer" />
       {waiting && (
         <section className="card">
-          <span className="label">Waiting on</span>
+          <span className="label">Waiting On</span>
           <p className="lead small">{waiting.waitingLine || `${waiting.sender}'s answer.`}</p>
         </section>
       )}
-      <p className="foot">Biscuit is a computer helper from Kindred. Just talk to him. Say <strong>stop</strong> and he stops; say <strong>pause</strong> and he stops listening. <a href="/settings" className="link" onClick={(e) => { e.preventDefault(); navigate("/settings"); }}>Settings</a></p>
+      <p className="foot">Just talk to him. Say <strong>stop</strong> and he stops. <a href="/settings" className="link" onClick={(e) => { e.preventDefault(); navigate("/settings"); }}>Settings</a></p>
     </main>
   );
 }

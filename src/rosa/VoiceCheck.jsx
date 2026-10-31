@@ -44,10 +44,9 @@ export default function VoiceCheck() {
       {heard && <section className="card"><span className="label">Heard</span><p className="lead quote"><span className="mark">“{heard}”</span></p></section>}
       {phase === "miss" && <section className="card"><span className="label">Try {misses + 1} of 3</span><p className="lead small">Hold the phone closer. TV down. Wait for the chime, then speak.</p></section>}
       <div className="spacer" />
-      {phase === "heard" && <><button type="button" className="btn big" onClick={next}>Just right</button><button type="button" className="btn secondary" onClick={() => { store.set((st) => ({ volumeStep: Math.min(2, (st.volumeStep || 0) + 1) })); speak(["Is this better?"]); }}>Louder</button><button type="button" className="btn secondary" onClick={tryOnce}>Say it again</button></>}
+      {phase === "heard" && <><button type="button" className="btn big" onClick={next}>Just Right</button><button type="button" className="btn secondary" onClick={() => { store.set((st) => ({ volumeStep: Math.min(2, (st.volumeStep || 0) + 1) })); speak(["Is this better?"]); }}>Louder</button><button type="button" className="btn secondary" onClick={tryOnce}>Say It Again</button></>}
       {phase === "miss" && <><button type="button" className="btn big" onClick={tryOnce}>Try again</button><button type="button" className="btn secondary" onClick={() => { store.set({ buttonsMode: true }); next(); }}>Use buttons instead</button></>}
       {phase === "buttons" && <button type="button" className="btn big" onClick={next}>Go on</button>}
-      <p className="foot">Your voice is turned into words and not kept. Three misses: buttons mode, and voice can be tried again later.</p>
     </main>
   );
 }

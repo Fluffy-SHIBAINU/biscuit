@@ -52,16 +52,15 @@ export default function Talk() {
   return (
     <main className="screen">
       <div className="row between"><span className="label">Biscuit · Kindred</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); stopSpeaking(); navigate("/"); }}>Home</a></div>
-      <div className="row"><Dog /><h1 className="display">{asking ? "I'm all ears!" : `Just talk to me, ${name}.`}</h1></div>
-      {t.heard && <section className="card"><span className="label">You said</span><p className="lead quote">“{t.heard}”</p></section>}
-      {t.reply && <section className="card"><span className="label">Biscuit says</span><p className="lead">{t.reply}</p></section>}
+      <div className="row"><Dog /><h1 className="display">{asking ? "I'm All Ears!" : `Just Talk to Me, ${name}`}</h1></div>
+      {t.heard && <section className="card"><span className="label">You Said</span><p className="lead quote">“{t.heard}”</p></section>}
+      {t.reply && <section className="card"><span className="label">Biscuit Says</span><p className="lead">{t.reply}</p></section>}
       <div className="spacer" />
-      <button type="button" className="btn big" onClick={() => { stopSpeaking(); navigate("/letter"); }}>Read a letter</button>
+      <button type="button" className="btn big" onClick={() => { stopSpeaking(); navigate("/letter"); }}>Read a Letter</button>
       <div className="row pair">
-        <button type="button" className="btn secondary" onClick={() => { stopSpeaking(); readPapers(); }}>My papers</button>
+        <button type="button" className="btn secondary" onClick={() => { stopSpeaking(); readPapers(); }}>My Papers</button>
         <button type="button" className="btn secondary" onClick={() => { stopSpeaking(); askWhatToTell(); }} disabled={asking}>Tell Ana</button>
       </div>
-      <p className="foot">Biscuit listens while this phone is open; the bar below shows it and pauses it. Your voice is turned into words and not kept; what you ask him to tell Ana is kept for her, in your words.</p>
     </main>
   );
 }

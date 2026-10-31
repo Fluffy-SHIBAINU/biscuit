@@ -71,22 +71,21 @@ export default function Offer() {
   const fc = r.sheet?.freeCare;
   return (
     <main className="screen">
-      <div className="row between"><span className="label">The offer</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); stopSpeaking(); navigate("/"); }}>Stop</a></div>
+      <div className="row between"><span className="label">The Offer</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); stopSpeaking(); navigate("/"); }}>Stop</a></div>
       {mode === "offer" && fc && (
         <section className="card">
-          <span className="label">The hospital's own rule</span>
+          <span className="label">The Hospital's Own Rule</span>
           <p className="lead small">{r.sheet.hospital} gives free care to households at or below {fc.maxFpl}% of the federal poverty level.</p>
           <p className="quote"><span className="mark">“{fc.quote}”</span></p>
-          <span className="label plain">Waive sheet · checked {fc.checkedOn || r.sheet.checkedOn} · {fc.sourceUrl ? "quote matched to the hospital's page" : "quote on file"}</span>
+          <span className="label plain">Checked {fc.checkedOn || r.sheet.checkedOn}</span>
         </section>
       )}
-      <div className="row"><Dog size={56} /><div><span className="label">Biscuit says</span>{lines.map((l, i) => <p key={i} className="lead small">{l}</p>)}</div></div>
+      <div className="row"><Dog size={56} /><div><span className="label">Biscuit Says</span>{lines.map((l, i) => <p key={i} className="lead small">{l}</p>)}</div></div>
       <div className="spacer" />
       {(mode === "offer" || mode === "ad" || mode === "send" || mode === "unknown") && (
-        <button type="button" className="btn big" disabled={busy} onClick={yes}>{mode === "offer" ? "Yes, start it with Ana" : mode === "ad" ? "Toss it" : "Send it to Ana"}</button>
+        <button type="button" className="btn big" disabled={busy} onClick={yes}>{mode === "offer" ? "Yes, Start It with Ana" : mode === "ad" ? "Toss It" : "Send It to Ana"}</button>
       )}
-      <button type="button" className="btn secondary" onClick={mode === "keep" ? () => navigate("/docket") : no}>{mode === "keep" ? "Done" : mode === "ad" ? "Keep it" : "Not now"}</button>
-      <p className="foot">Biscuit sends nothing to the hospital. Ana approves everything before it goes anywhere.</p>
+      <button type="button" className="btn secondary" onClick={mode === "keep" ? () => navigate("/docket") : no}>{mode === "keep" ? "Done" : mode === "ad" ? "Keep It" : "Not Now"}</button>
     </main>
   );
 }

@@ -9,13 +9,13 @@ import { handleVoiceCommand } from "../lib/commands.js";
 import { saidMine, saidWrong } from "../lib/talk.js";
 import { store, useStore } from "../lib/store.js";
 
-export const FIELD_LABEL = { sender: "From", hospital_name: "Hospital", amount_due: "Amount due", statement_date: "Statement date", due_date: "Due date", financial_assistance: "Financial assistance", phone_numbers: "Phone number", account_last4: "Account" };
+export const FIELD_LABEL = { sender: "From", hospital_name: "Hospital", amount_due: "Amount Due", statement_date: "Statement Date", due_date: "Due Date", financial_assistance: "Financial Assistance", phone_numbers: "Phone number", account_last4: "Account" };
 const READ_PILL = { twice: ["ok", "Read twice ✓"], once: ["warn", "Read once"] };
 
 /** One fact row: the value over its quote, and what the two readers made of it. */
 export function Fact({ f, readBy }) {
   const label = FIELD_LABEL[f.field] || f.field;
-  if (!f.verified) return <div className="fact unverified"><span className="label plain">{label}</span><strong>{f.value}</strong><span className="label plain">unverified, not spoken</span></div>;
+  if (!f.verified) return <div className="fact unverified"><span className="label plain">{label}</span><strong>{f.value}</strong><span className="label plain">Unverified, Not Spoken</span></div>;
   if (f.agreement === "differ") {
     return (
       <div className="fact differ">
@@ -109,30 +109,29 @@ export default function Reading() {
   const pill = READ_PILL[r.readBy];
   return (
     <main className="screen">
-      <div className="row between"><span className="row"><span className="label">Biscuit reads it</span>{pill && <span className={`pill ${pill[0]}`}>{pill[1]}</span>}</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); stopSpeaking(); navigate("/"); }}>Stop</a></div>
+      <div className="row between"><span className="row"><span className="label">Biscuit Reads It</span>{pill && <span className={`pill ${pill[0]}`}>{pill[1]}</span>}</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); stopSpeaking(); navigate("/"); }}>Stop</a></div>
       <div className="row"><Dog size={56} /><h1 className="display small">{r.lines?.[0] || "Here's what it says."}</h1></div>
       {r.readBy === "once" && (
         <section className="card">
-          <span className="label">Why read once</span>
+          <span className="label">Read Once</span>
           <p className="lead small">{readOnceLine(r.readers)}</p>
         </section>
       )}
       <section className="card">
-        <span className="label">What Biscuit says</span>
+        <span className="label">What Biscuit Says</span>
         {(r.lines || []).map((line, i) => <p key={i} className="lead small">{line}</p>)}
       </section>
       {!r.mismatch && (
         <section className="card facts">
-          <span className="label">Each fact, over its quote</span>
+          <span className="label">Each Fact, Over Its Quote</span>
           {(r.facts || []).map((f, i) => <Fact key={i} f={f} readBy={r.readBy} />)}
         </section>
       )}
       <div className="spacer" />
-      {r.mismatch && r.mine && <button type="button" className="btn big" onClick={claimAsMine}>It's mine, read it</button>}
-      <button type="button" className={`btn ${r.mismatch ? "secondary" : "big"}`} onClick={() => { stopSpeaking(); navigate(r.mismatch ? "/docket" : "/question"); }}>{r.mismatch ? "All right" : "Go on"}</button>
-      {!r.mismatch && <button type="button" className="btn secondary" onClick={() => { stopSpeaking(); askIfWrong(); }}>Something's wrong</button>}
+      {r.mismatch && r.mine && <button type="button" className="btn big" onClick={claimAsMine}>It's Mine, Read It</button>}
+      <button type="button" className={`btn ${r.mismatch ? "secondary" : "big"}`} onClick={() => { stopSpeaking(); navigate(r.mismatch ? "/docket" : "/question"); }}>{r.mismatch ? "All Right" : "Go On"}</button>
+      {!r.mismatch && <button type="button" className="btn secondary" onClick={() => { stopSpeaking(); askIfWrong(); }}>Something's Wrong</button>}
       <button type="button" className="btn secondary" onClick={() => { stopSpeaking(); navigate("/"); }}>Done</button>
-      <p className="foot">{r.readBy === "twice" ? "Every number Biscuit said is inside a quote from the page, read the same way by two readers." : "Every number Biscuit said is inside a quote from the page."} The page's words stay on this phone.</p>
     </main>
   );
 }

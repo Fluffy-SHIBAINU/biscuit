@@ -10,9 +10,9 @@ import { store } from "../lib/store.js";
 
 export function statusLine(check) {
   if (!check) return { pill: "Looking", text: "Hold the letter in the frame." };
-  if (check.ok) return { pill: "Hold still", text: "That's it! Hold still." };
-  if (check.cutEdge) return { pill: "Not yet", text: `A little closer. The ${check.cutEdge} is cut off.` };
-  if (check.coverage > 0) return { pill: "Not yet", text: "A little closer." };
+  if (check.ok) return { pill: "Hold Still", text: "That's it! Hold still." };
+  if (check.cutEdge) return { pill: "Not Yet", text: `A little closer. The ${check.cutEdge} is cut off.` };
+  if (check.coverage > 0) return { pill: "Not Yet", text: "A little closer." };
   return { pill: "Looking", text: "Hold the letter in the frame." };
 }
 
@@ -89,10 +89,10 @@ export default function Letter() {
   const s = statusLine(check);
   return (
     <main className="screen">
-      <div className="row between"><span className="label">Show me the letter</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); navigate("/"); }}>Stop</a></div>
+      <div className="row between"><span className="label">Show Me the Letter</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); navigate("/"); }}>Stop</a></div>
       {phase === "reading" ? (
         <>
-          <div className="row"><Dog /><h1 className="display small">Reading it now.</h1></div>
+          <div className="row"><Dog /><h1 className="display small">Reading It Now.</h1></div>
           {shot && <img className="shot" src={shot} alt="The letter Biscuit is reading" />}
         </>
       ) : (
@@ -103,8 +103,7 @@ export default function Letter() {
         </>
       )}
       <div className="spacer" />
-      {phase !== "reading" && <button type="button" className="btn big" onClick={capture}>Take the picture</button>}
-      <p className="foot mono">Frame check: SAM 3.1 · read by Muse Spark on Kindred's server, twice when the second reader is on · nothing kept after reading</p>
+      {phase !== "reading" && <button type="button" className="btn big" onClick={capture}>Take the Picture</button>}
     </main>
   );
 }
