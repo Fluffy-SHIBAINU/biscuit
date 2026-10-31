@@ -69,8 +69,11 @@ export function speakRoutes(deps: { auth: MiddlewareHandler<AuthVars>; env?: Rec
           const json: any = await res.json();
           const part = json?.candidates?.[0]?.content?.parts?.find((p: any) => p?.inlineData?.data);
           if (!part) throw new Error("tts shape");
-          const rate = Number(/rate=(\d+)/.exec(part.inlineData.mimeType || "")?.[1]) || 24000;
-          bytes = pcm16ToWav(Buffer.from(part.inlineData.data, "base64"), rate);
+          const raw = Buffer.from(part.inlineData.data, "base64");
+          const mime = String(part.inlineData.mimeType || "");
+          // gemini-3.8-flash-tts hands back a finished WAV; the 2.5 preview hands back raw 16-bit PCM at 24 kHz.
+          if (/audio\/(wav|x-wav|wave)/i.test(mime) || raw.toString("ascii", 0, 4) === "RIFF") bytes = raw;
+          else bytes = pcm16ToWav(raw, Number(/rate=(\d+)/.exec(mime)?.[1]) || 24000);
         } else {
           const json: any = await res.json();
           const b64 = json?.base64 ?? json?.output ?? json?.audio ?? json?.audio_base64 ?? json?.data;

@@ -143,3 +143,15 @@ test("the gemini provider speaks as Fenrir when no voice is named", async () => 
   expect(res.status).toBe(200);
   expect(JSON.parse(calls[0].init.body).generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName).toBe("Fenrir");
 });
+
+// gemini-3.8-flash-tts answers with a finished WAV (audio/wav), not raw PCM; it must pass through with one header, not two.
+test("the gemini provider passes a WAV answer through untouched", async () => {
+  const wav = Buffer.alloc(48); wav.write("RIFF", 0); wav.writeUInt32LE(40, 4); wav.write("WAVE", 8); wav.write("fmt ", 12); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(24000, 24); wav.writeUInt32LE(48000, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write("data", 36); wav.writeUInt32LE(4, 40); wav.writeInt16LE(1234, 44); wav.writeInt16LE(-1234, 46);
+  const fetcher = (async () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: "audio/wav", data: wav.toString("base64") } }] } }] }), { status: 200, headers: { "content-type": "application/json" } })) as any;
+  const app = createApp({ lookup: linked, ttsEnv: { TTS_PROVIDER: "gemini", TTS_API_KEY: "g1" }, ttsFetch: fetcher });
+  const res = await app.request("/api/biscuit/speak", { method: "POST", headers, body: JSON.stringify({ text: "Hello." }) });
+  const out = Buffer.from(await res.arrayBuffer());
+  expect(out.length).toBe(48);
+  expect(out.readUInt32LE(40)).toBe(4);
+  expect(out.readInt16LE(44)).toBe(1234);
+});
