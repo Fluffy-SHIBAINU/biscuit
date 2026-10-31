@@ -1,7 +1,7 @@
 import { downsample, encodeWav, isSilent } from "./audio.js";
 import { store } from "./store.js";
 import { pickVoice, sentences } from "./voice.js";
-import { core as ear, earRunning, hearNext } from "./ear.js";
+import { core as ear, earRunning, hearNext, holdEar, unholdEar } from "./ear.js";
 import { talkState } from "./talkState.js";
 
 let current = [];
@@ -26,6 +26,23 @@ export function voicesReady(waitMs = 600) {
   });
 }
 
+/**
+ * Phones refuse to speak (and to play audio) until the page has been tapped once; some forget after a reload. The first
+ * tap anywhere in the app spends itself on a silent utterance and a silent note, which unlocks Biscuit's voice for the
+ * rest of the visit. Harmless when the phone needed no unlocking.
+ */
+let primed = false;
+export function primeSpeech() {
+  if (primed) return;
+  primed = true;
+  try {
+    if ("speechSynthesis" in window) { const u = new SpeechSynthesisUtterance("."); u.volume = 0; u.rate = 2; window.speechSynthesis.speak(u); }
+    const a = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA="); a.volume = 0; a.play().catch(() => {});
+  } catch { /* nothing to unlock */ }
+  if (talkState.get().speechBlocked) talkState.set({ speechBlocked: false });
+}
+if (typeof document !== "undefined") document.addEventListener("pointerdown", primeSpeech, { capture: true, once: true });
+
 /** Speaks with the phone's own voice: the best English voice it has (or the one chosen in Settings), a sentence at a time, at talking pace. */
 async function speakDevice(lines, { rate = 1.0 } = {}) {
   if (!("speechSynthesis" in window) || !lines.length) return;
@@ -35,9 +52,11 @@ async function speakDevice(lines, { rate = 1.0 } = {}) {
   if (!pieces.length) return;
   await new Promise((resolve) => {
     const guard = setTimeout(resolve, 5000 + pieces.join(" ").length * 90);
-    // A phone that has had no tap yet may refuse to speak at all: after 1.5 s with no sound, say so on the bar, which offers a tap.
+    // A phone that has had no tap yet refuses to speak: Chrome says "not-allowed" at once, Safari says nothing. Either way the
+    // bar shows what he wanted to say with a button, and that tap unlocks the voice for the rest of the visit.
     let started = false;
-    const silent = setTimeout(() => { if (!started && !window.speechSynthesis.speaking) { talkState.set({ speechBlocked: true }); clearTimeout(guard); resolve(); } }, 1500);
+    const blocked = () => { if (started) return; talkState.set({ speechBlocked: true }); try { window.speechSynthesis.cancel(); } catch { /* nothing queued */ } clearTimeout(guard); clearTimeout(silent); resolve(); };
+    const silent = setTimeout(() => { if (!started && !window.speechSynthesis.speaking) blocked(); }, 4000);
     const done = () => { clearTimeout(guard); clearTimeout(silent); resolve(); };
     current = pieces.map((text) => {
       const u = new SpeechSynthesisUtterance(text);
@@ -46,9 +65,10 @@ async function speakDevice(lines, { rate = 1.0 } = {}) {
       return u;
     });
     const last = current[current.length - 1];
-    current[0].onstart = () => { started = true; if (talkState.get().speechBlocked) talkState.set({ speechBlocked: false }); };
+    current.forEach((u) => { u.onstart = () => { started = true; if (talkState.get().speechBlocked) talkState.set({ speechBlocked: false }); }; });
     last.onend = done;
-    last.onerror = done;
+    last.onerror = (e) => (e?.error === "not-allowed" ? blocked() : done());
+    current[0].onerror = (e) => { if (e?.error === "not-allowed") blocked(); else if (current.length === 1) done(); };
     current.forEach((u) => window.speechSynthesis.speak(u));
   });
 }
@@ -97,8 +117,9 @@ export function speak(lines, opts = {}) {
   // was cut short by this one settles later, and must not unmute the ear under it.
   const id = ++speakSeq;
   ear.mute(true);
+  holdEar();
   const done = store.get().neuralVoice ? speakNeural(lines, opts) : speakDevice(lines, opts);
-  return done.finally(() => { if (id === speakSeq) ear.mute(false); });
+  return done.finally(() => { if (id === speakSeq) { ear.mute(false); unholdEar(); } });
 }
 let speakSeq = 0;
 

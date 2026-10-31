@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { allowEar, earError, earLevel, earMuted, earStatus, earWanted, resumeEar, pauseEar, subscribeEar } from "../lib/ear.js";
-import { speak } from "../lib/speech.js";
+import { primeSpeech, speak } from "../lib/speech.js";
 import { useStore } from "../lib/store.js";
 import { useTalk } from "../lib/talkState.js";
 
@@ -19,6 +19,7 @@ export default function EarBar() {
   const title = !wanted && !st.earPaused ? "Biscuit isn't listening yet"
     : status === "paused" || st.earPaused ? "Biscuit is paused"
     : status === "blocked" ? (earError() === "unsupported" ? "This phone can't hear" : "Biscuit can't hear yet")
+    : status === "held" ? "Biscuit is talking"
     : status !== "on" ? "Biscuit is waking up"
     : t.phase === "speaking" || earMuted() ? "Biscuit is talking"
     : t.phase === "thinking" ? "One moment"
@@ -31,9 +32,9 @@ export default function EarBar() {
         <span className="label">{title}</span>
         {line && <span className="earline">{line}</span>}
       </div>
-      {t.speechBlocked && t.reply && status === "on" && <button type="button" className="btn earbtn" onClick={() => speak([t.reply])}>Tap to hear him</button>}
+      {t.speechBlocked && t.reply && status === "on" && <button type="button" className="btn earbtn" onClick={() => { primeSpeech(); speak([t.reply]); }}>Tap to hear him</button>}
       {(status === "paused" || st.earPaused) && <button type="button" className="btn earbtn" onClick={() => resumeEar()}>Listen</button>}
-      {!st.earPaused && (!wanted || status === "blocked" || status === "off") && earError() !== "unsupported" && <button type="button" className="btn earbtn" onClick={() => allowEar()}>Let me hear</button>}
+      {!st.earPaused && (!wanted || status === "blocked" || (status === "off" && earError())) && earError() !== "unsupported" && <button type="button" className="btn earbtn" onClick={() => { primeSpeech(); allowEar(); }}>Let me hear</button>}
       {status === "on" && !st.earPaused && !(t.speechBlocked && t.reply) && <button type="button" className="btn earbtn secondary" onClick={() => pauseEar()}>Pause</button>}
     </div>
   );

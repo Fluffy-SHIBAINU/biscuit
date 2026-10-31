@@ -169,7 +169,21 @@ function scheduleRetry() {
 }
 
 export function stopEar() { teardown(); live.status = "off"; live.level = 0; notify(); }
-export function pauseEar() { store.set({ earPaused: true }); stopEar(); live.status = "paused"; notify(); }
+
+// While Biscuit speaks the microphone is given back to the phone. With a capture open, an iPhone routes playback to the
+// quiet earpiece instead of the loudspeaker; closing the stream for the length of his sentence puts his voice back where
+// Rosa can hear it, and he cannot hear himself at all. The stream reopens the moment he is done.
+let held = false;
+export function holdEar() {
+  if (live.status !== "on" && live.status !== "starting") return;
+  held = true; teardown(); live.status = "held"; live.level = 0; notify();
+}
+export async function unholdEar() {
+  if (!held) return;
+  held = false;
+  if (live.status === "held") { live.status = "off"; await startEar(); }
+}
+export function pauseEar() { store.set({ earPaused: true }); held = false; stopEar(); live.status = "paused"; notify(); }
 export function resumeEar() { store.set({ earPaused: false }); return startEar(); }
 /** Rosa's tap on Let Me Hear: her yes to the ear on this phone, and the gesture the phone may need to open the microphone. */
 export function allowEar() { store.set({ earPaused: false, earAllowedAt: store.get().earAllowedAt || new Date().toISOString() }); live.status = "off"; live.error = null; return startEar(); }
@@ -193,7 +207,7 @@ export function earCheck() {
     if (store.get().earPaused && live.status !== "paused") { live.status = "paused"; notify(); }
     return;
   }
-  if (document.visibilityState === "visible" && live.status !== "on" && live.status !== "starting" && live.status !== "blocked") startEar();
+  if (document.visibilityState === "visible" && live.status !== "on" && live.status !== "starting" && live.status !== "blocked" && live.status !== "held") startEar();
 }
 /** Keeps the ear open whenever it is wanted and the app is visible; closes it while the app is hidden. Idempotent. */
 export function keepEarOpen() {
