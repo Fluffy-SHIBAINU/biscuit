@@ -102,3 +102,21 @@ if the phone hands the camera over to the microphone, the camera is reopened onc
 Left open, by choice for now: a television left on in a loud room can keep the ear in ten-second clips (each a
 transcription call); the ear closes when the screen locks (no wake lock); "stop" cannot be heard inside one long reading
 because the ear is closed while he speaks; the speak route's line cache is bounded by count, not bytes.
+
+## The voice, live (October 31)
+
+The founder added the Gemini key and heard nothing. A probe script (`scripts/voice/probe-speak.ts`: a throwaway Rosa
+device, the deployment's `/speak/voice` and `/speak`, then gone) showed production answering in Fenrir within four
+seconds, and a desktop browser played the clip, so the key was never the problem. Three things were:
+
+1. `gemini-3.8-flash-tts` hands back a finished WAV where the 2.5 preview handed back raw PCM; the route had wrapped both,
+   so the 3.8 clip carried two headers. A WAV answer passes through now.
+2. Gemini 3 reads a sentence of instruction aloud: ten seconds of "Say this as a cheerful, warm helper..." before every
+   line (9.8 s measured against 1.8 s for the bare line). Gemini 3 gets its style as a bracket tag, `[cheerful, warm,
+   quick, friendly, clear for an older listener, moderate pace]`, which it applies without reading (2.3 s). The 2.5
+   preview keeps the sentence. `systemInstruction` is refused by the model.
+3. An iPhone plays no audio element a gesture has not started, and the neural voice had made a fresh one per line. Clips
+   now play through an AudioContext that the first tap resumed (the surest route on iOS), then through one shared audio
+   element the same tap unlocked, then through the phone's own voice; the bar offers Tap to Hear Him when all else fails.
+
+Confirmed on the founder's phone: Fenrir speaks, by himself, after one tap per visit.
