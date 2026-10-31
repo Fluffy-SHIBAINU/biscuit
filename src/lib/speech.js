@@ -6,6 +6,15 @@ import { talkState } from "./talkState.js";
 
 let current = [];
 let currentAudio = null;
+// One player for Biscuit's neural voice, unlocked by the first tap (iPhones play only an element that a gesture has started
+// once; a fresh element per line stays silent). Every line is played through this one.
+const SILENT_WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=";
+let player = null;
+let playerUnlocked = false;
+function thePlayer() {
+  if (!player && typeof Audio !== "undefined") { player = new Audio(); player.setAttribute("playsinline", ""); player.preload = "auto"; }
+  return player;
+}
 
 export function stopSpeaking() {
   stoppedAt = Date.now();
@@ -37,7 +46,8 @@ export function primeSpeech() {
   primed = true;
   try {
     if ("speechSynthesis" in window) { const u = new SpeechSynthesisUtterance("."); u.volume = 0; u.rate = 2; window.speechSynthesis.speak(u); }
-    const a = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA="); a.volume = 0; a.play().catch(() => {});
+    const a = thePlayer();
+    if (a) { a.src = SILENT_WAV; a.volume = 0; a.play().then(() => { playerUnlocked = true; }).catch(() => {}); }
   } catch { /* nothing to unlock */ }
   if (talkState.get().speechBlocked) talkState.set({ speechBlocked: false });
 }
@@ -81,15 +91,21 @@ async function fetchLine(text) {
   return URL.createObjectURL(await res.blob());
 }
 
+/** Plays one line through the shared player. Resolves false when the phone refused to play, so the device voice can take over. */
 function playUrl(url) {
   return new Promise((resolve) => {
-    const a = new Audio(url);
+    const a = thePlayer();
+    if (!a) { URL.revokeObjectURL(url); resolve(false); return; }
     currentAudio = a;
-    const volume = Math.min(1, 0.8 + 0.1 * (store.get().volumeStep || 0));
-    a.volume = volume;
-    const done = () => { if (currentAudio === a) currentAudio = null; URL.revokeObjectURL(url); resolve(); };
-    a.onended = done; a.onerror = done; a.onpause = done;
-    a.play().catch(done);
+    let started = false;
+    const finish = (ok) => { if (currentAudio === a) currentAudio = null; a.onended = a.onerror = a.onpause = a.onplaying = null; URL.revokeObjectURL(url); resolve(ok); };
+    a.onplaying = () => { started = true; playerUnlocked = true; };
+    a.onended = () => finish(true);
+    a.onerror = () => finish(started);
+    a.onpause = () => { if (started) finish(true); };
+    a.volume = Math.min(1, 0.8 + 0.1 * (store.get().volumeStep || 0));
+    a.src = url;
+    a.play().catch(() => finish(false));
   });
 }
 
@@ -101,8 +117,10 @@ async function speakNeural(lines, opts) {
     try { url = await next; } catch { await speakDevice(lines.slice(i), opts); return; }
     if (i + 1 < lines.length) next = fetchLine(lines[i + 1]);
     if (!current.length && !currentAudio && i > 0 && stoppedAt > startedAt) return;
-    await playUrl(url);
+    const played = await playUrl(url);
     if (stoppedAt > startedAt) return;
+    // The phone would not play the clip (no tap yet, or a locked player): the device voice says this line and the rest.
+    if (!played) { talkState.set({ speechBlocked: !playerUnlocked }); await speakDevice(lines.slice(i), opts); return; }
   }
 }
 
