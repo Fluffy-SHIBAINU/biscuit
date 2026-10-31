@@ -57,6 +57,7 @@ export default function EnterCode() {
       {tries >= 3 && <p className="lead">Three misses. Ana taps New code on her phone, then try again.</p>}
       <button type="button" className="btn big" disabled={code.length !== 6 || busy} onClick={() => submit()}>Link</button>
       <div className="spacer" />
+      <p className="foot">Are you Ana? <a href="/ana" className="link" onClick={(e) => { e.preventDefault(); navigate("/ana"); }}>Open Your Page</a></p>
     </main>
   );
 }

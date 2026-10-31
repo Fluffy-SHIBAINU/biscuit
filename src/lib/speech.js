@@ -104,11 +104,16 @@ async function speakDevice(lines, { rate = 1.0 } = {}) {
 }
 
 /** One line's audio from Biscuit's neural voice on the server; throws when there is none or it fails, and the device voice takes over. */
+const FETCH_LINE_MS = 12_000;
 async function fetchLine(text) {
   const token = store.get().deviceToken;
-  const res = await fetch("/api/biscuit/speak", { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify({ text }) });
-  if (!res.ok) throw new Error(`speak ${res.status}`);
-  return res.blob();
+  const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = setTimeout(() => ctl?.abort(), FETCH_LINE_MS);
+  try {
+    const res = await fetch("/api/biscuit/speak", { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify({ text }), signal: ctl?.signal });
+    if (!res.ok) throw new Error(`speak ${res.status}`);
+    return await res.blob();
+  } finally { clearTimeout(timer); }
 }
 
 /** Plays one clip through the voice AudioContext. Resolves false when the context is not running or the clip will not decode. */
@@ -125,8 +130,11 @@ async function playBuffer(blob) {
     gain.gain.value = Math.min(1, 0.8 + 0.1 * (store.get().volumeStep || 0));
     src.connect(gain); gain.connect(ctx.destination);
     currentSource = src;
-    src.onended = () => { if (currentSource === src) currentSource = null; resolve(true); };
-    try { src.start(0); } catch { currentSource = null; resolve(false); }
+    // The clip must end on its own within its length plus a second; a context the phone suspended mid-clip would otherwise
+    // never fire onended, and the ear would stay held for good.
+    const guard = setTimeout(() => { if (currentSource === src) { try { src.stop(); } catch { /* done */ } currentSource = null; } resolve(ctx.state === "running"); }, buffer.duration * 1000 + 1000);
+    src.onended = () => { clearTimeout(guard); if (currentSource === src) currentSource = null; resolve(true); };
+    try { src.start(0); } catch { clearTimeout(guard); currentSource = null; resolve(false); }
   });
 }
 
@@ -138,7 +146,10 @@ function playUrl(blob) {
     if (!a) { URL.revokeObjectURL(url); resolve(false); return; }
     currentAudio = a;
     let started = false;
-    const finish = (ok) => { if (currentAudio === a) currentAudio = null; a.onended = a.onerror = a.onpause = a.onplaying = null; URL.revokeObjectURL(url); resolve(ok); };
+    let finished = false;
+    let guard = null;
+    const finish = (ok) => { if (finished) return; finished = true; clearTimeout(guard); if (currentAudio === a) currentAudio = null; a.onended = a.onerror = a.onpause = a.onplaying = null; URL.revokeObjectURL(url); resolve(ok); };
+    guard = setTimeout(() => finish(started), 30_000);
     a.onplaying = () => { started = true; playerUnlocked = true; };
     a.onended = () => finish(true);
     a.onerror = () => finish(started);
