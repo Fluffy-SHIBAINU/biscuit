@@ -5,6 +5,8 @@ import { pcm16ToWav, toPcm16Wav } from "../wav.js";
 
 export const SPEAK_MAX_CHARS = 600;
 export const DEFAULT_TTS_VOICE = "am_michael";
+// The founder picked Fenrir from the Gemini bake-off of October 30, 2026.
+export const DEFAULT_GEMINI_TTS_VOICE = "Fenrir";
 
 export const TTS_TIMEOUT_MS = 20_000;
 export const DEFAULT_GEMINI_TTS_MODEL = "gemini-3.8-flash-tts";
@@ -44,7 +46,7 @@ export function speakRoutes(deps: { auth: MiddlewareHandler<AuthVars>; env?: Rec
       const basic = env.TTS_BASIC_AUTH?.trim() || "";
       const provider = env.TTS_PROVIDER?.trim() === "openai" ? "openai" : env.TTS_PROVIDER?.trim() === "gemini" ? "gemini" : "kokoro";
       const speed = Number(env.TTS_SPEED) || 1;
-      const voice = env.TTS_VOICE?.trim() || DEFAULT_TTS_VOICE;
+      const voice = env.TTS_VOICE?.trim() || (provider === "gemini" ? DEFAULT_GEMINI_TTS_VOICE : DEFAULT_TTS_VOICE);
       const authorization = provider === "openai"
         ? (key ? `Bearer ${key}` : basic ? `Basic ${Buffer.from(basic).toString("base64")}` : "")
         : (key ? `Api-Key ${key}` : basic ? `Basic ${Buffer.from(basic).toString("base64")}` : "");

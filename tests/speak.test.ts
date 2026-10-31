@@ -132,3 +132,14 @@ test("the gemini provider asks for audio with a style prefix and a voice, wraps 
   expect(again.status).toBe(200);
   expect(calls).toHaveLength(1);
 });
+
+// The founder picked Fenrir from the Gemini bake-off; it is the voice when TTS_VOICE is unset for the gemini provider.
+test("the gemini provider speaks as Fenrir when no voice is named", async () => {
+  const calls: any[] = [];
+  const pcm = Buffer.alloc(4);
+  const fetcher = (async (url: string, init: any) => { calls.push({ url, init }); return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: "audio/L16;codec=pcm;rate=24000", data: pcm.toString("base64") } }] } }] }), { status: 200, headers: { "content-type": "application/json" } }); }) as any;
+  const app = createApp({ lookup: linked, ttsEnv: { TTS_PROVIDER: "gemini", TTS_API_KEY: "g1" }, ttsFetch: fetcher });
+  const res = await app.request("/api/biscuit/speak", { method: "POST", headers, body: JSON.stringify({ text: "Hello, Rosa." }) });
+  expect(res.status).toBe(200);
+  expect(JSON.parse(calls[0].init.body).generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName).toBe("Fenrir");
+});
