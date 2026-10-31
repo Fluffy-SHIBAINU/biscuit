@@ -113,9 +113,9 @@ function teardown() {
   if (core.inUtterance) core.blip();
 }
 
-/** Should the ear be open now: a linked Rosa phone, consent given, not paused by her. */
+/** Should the ear be open now: a linked Rosa phone, her yes (the consent, or a tap on Let Me Hear), not paused by her. */
 export function earWanted(st = store.get()) {
-  return Boolean(st.deviceToken && st.kind === "rosa" && st.consentedAt && !st.earPaused);
+  return Boolean(st.deviceToken && st.kind === "rosa" && (st.consentedAt || st.earAllowedAt) && !st.earPaused);
 }
 
 /** Opens the microphone and starts hearing. Fails quietly into "blocked" when the phone needs a tap first. */
@@ -163,16 +163,16 @@ function lost(why) {
   live.status = "off"; live.error = why; notify();
   scheduleRetry();
 }
-// While the letter camera is open the microphone is left alone: on some phones a second capture ends the first.
-const cameraOpen = () => typeof window !== "undefined" && window.location.pathname === "/letter";
 function scheduleRetry() {
   if (live.retry) return;
-  live.retry = setTimeout(() => { live.retry = null; if (earWanted() && document.visibilityState === "visible" && !cameraOpen() && live.status !== "on") startEar().then((s) => { if (s !== "on" && s !== "blocked") scheduleRetry(); }); }, 3000);
+  live.retry = setTimeout(() => { live.retry = null; if (earWanted() && document.visibilityState === "visible" && live.status !== "on") startEar().then((s) => { if (s !== "on" && s !== "blocked") scheduleRetry(); }); }, 3000);
 }
 
 export function stopEar() { teardown(); live.status = "off"; live.level = 0; notify(); }
 export function pauseEar() { store.set({ earPaused: true }); stopEar(); live.status = "paused"; notify(); }
 export function resumeEar() { store.set({ earPaused: false }); return startEar(); }
+/** Rosa's tap on Let Me Hear: her yes to the ear on this phone, and the gesture the phone may need to open the microphone. */
+export function allowEar() { store.set({ earPaused: false, earAllowedAt: store.get().earAllowedAt || new Date().toISOString() }); live.status = "off"; live.error = null; return startEar(); }
 export const earRunning = () => live.status === "on";
 
 /** A screen's turn to hear: the next utterance, else quiet after maxMs. The onLevel callback follows the sound meter. */
@@ -193,7 +193,7 @@ export function earCheck() {
     if (store.get().earPaused && live.status !== "paused") { live.status = "paused"; notify(); }
     return;
   }
-  if (document.visibilityState === "visible" && !cameraOpen() && live.status !== "on" && live.status !== "starting" && live.status !== "blocked") startEar();
+  if (document.visibilityState === "visible" && live.status !== "on" && live.status !== "starting" && live.status !== "blocked") startEar();
 }
 /** Keeps the ear open whenever it is wanted and the app is visible; closes it while the app is hidden. Idempotent. */
 export function keepEarOpen() {

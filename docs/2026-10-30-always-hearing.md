@@ -93,6 +93,12 @@ the ear is muted and returns to "listening" after a command; the bar clears the 
 "8pm", "eight thirty", "quarter past seven" and "12 tonight" (midnight); the dose guard no longer trips on "two letters"
 or "another cup of tea", and a label that was all dose becomes "medicine".
 
+Live test, first note: "Biscuit should be listening on all pages." The ear had waited for the consent record and stayed
+out of the letter camera's way. Now the bar is on every one of Rosa's pages (not setup, not Ana's, not the mailbox phone);
+without a consent record it says "Biscuit isn't listening yet" with Let Me Hear, and that tap is her yes (`earAllowedAt`)
+as well as the gesture the phone may want. The camera page listens too: the ear is checked once the camera is open, and
+if the phone hands the camera over to the microphone, the camera is reopened once.
+
 Left open, by choice for now: a television left on in a loud room can keep the ear in ten-second clips (each a
 transcription call); the ear closes when the screen locks (no wake lock); "stop" cannot be heard inside one long reading
 because the ear is closed while he speaks; the speak route's line cache is bounded by count, not bytes.

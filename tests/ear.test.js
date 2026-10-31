@@ -108,3 +108,14 @@ test("the core drops an utterance that Biscuit talked over, releases a stale cla
   core.blip();
   expect(await waiting).toEqual({ blob: null, ms: 0, spoke: false });
 });
+
+// The ear is wanted on every one of Rosa's pages once she has agreed, by the consent or by a tap on Let Me Hear; never when paused.
+test("earWanted: consent or a tap opens the ear, pause closes it", async () => {
+  const { earWanted } = await import("../src/lib/ear.js");
+  const base = { deviceToken: "t", kind: "rosa", consentedAt: null, earAllowedAt: null, earPaused: false };
+  expect(earWanted(base)).toBe(false);
+  expect(earWanted({ ...base, consentedAt: "2026-10-30T12:00:00Z" })).toBe(true);
+  expect(earWanted({ ...base, earAllowedAt: "2026-10-30T12:00:00Z" })).toBe(true);
+  expect(earWanted({ ...base, earAllowedAt: "2026-10-30T12:00:00Z", earPaused: true })).toBe(false);
+  expect(earWanted({ ...base, consentedAt: "x", kind: "cam" })).toBe(false);
+});
