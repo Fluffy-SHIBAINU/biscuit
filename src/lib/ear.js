@@ -119,12 +119,16 @@ export function earWanted(st = store.get()) {
 }
 
 /** Opens the microphone and starts hearing. Fails quietly into "blocked" when the phone needs a tap first. */
+let startGen = 0;
 export async function startEar() {
   if (live.status === "on" || live.status === "starting") return live.status;
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) { live.status = "blocked"; live.error = "unsupported"; notify(); return live.status; }
+  const gen = ++startGen;
   live.status = "starting"; live.error = null; notify();
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    // A hold (Biscuit began to speak), a stop or a newer start happened while the microphone was opening: this one is void.
+    if (gen !== startGen || held || live.status !== "starting") { stream.getTracks().forEach((t) => t.stop()); if (live.status === "starting") live.status = "off"; notify(); return live.status; }
     if (!earWanted()) { stream.getTracks().forEach((t) => t.stop()); live.status = "off"; notify(); return live.status; }
     const Ctx = window.AudioContext || window.webkitAudioContext;
     const ctx = new Ctx();
@@ -168,15 +172,17 @@ function scheduleRetry() {
   live.retry = setTimeout(() => { live.retry = null; if (earWanted() && document.visibilityState === "visible" && live.status !== "on") startEar().then((s) => { if (s !== "on" && s !== "blocked") scheduleRetry(); }); }, 3000);
 }
 
-export function stopEar() { teardown(); live.status = "off"; live.level = 0; notify(); }
+export function stopEar() { startGen++; teardown(); live.status = "off"; live.level = 0; notify(); }
 
 // While Biscuit speaks the microphone is given back to the phone. With a capture open, an iPhone routes playback to the
 // quiet earpiece instead of the loudspeaker; closing the stream for the length of his sentence puts his voice back where
 // Rosa can hear it, and he cannot hear himself at all. The stream reopens the moment he is done.
 let held = false;
+/** True when the ear was open (or opening) and is now held for the length of Biscuit's sentence. */
 export function holdEar() {
-  if (live.status !== "on" && live.status !== "starting") return;
-  held = true; teardown(); live.status = "held"; live.level = 0; notify();
+  if (live.status !== "on" && live.status !== "starting") return false;
+  held = true; startGen++; teardown(); live.status = "held"; live.level = 0; notify();
+  return true;
 }
 export async function unholdEar() {
   if (!held) return;

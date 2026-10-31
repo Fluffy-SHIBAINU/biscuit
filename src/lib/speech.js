@@ -171,10 +171,13 @@ export function speak(lines, opts = {}) {
   // was cut short by this one settles later, and must not unmute the ear under it.
   const id = ++speakSeq;
   ear.mute(true);
-  holdEar();
-  const done = store.get().neuralVoice ? speakNeural(lines, opts) : speakDevice(lines, opts);
+  // When the microphone was just closed, the phone needs a moment to move from recording to playback before the first sound,
+  // or a quick (cached) line comes out of the earpiece or not at all.
+  const settle = holdEar() ? new Promise((r) => setTimeout(r, SETTLE_MS)) : Promise.resolve();
+  const done = settle.then(() => (stoppedAt > startedAt ? undefined : store.get().neuralVoice ? speakNeural(lines, opts) : speakDevice(lines, opts)));
   return done.finally(() => { if (id === speakSeq) { ear.mute(false); unholdEar(); } });
 }
+const SETTLE_MS = 350;
 let speakSeq = 0;
 
 const _stop = stopSpeaking;
