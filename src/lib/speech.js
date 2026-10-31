@@ -1,7 +1,7 @@
 import { downsample, encodeWav, isSilent } from "./audio.js";
 import { store } from "./store.js";
 import { pickVoice, sentences } from "./voice.js";
-import { core as ear, earRunning, hearNext, holdEar, unholdEar } from "./ear.js";
+import { core as ear, earRunning, hearNext, holdEar, unholdEar, wakeEar } from "./ear.js";
 import { talkState } from "./talkState.js";
 
 let current = [];
@@ -63,8 +63,15 @@ export function primeSpeech() {
     if (ctx) { ctx.resume().catch(() => {}); const src = ctx.createBufferSource(); src.buffer = ctx.createBuffer(1, 1, ctx.sampleRate); src.connect(ctx.destination); src.start(0); }
   } catch { /* nothing to unlock */ }
   if (talkState.get().speechBlocked) talkState.set({ speechBlocked: false });
+  wakeEar();
 }
-if (typeof document !== "undefined") document.addEventListener("pointerdown", primeSpeech, { capture: true, once: true });
+/** Every later tap, and every return to the app, wakes the voice context again if the phone put it to sleep. */
+function nudgeVoice() { const ctx = voiceCtx; if (ctx && ctx.state !== "running" && ctx.state !== "closed") ctx.resume().catch(() => {}); }
+if (typeof document !== "undefined") {
+  document.addEventListener("pointerdown", primeSpeech, { capture: true, once: true });
+  document.addEventListener("pointerdown", nudgeVoice, { capture: true });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") nudgeVoice(); });
+}
 
 /** Speaks with the phone's own voice: the best English voice it has (or the one chosen in Settings), a sentence at a time, at talking pace. */
 async function speakDevice(lines, { rate = 1.0 } = {}) {

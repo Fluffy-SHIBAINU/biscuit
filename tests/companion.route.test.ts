@@ -19,6 +19,8 @@ describe.skipIf(!process.env.DATABASE_URL)("the companion, memories and reminder
     const last = input.messages[input.messages.length - 1]?.content ?? "";
     if (/forget everything/.test(last)) return { reply: "Forgotten.", action: "none", tellAna: null, remember: [], forget: ["I", "%", "_", "\\", "the"], reminder: null, place: null };
     if (/forget/.test(last)) return { reply: "Forgotten.", action: "none", tellAna: null, remember: [], forget: ["oatmeal"], reminder: null, place: null };
+    if (/television/.test(last) && input.context.mustAnswer) return { reply: "The television? I'd rather hear about you.", action: "none", ignore: false, tellAna: null, remember: [], forget: [], reminder: null, place: null };
+    if (/what's on television\?/.test(last)) return { reply: "", action: "none", ignore: true, tellAna: null, remember: [], forget: [], reminder: null, place: null };
     if (/Biscuit, television/.test(last)) return { reply: "", action: "none", ignore: true, tellAna: null, remember: [], forget: [], reminder: null, place: null };
     if (/television/.test(last)) return { reply: "", action: "none", ignore: true, tellAna: null, remember: [], forget: [], reminder: null, place: null };
     if (/Narnia/.test(last)) return { reply: "Narnia it is.", action: "none", tellAna: null, remember: [], forget: [], reminder: null, place: "Narnia" };
@@ -99,7 +101,15 @@ describe.skipIf(!process.env.DATABASE_URL)("the companion, memories and reminder
     // words with his name in them are never "not for Biscuit", whatever the model said
     const named = await (await say("Biscuit, television is boring tonight")).json();
     expect(named.ignore).toBe(false);
-    expect(named.reply).toMatch(/Tell me again/);
+    expect(named.reply).toMatch(/rather hear about you/);
+    // a question, or words inside a conversation already going, are for Biscuit too: he is asked again and must answer
+    const asked = await (await say("what's on television?")).json();
+    expect(asked.ignore).toBe(false);
+    expect(asked.reply).toMatch(/rather hear about you/);
+    const going = await (await say("and now the television weather", [{ role: "user", content: "hello" }, { role: "assistant", content: "Hello, Rosa!" }])).json();
+    expect(going.ignore).toBe(false);
+    const alone = await (await say("and now the television weather")).json();
+    expect(alone.ignore).toBe(true);
     const lost = await (await say("I live in Narnia")).json();
     expect(lost.reply).toMatch(/couldn't find Narnia/);
     expect(lost.place).toBeNull();

@@ -26,6 +26,11 @@ export function forgetTerm(f: string): string | null {
   if (t.length < 3 || FORGET_STOPWORDS.has(t.toLowerCase())) return null;
   return t;
 }
+/** Words plainly said to Biscuit: his name, a question, "you", a request or a greeting at the start. */
+export function addressed(words: string): boolean {
+  const t = (words || "").trim();
+  return /\bbiscuit\b|\byou\b|\byour\b|\?\s*$/i.test(t) || /^(what|how|can|could|would|do|does|did|is|are|was|were|when|where|why|who|which|tell|remind|read|show|please|hey|hi|hello|good (morning|afternoon|evening)|i |i'm|my )/i.test(t);
+}
 const weatherCache = new Map<string, { at: number; line: string | null }>();
 const clockIn = (d: Date, tz: string) => new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", minute: "2-digit" }).format(d);
 
@@ -65,9 +70,14 @@ export function companionRoutes(deps: { auth: MiddlewareHandler<AuthVars>; event
       const mail = seen && localParts(seen.at, tz).day === localParts(now, tz).day ? `the mail came at ${clockIn(seen.at, tz)}` : null;
       const context: CompanionContext = { called: h.called, nowLocal, memories: mems.map((m) => ({ topic: m.topic, fact: m.fact })), weather: weatherNow, papers, mail, reminders: rems.map((r) => ({ label: r.label, time: mailTimeLabel(r.minutes) })) };
       let turn = await talk({ messages, context });
-      // Words with his name in them are for Biscuit, whatever the model decided: silence to "Biscuit, ..." is the worst answer.
+      // The model may call words "not for Biscuit" too readily. Words with his name, a question, words said to "you", or any
+      // words inside a conversation already going are his: he is asked once more and must answer. Only third-person talk with
+      // no conversation open stays ignored.
       const lastWords = messages.length && messages[messages.length - 1].role === "user" ? messages[messages.length - 1].content : "";
-      if (turn.ignore && /\bbiscuit\b/i.test(lastWords)) turn = { ...turn, ignore: false, reply: FALLBACK_REPLY };
+      if (turn.ignore && (addressed(lastWords) || messages.some((m) => m.role === "assistant"))) {
+        turn = await talk({ messages, context: { ...context, mustAnswer: true } });
+        if (turn.ignore) turn = { ...turn, ignore: false, reply: FALLBACK_REPLY };
+      }
       let reply = turn.reply;
       if (turn.ignore) return c.json({ reply: "", action: "none", ignore: true, remembered: [], forgot: [], reminder: null, place: null });
       const remembered: string[] = [];

@@ -78,3 +78,9 @@ test("the dose guard leaves ordinary replies alone", () => {
   expect(normalizeCompanion({ reply: "Two tablets every four hours." }).reply).toMatch(/pharmacist or doctor/);
   expect(normalizeCompanion({ reply: "Noted.", reminder: { label: "400 mg", time: "8:00 AM" } }).reminder?.label).toBe("medicine");
 });
+
+test("the prompt tells Biscuit to answer when the words were judged his after all", () => {
+  const ctx = { called: "Rosa", nowLocal: "Friday 3:00 PM", memories: [], weather: null, papers: null, mail: null, reminders: [] };
+  expect(systemPrompt(ctx)).not.toMatch(/These words are for you/);
+  expect(systemPrompt({ ...ctx, mustAnswer: true })).toMatch(/These words are for you\. Answer them; ignore must be false\./);
+});

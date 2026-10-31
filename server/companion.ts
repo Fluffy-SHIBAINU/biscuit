@@ -5,7 +5,7 @@ import { MODEL, REASONING_EFFORT, messageContent, sparkChat, type ChatTransport 
 import { parseTime } from "./reminders.js";
 
 export type Memory = { topic: string; fact: string };
-export type CompanionContext = { called: string; nowLocal: string; memories: Memory[]; weather: string | null; papers: string | null; mail: string | null; reminders: { label: string; time: string }[] };
+export type CompanionContext = { called: string; nowLocal: string; memories: Memory[]; weather: string | null; papers: string | null; mail: string | null; reminders: { label: string; time: string }[]; mustAnswer?: boolean };
 // Help is Rosa's word (or the Help button), never the model's choice: no "help" action here.
 export const ACTIONS = ["none", "read_letter", "papers", "mail_came", "tell_ana"] as const;
 export type Action = (typeof ACTIONS)[number];
@@ -43,6 +43,7 @@ export function systemPrompt(ctx: CompanionContext): string {
     `Today: ${ctx.nowLocal}. Weather at home: ${ctx.weather ?? "unknown, no home place set"}. Her papers: ${ctx.papers ?? "nothing read yet"}. The mail: ${ctx.mail ?? "not seen today"}.`,
     `What you remember about ${ctx.called}:\n${memories}`,
     `Her reminders:\n${reminders}`,
+    ...(ctx.mustAnswer ? [`These words are for you. Answer them; ignore must be false.`] : []),
     `Answer only in the JSON shape you were given.`,
   ].join("\n\n");
 }

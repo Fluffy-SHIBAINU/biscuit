@@ -5,7 +5,6 @@ import { summaryOf } from "../lib/letters.js";
 import { grabJpeg, openCamera, stopCamera } from "../lib/camera.js";
 import { navigate } from "../lib/navigate.js";
 import { speak, stopSpeaking } from "../lib/speech.js";
-import { earCheck } from "../lib/ear.js";
 import { store } from "../lib/store.js";
 
 export function statusLine(check) {
@@ -57,10 +56,9 @@ export default function Letter() {
     (async () => {
       try {
         stream.current = await openCamera(video.current);
-        // The ear keeps listening here too; if the phone hands the camera over to the microphone, the camera is reopened once.
+        // If the phone takes the camera away (a call, a switch of app), it is reopened once.
         const reopen = async () => { if (!alive) return; try { stream.current = await openCamera(video.current); } catch { /* the frame stays */ } };
         stream.current.getVideoTracks().forEach((t) => { t.onended = reopen; });
-        setTimeout(() => { if (alive) earCheck(); }, 600);
         speak(["Show me the letter! Hold it in the frame and I'll snap it when it's clear."]);
       } catch {
         await speak(["I can't see. Allow the camera for Biscuit and try again."]);

@@ -19,6 +19,8 @@ export default function EarBar() {
   const title = !wanted && !st.earPaused ? "Biscuit Isn't Listening Yet"
     : status === "paused" || st.earPaused ? "Biscuit Is Paused"
     : status === "blocked" ? (earError() === "unsupported" ? "This Phone Can't Hear" : "Biscuit Can't Hear Yet")
+    : status === "asleep" ? "Biscuit Is Asleep"
+    : status === "looking" ? "Biscuit Is Looking at the Letter"
     : status === "held" ? "Biscuit Is Talking"
     : status !== "on" ? "Biscuit Is Waking Up"
     : t.phase === "speaking" || earMuted() ? "Biscuit Is Talking"
@@ -35,6 +37,7 @@ export default function EarBar() {
       <div className="earhead">
         <span className={`eardot ${status === "on" ? (level ? "loud" : "on") : status === "paused" ? "paused" : ""}`} aria-hidden="true" />
         <span className="eartitle">{title}</span>
+        {status === "asleep" && <button type="button" className="btn earbtn" onClick={() => primeSpeech()}>Tap to Wake Him</button>}
         {t.speechBlocked && t.reply && status === "on" && <button type="button" className="btn earbtn" onClick={() => { primeSpeech(); speak([t.reply]); }}>Tap to Hear Him</button>}
         {(status === "paused" || st.earPaused) && <button type="button" className="btn earbtn" onClick={() => resumeEar()}>Listen</button>}
         {!st.earPaused && (!wanted || status === "blocked" || (status === "off" && earError())) && earError() !== "unsupported" && <button type="button" className="btn earbtn" onClick={() => { primeSpeech(); allowEar(); }}>Let Me Hear</button>}

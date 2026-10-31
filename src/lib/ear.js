@@ -169,7 +169,7 @@ function lost(why) {
 }
 function scheduleRetry() {
   if (live.retry) return;
-  live.retry = setTimeout(() => { live.retry = null; if (earWanted() && document.visibilityState === "visible" && live.status !== "on") startEar().then((s) => { if (s !== "on" && s !== "blocked") scheduleRetry(); }); }, 3000);
+  live.retry = setTimeout(() => { live.retry = null; if (earWanted() && awake && !cameraOpen() && document.visibilityState === "visible" && live.status !== "on") startEar().then((s) => { if (s !== "on" && s !== "blocked") scheduleRetry(); }); }, 3000);
 }
 
 export function stopEar() { startGen++; teardown(); live.status = "off"; live.level = 0; notify(); }
@@ -187,12 +187,12 @@ export function holdEar() {
 export async function unholdEar() {
   if (!held) return;
   held = false;
-  if (live.status === "held") { live.status = "off"; await startEar(); }
+  if (live.status === "held") { live.status = "off"; earCheck(); }
 }
 export function pauseEar() { store.set({ earPaused: true }); held = false; stopEar(); live.status = "paused"; notify(); }
 export function resumeEar() { store.set({ earPaused: false }); return startEar(); }
 /** Rosa's tap on Let Me Hear: her yes to the ear on this phone, and the gesture the phone may need to open the microphone. */
-export function allowEar() { store.set({ earPaused: false, earAllowedAt: store.get().earAllowedAt || new Date().toISOString() }); live.status = "off"; live.error = null; return startEar(); }
+export function allowEar() { store.set({ earPaused: false, earAllowedAt: store.get().earAllowedAt || new Date().toISOString() }); live.status = "off"; live.error = null; awake = true; return startEar(); }
 export const earRunning = () => live.status === "on";
 
 /** A screen's turn to hear: the next utterance, else quiet after maxMs. The onLevel callback follows the sound meter. */
@@ -205,6 +205,15 @@ export function hearNext({ maxMs = 6000, onLevel } = {}) {
 export function releaseEar() { core.release(); }
 
 let wired = false;
+// After a reload the phone plays no sound until it has been tapped once, so hearing Rosa before that tap would only
+// produce silent answers: the ear sleeps until the first tap anywhere (speech.js's primeSpeech calls wakeEar).
+let awake = false;
+export const earAwake = () => awake;
+export function wakeEar() { awake = true; earCheck(); }
+// While the letter camera is open the ear steps aside: on an iPhone a microphone opening and closing beside a camera
+// capture leaves the sound routed wrong for the rest of the visit. The camera page speaks its own guidance.
+const cameraOpen = () => typeof window !== "undefined" && window.location.pathname === "/letter";
+
 /** Opens or closes the ear to match what is wanted right now; safe to call often (each screen change, each store change). */
 export function earCheck() {
   if (typeof document === "undefined") return;
@@ -213,6 +222,9 @@ export function earCheck() {
     if (store.get().earPaused && live.status !== "paused") { live.status = "paused"; notify(); }
     return;
   }
+  if (!awake) { if (live.status === "on" || live.status === "starting") stopEar(); if (live.status !== "asleep") { live.status = "asleep"; notify(); } return; }
+  if (cameraOpen()) { if (live.status === "on" || live.status === "starting") stopEar(); if (live.status !== "looking") { live.status = "looking"; notify(); } return; }
+  if (live.status === "asleep" || live.status === "looking") live.status = "off";
   if (document.visibilityState === "visible" && live.status !== "on" && live.status !== "starting" && live.status !== "blocked" && live.status !== "held") startEar();
 }
 /** Keeps the ear open whenever it is wanted and the app is visible; closes it while the app is hidden. Idempotent. */
