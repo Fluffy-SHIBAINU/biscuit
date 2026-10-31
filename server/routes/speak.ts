@@ -11,6 +11,13 @@ export const DEFAULT_GEMINI_TTS_VOICE = "Fenrir";
 export const TTS_TIMEOUT_MS = 20_000;
 export const DEFAULT_GEMINI_TTS_MODEL = "gemini-3.8-flash-tts";
 export const DEFAULT_TTS_STYLE = "Say this as a cheerful, warm, quick helper, a friendly border collie of a voice, clear for an older listener, at a moderate pace:";
+// Gemini 3 text-to-speech reads a sentence of instruction aloud (ten seconds of it before every line, measured October 31);
+// it takes its style as a short bracketed tag instead.
+export const DEFAULT_TTS_TAG = "cheerful, warm, quick, friendly, clear for an older listener, moderate pace";
+export function styledText(model: string, text: string, style?: string): string {
+  if (/^gemini-3/i.test(model)) { const tag = (style || DEFAULT_TTS_TAG).replace(/^\[|\]$/g, ""); return `[${tag}] ${text}`; }
+  return `${style || DEFAULT_TTS_STYLE} ${text}`;
+}
 const LINE_CACHE_MAX = 300;
 
 /**
@@ -50,9 +57,9 @@ export function speakRoutes(deps: { auth: MiddlewareHandler<AuthVars>; env?: Rec
       const authorization = provider === "openai"
         ? (key ? `Bearer ${key}` : basic ? `Basic ${Buffer.from(basic).toString("base64")}` : "")
         : (key ? `Api-Key ${key}` : basic ? `Basic ${Buffer.from(basic).toString("base64")}` : "");
-      const style = env.TTS_STYLE?.trim() || DEFAULT_TTS_STYLE;
+      const style = env.TTS_STYLE?.trim() || "";
       const body = provider === "gemini"
-        ? { contents: [{ parts: [{ text: `${style} ${text}` }] }], generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } } }
+        ? { contents: [{ parts: [{ text: styledText(env.TTS_MODEL?.trim() || DEFAULT_GEMINI_TTS_MODEL, text, style) }] }], generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } } }
         : provider === "openai"
           ? { model: env.TTS_MODEL?.trim() || "tts-1", input: text, voice, response_format: "wav", speed }
           : { text, voice, speed };

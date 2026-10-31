@@ -155,3 +155,17 @@ test("the gemini provider passes a WAV answer through untouched", async () => {
   expect(out.readUInt32LE(40)).toBe(4);
   expect(out.readInt16LE(44)).toBe(1234);
 });
+
+// Gemini 3 text-to-speech reads a sentence of instruction aloud; it takes its style as a bracketed tag instead. The 2.5
+// preview takes the spoken instruction.
+test("the style goes to Gemini 3 as a bracket tag, and to the 2.5 preview as a sentence", async () => {
+  const calls: any[] = [];
+  const pcm = Buffer.alloc(4);
+  const fetcher = (async (url: string, init: any) => { calls.push({ url, init }); return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: "audio/L16;codec=pcm;rate=24000", data: pcm.toString("base64") } }] } }] }), { status: 200, headers: { "content-type": "application/json" } }); }) as any;
+  const three = createApp({ lookup: linked, ttsEnv: { TTS_PROVIDER: "gemini", TTS_API_KEY: "g1", TTS_MODEL: "gemini-3.8-flash-tts" }, ttsFetch: fetcher });
+  await three.request("/api/biscuit/speak", { method: "POST", headers, body: JSON.stringify({ text: "Hello, Rosa." }) });
+  expect(JSON.parse(calls[0].init.body).contents[0].parts[0].text).toMatch(/^\[[^\]]*cheerful[^\]]*\] Hello, Rosa\.$/);
+  const two = createApp({ lookup: linked, ttsEnv: { TTS_PROVIDER: "gemini", TTS_API_KEY: "g1", TTS_MODEL: "gemini-2.5-flash-preview-tts" }, ttsFetch: fetcher });
+  await two.request("/api/biscuit/speak", { method: "POST", headers, body: JSON.stringify({ text: "Hello, Rosa." }) });
+  expect(JSON.parse(calls[1].init.body).contents[0].parts[0].text).toMatch(/^Say this as .*: Hello, Rosa\.$/);
+});
