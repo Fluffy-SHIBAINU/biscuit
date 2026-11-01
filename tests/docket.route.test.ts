@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { createApp } from "../server/app.js";
 import { getDb } from "../server/db.js";
 import { device, event, household, letter } from "../server/schema.js";
@@ -44,6 +44,20 @@ describe.skipIf(!process.env.DATABASE_URL)("docket, letters, handoff, events", (
     const docket = await (await req("/api/biscuit/docket")).json();
     expect(docket.letters[0].status).toBe("handoff");
     expect(docket.waiting[0].id).toBe(row.id);
+  });
+
+  // Rosa corrects a field on the reading page: the row takes her words, and Ana's page learns a field was edited.
+  test("a field Rosa edits reaches the letter row", async () => {
+    const [row] = await getDb().select().from(letter).where(eq(letter.householdId, householdId));
+    const res = await req(`/api/biscuit/letter/${row.id}`, { method: "PATCH", body: JSON.stringify({ edits: { sender: "Mass General Brigham", amountCents: 12345, dueOn: "2026-12-01", statementOn: "nonsense", bogus: "x" } }) });
+    expect(res.status).toBe(200);
+    const [after] = await getDb().select().from(letter).where(eq(letter.id, row.id));
+    expect(after.sender).toBe("Mass General Brigham");
+    expect(after.amountCents).toBe(12345);
+    expect(String(after.dueOn)).toMatch(/^2026-12-01/);
+    expect(after.statementOn).toBe(row.statementOn);
+    const edited = await getDb().select().from(event).where(and(eq(event.householdId, householdId), eq(event.kind, "letter_edited")));
+    expect((edited[0].data as any).fields.sort()).toEqual(["amountCents", "dueOn", "sender"]);
   });
 
   test("a tossed letter and a hidden letter", async () => {

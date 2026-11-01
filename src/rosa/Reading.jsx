@@ -1,88 +1,74 @@
 import React, { useEffect, useRef, useState } from "react";
 import Dog from "../components/Dog.jsx";
-import { patchLetter, postEvent, postLetter, transcribe } from "../lib/api.js";
-import { readOnceLine, summaryOf } from "../lib/letters.js";
+import { patchLetter, postLetter } from "../lib/api.js";
+import { cents, isoDate, summaryOf } from "../lib/letters.js";
 import { navigate } from "../lib/navigate.js";
-import { listen, speak, speakAndKeep, stopSpeaking } from "../lib/speech.js";
+import { speakAndKeep, stopSpeaking } from "../lib/speech.js";
 import { releaseEar } from "../lib/ear.js";
-import { handleVoiceCommand } from "../lib/commands.js";
 import { askChoices, cancelChoices } from "../lib/hear.js";
-import { saidMine, saidWrong } from "../lib/talk.js";
+import { saidMine } from "../lib/talk.js";
 import { store, useStore } from "../lib/store.js";
 
-export const FIELD_LABEL = { sender: "From", hospital_name: "Hospital", amount_due: "Amount Due", statement_date: "Statement Date", due_date: "Due Date", financial_assistance: "Financial Assistance", phone_numbers: "Phone number", account_last4: "Account" };
-const READ_PILL = { twice: ["ok", "Read twice ✓"], once: ["warn", "Read once"] };
+export const FIELD_LABEL = { addressee: "Addressed To", sender: "From", hospital_name: "Hospital", amount_due: "Amount Due", statement_date: "Statement Date", due_date: "Due Date", financial_assistance: "Financial Assistance", phone_numbers: "Phone Number", account_last4: "Account" };
 
-/** One fact row: the value over its quote, and what the two readers made of it. */
-export function Fact({ f, readBy }) {
-  const label = FIELD_LABEL[f.field] || f.field;
-  if (!f.verified) return <div className="fact unverified"><span className="label plain">{label}</span><strong>{f.value}</strong><span className="label plain">Unverified, Not Spoken</span></div>;
-  if (f.agreement === "differ") {
-    return (
-      <div className="fact differ">
-        <span className="label plain">{label}</span>
-        <strong>Not said aloud</strong>
-        <span className="row wrap"><span className="pill warn">Differ</span><span className="seen">Read two ways: <span className="quote"><span className="mark">“{f.quote}”</span></span> and <span className="quote"><span className="mark">“{f.other?.quote}”</span></span>. Ana will check.</span></span>
-      </div>
-    );
-  }
+/** What the letter row on the server takes from an edited field, when it takes anything. */
+export function editFor(field, value) {
+  if (field === "sender") return value.trim() ? { sender: value.trim() } : null;
+  if (field === "amount_due") { const c = cents(value); return c === null ? null : { amountCents: c }; }
+  if (field === "due_date") { const d = isoDate(value); return d ? { dueOn: d } : null; }
+  if (field === "statement_date") { const d = isoDate(value); return d ? { statementOn: d } : null; }
+  return null;
+}
+
+/** One field of the letter: its name, its value in a box Rosa can correct, the line it came from underneath. */
+export function Fact({ f, onEdit }) {
+  const [draft, setDraft] = useState(f.value ?? "");
+  useEffect(() => { setDraft(f.value ?? ""); }, [f.value]);
+  const commit = () => { if (draft.trim() !== (f.value ?? "")) onEdit(draft.trim()); };
   return (
     <div className="fact">
-      <span className="label plain">{label}</span>
-      <strong>{f.value}</strong>
-      <span className="quote"><span className="mark">“{f.quote}”</span></span>
-      {f.agreement === "agreed" && <span className="agree">Both readers: the same line</span>}
-      {f.agreement === "once" && readBy === "twice" && <span className="seen">One reader saw this · not said</span>}
+      <span className="label plain">{FIELD_LABEL[f.field] || f.field}</span>
+      <input className="field" value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} aria-label={FIELD_LABEL[f.field] || f.field} />
+      {f.quote && <span className="quote"><span className="mark">“{f.quote}”</span></span>}
     </div>
   );
+}
+
+/** Whose name is on it, from the reading; else the one this phone belongs to. */
+export function addressedTo(r, called) {
+  const a = (r?.facts || []).find((f) => f.field === "addressee" && f.value);
+  return a ? a.value : called;
 }
 
 export default function Reading() {
   const s = useStore();
   const r = s.lastReading;
   const alive = useRef(true);
-  const [asked, setAsked] = useState(false);
+  const name = s.household?.called || "Rosa";
+  const title = `This is addressed to ${addressedTo(r, name)}.`;
 
-  /** Rosa overrules "not to you": the letter becomes hers, the reading plays, and the full summary goes to Ana's page. */
+  /** Rosa overrules "not to you": the letter becomes hers, and the full summary goes to Ana's page. */
   function claimAsMine() {
     if (!r?.mine) return;
     stopSpeaking();
     const entry = { ...r, mismatch: false, status: "read", needsReview: false, lines: r.mine.lines, offerLines: r.mine.offerLines };
     store.set((st) => ({ docket: st.docket.map((l) => (l.id === r.id ? { ...l, ...entry } : l)), lastReading: entry }));
     if (store.get().household?.shareLetters !== false) postLetter(summaryOf(entry)).catch(() => {});
-    setAsked(false);
   }
 
-  /** After the reading: "Did I get anything wrong?" A complaint becomes a note for Ana and a mark on the letter; a no, or silence, goes on. */
-  async function askIfWrong() {
-    if (!alive.current) return;
-    setAsked(true);
-    const key = await askChoices({ lines: ["Did I get anything wrong?"], alive: () => alive.current, options: [
-      { key: "yes", say: "yes", match: (t) => saidWrong(t) },
-      { key: "no", say: "no", match: (t) => /^\s*(no|nope|nothing|no thanks|all good|that's right|fine|it's right|correct)\b/i.test(t) },
-    ] });
-    if (!alive.current || key === null) return;
-    try {
-      if (key === "yes") {
-        await speak(["Tell me what, and I'll pass it to Ana."]);
-        const second = await listen();
-        if (second.displaced) return;
-        const words = second.spoke ? await transcribe(second.blob) : "";
-        if (!alive.current || handleVoiceCommand(words)) return;
-        const note = words.trim() ? `About the letter from ${r.sender || "a sender"}: ${words.trim()}` : `The reading of the letter from ${r.sender || "a sender"} was wrong.`;
-        postEvent("rosa_said", { text: note.slice(0, 300) }).catch(() => {});
-        patchLetter(r.id, { needsReview: true }).catch(() => {});
-        store.set((st) => ({ docket: st.docket.map((l) => (l.id === r.id ? { ...l, needsReview: true } : l)) }));
-        await speak(["I've told Ana to check it."]);
-      }
-      if (alive.current) navigate("/question");
-    } catch { /* the buttons remain */ }
+  /** A corrected field: this phone keeps her words as the value (spoken from now on), and the server row takes what it can. */
+  function edit(field, value) {
+    const facts = (r.facts || []).map((f) => (f.field === field ? { ...f, value, verified: true, spoken: true, edited: true } : f));
+    const entry = { ...r, facts, sender: field === "sender" ? value : r.sender };
+    store.set((st) => ({ docket: st.docket.map((l) => (l.id === r.id ? { ...l, ...entry } : l)), lastReading: entry }));
+    const edits = editFor(field, value);
+    if (edits && !r.mismatch) patchLetter(r.id, { edits }).catch(() => {});
   }
 
   /** On "not to you": Rosa can say it's mine. */
   async function askIfMine() {
     if (!alive.current) return;
-    const key = await askChoices({ lines: ["Is this letter yours?"], alive: () => alive.current, options: [
+    const key = await askChoices({ lines: [], alive: () => alive.current, options: [
       { key: "mine", say: "it's mine", match: (t) => saidMine(t) },
       { key: "notMine", say: "not mine", match: (t) => /\b(not mine|no|someone else|not me)\b/i.test(t) },
     ] });
@@ -94,40 +80,30 @@ export default function Reading() {
   useEffect(() => {
     alive.current = true;
     (async () => {
-      if (r?.lines?.length) await speakAndKeep(r.lines);
-      if (!alive.current || !r) return;
-      if (r.mismatch) await askIfMine(); else if (!asked) await askIfWrong();
+      if (!r) return;
+      await speakAndKeep([title]);
+      if (!alive.current) return;
+      if (r.mismatch) await askIfMine();
     })();
     return () => { alive.current = false; stopSpeaking(); cancelChoices(); releaseEar(); };
   }, [r?.id, r?.mismatch]);
 
   if (!r) { navigate("/"); return null; }
-  const pill = READ_PILL[r.readBy];
+  const facts = (r.facts || []).filter((f) => f.field !== "addressee");
+  // Read two ways: the value shown is the primary reader's, the more confident of the two.
   return (
     <main className="screen">
-      <div className="row between"><span className="row"><span className="label">Biscuit Reads It</span>{pill && <span className={`pill ${pill[0]}`}>{pill[1]}</span>}</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); stopSpeaking(); navigate("/"); }}>Stop</a></div>
-      <div className="row"><Dog size={56} /><h1 className="display small">{r.lines?.[0] || "Here's what it says."}</h1></div>
-      {r.readBy === "once" && (
-        <section className="card">
-          <span className="label">Read Once</span>
-          <p className="lead small">{readOnceLine(r.readers)}</p>
-        </section>
-      )}
-      <section className="card">
-        <span className="label">What Biscuit Says</span>
-        {(r.lines || []).map((line, i) => <p key={i} className="lead small">{line}</p>)}
-      </section>
-      {!r.mismatch && (
+      <div className="row between"><span className="label">Biscuit Reads It</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); cancelChoices(); stopSpeaking(); navigate("/"); }}>Home</a></div>
+      <div className="row"><Dog size={56} /><h1 className="display small">{title}</h1></div>
+      {!r.mismatch && facts.length > 0 && (
         <section className="card facts">
-          <span className="label">Each Fact, Over Its Quote</span>
-          {(r.facts || []).map((f, i) => <Fact key={i} f={f} readBy={r.readBy} />)}
+          <span className="label">The Letter Says:</span>
+          {facts.map((f) => <Fact key={f.field} f={f} onEdit={(v) => edit(f.field, v)} />)}
         </section>
       )}
       <div className="spacer" />
       {r.mismatch && r.mine && <button type="button" className="btn big" onClick={() => { cancelChoices(); claimAsMine(); }}>It's Mine, Read It</button>}
-      <button type="button" className={`btn ${r.mismatch ? "secondary" : "big"}`} onClick={() => { cancelChoices(); stopSpeaking(); navigate(r.mismatch ? "/docket" : "/question"); }}>{r.mismatch ? "All Right" : "Go On"}</button>
-      {!r.mismatch && <button type="button" className="btn secondary" onClick={() => { cancelChoices(); stopSpeaking(); askIfWrong(); }}>Something's Wrong</button>}
-      <button type="button" className="btn secondary" onClick={() => { cancelChoices(); stopSpeaking(); navigate("/"); }}>Done</button>
+      <button type="button" className={`btn ${r.mismatch ? "secondary" : "big"}`} onClick={() => { cancelChoices(); stopSpeaking(); navigate(r.mismatch ? "/docket" : "/question"); }}>{r.mismatch ? "All Right" : "Next"}</button>
     </main>
   );
 }

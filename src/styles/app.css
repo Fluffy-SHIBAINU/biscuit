@@ -148,3 +148,7 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .mail { background: var(--sheet); border: 2px solid var(--rule-strong); border-radius: var(--r-sheet); padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
 .mail-from { font-size: 22px; }
 .btn.secondary.small { height: 60px; font-size: 19px; }
+
+/* A letter's field, in a box Rosa can correct. */
+.fact .field { width: 100%; height: 56px; border: 1.5px solid var(--rule-strong); border-radius: var(--r-btn); background: var(--sheet); padding: 0 14px; font: 500 22px/1 var(--ui); color: var(--ink); }
+.fact .field:focus { outline: 3px solid var(--signal); outline-offset: 1px; }

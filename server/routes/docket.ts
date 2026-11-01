@@ -54,8 +54,17 @@ export function docketRoutes(deps: { auth: MiddlewareHandler<AuthVars>; events: 
       else if (STATUSES.includes(b.status)) set.status = b.status;
       if (b.answers && typeof b.answers === "object") set.answers = b.answers;
       if (typeof b.needsReview === "boolean") set.needsReview = b.needsReview;
+      // Rosa corrected a field on the reading page: her words replace the reader's; the names of the fields are recorded for Ana.
+      const edited: string[] = [];
+      if (b.edits && typeof b.edits === "object") {
+        const e = b.edits;
+        if (typeof e.sender === "string" && e.sender.trim()) { set.sender = e.sender.trim().slice(0, 120); edited.push("sender"); }
+        if (Number.isInteger(e.amountCents) && e.amountCents >= 0 && e.amountCents < 1e9) { set.amountCents = e.amountCents; edited.push("amountCents"); }
+        for (const k of ["statementOn", "dueOn"] as const) if (typeof e[k] === "string" && /^\d{4}-\d{2}-\d{2}$/.test(e[k]) && !Number.isNaN(Date.parse(e[k]))) { set[k] = e[k]; edited.push(k); }
+      }
       if (!Object.keys(set).length) return c.json({ error: "nothing_to_change" }, 400);
       const rows = await getDb().update(letter).set(set).where(and(eq(letter.id, c.req.param("id")), eq(letter.householdId, c.var.household.id))).returning({ id: letter.id });
+      if (rows.length && edited.length) await deps.events.record(c.var.household.id, c.var.device.id, "letter_edited", { letterId: rows[0].id, fields: edited });
       return rows.length ? c.json({ id: rows[0].id }) : c.json({ error: "not_found" }, 404);
     })
     .post("/handoff", deps.auth, async (c) => {

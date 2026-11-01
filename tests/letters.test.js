@@ -62,3 +62,15 @@ test("summaryOf a letter that is not Rosa's keeps no sender, amount, dates or qu
   const sum = summaryOf({ id: "y", readAt: "2026-10-30T15:00:00Z", kind: "bill", sender: "Aurora Medical Center", hospital: { ccn: "520102" }, status: "not_mine", needsReview: true, facts: [{ field: "amount_due", value: "$240.00", quote: "Amount Due: $240.00", verified: true }, { field: "addressee", value: "Sangful Yoon", quote: "Sangful Yoon", verified: true }] });
   expect(sum).toEqual({ id: "y", readAt: "2026-10-30T15:00:00Z", kind: "bill", status: "not_mine", needsReview: true });
 });
+
+import { addressedTo, editFor } from "../src/rosa/Reading.jsx";
+// The reading page: the title names who the letter is for, and an edited field reaches the server row only as a value it can take.
+test("addressedTo and editFor", () => {
+  expect(addressedTo({ facts: [{ field: "addressee", value: "Sangful Yoon" }] }, "Rosa")).toBe("Sangful Yoon");
+  expect(addressedTo({ facts: [] }, "Rosa")).toBe("Rosa");
+  expect(editFor("sender", " Mass General ")).toEqual({ sender: "Mass General" });
+  expect(editFor("amount_due", "$1,234.50")).toEqual({ amountCents: 123450 });
+  expect(editFor("due_date", "12/1/2026")).toEqual({ dueOn: "2026-12-01" });
+  expect(editFor("due_date", "soon")).toBeNull();
+  expect(editFor("hospital_name", "x")).toBeNull();
+});
