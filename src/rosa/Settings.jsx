@@ -50,7 +50,7 @@ export default function Settings() {
       <div className="spacer" />
       {!arm ? <button type="button" className="btn danger" onClick={() => { setArm(true); speak(["Delete everything? This cannot be undone. Tap Yes, delete, or say nothing."]); }}>Delete Everything</button>
         : <><button type="button" className="btn danger" disabled={busy} onClick={wipe}>Yes, Delete</button><button type="button" className="btn secondary" onClick={() => setArm(false)}>Keep It</button></>}
-      <p className="foot">Delete removes everything Biscuit kept, here and on Ana's page.</p>
+      <p className="foot">Delete removes everything Biscuit kept, here and on Ana's page. <a href="/diagnostics" className="link" onClick={(e) => { e.preventDefault(); navigate("/diagnostics"); }}>Diagnostics</a></p>
     </main>
   );
 }

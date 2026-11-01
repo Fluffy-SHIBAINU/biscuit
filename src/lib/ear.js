@@ -4,6 +4,7 @@
 // the sound leaves the phone only as one clip for the words, never stored. Rosa can pause the ear; a tap wakes it.
 import { downsample, encodeWav, isSilent } from "./audio.js";
 import { store } from "./store.js";
+import { diag } from "./diag.js";
 
 /** Cuts a stream of audio frames into utterances: speech, then quiet; blips are dropped; very long ones are cut. */
 export class Segmenter {
@@ -93,7 +94,8 @@ export class EarCore {
 // The live ear on the phone: one microphone stream, one audio graph, the segmenter and the core above.
 const live = { status: "off", error: null, stream: null, ctx: null, node: null, source: null, seg: null, retry: null, level: 0 };
 const watchers = new Set();
-const notify = () => watchers.forEach((w) => w());
+let lastStatus = "";
+const notify = () => { if (live.status !== lastStatus) { lastStatus = live.status; diag("ear", live.status + (live.error ? ` (${live.error})` : "")); } watchers.forEach((w) => w()); };
 export const core = new EarCore({ onChange: notify });
 export const earMuted = () => core.isMuted();
 export function subscribeEar(fn) { watchers.add(fn); return () => watchers.delete(fn); }

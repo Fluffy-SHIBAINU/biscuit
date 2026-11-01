@@ -7,6 +7,7 @@ import { navigate } from "./navigate.js";
 import { speak } from "./speech.js";
 import { intentOf } from "./talk.js";
 import { talkState } from "./talkState.js";
+import { diag } from "./diag.js";
 
 export const HISTORY_MAX = 12;
 export const HISTORY_IDLE_MS = 10 * 60_000;
@@ -65,7 +66,9 @@ export async function onUtterance({ blob, spoke }) {
     try { text = await withTimeout(transcribe(blob), TRANSCRIBE_TIMEOUT_MS); } catch (err) { talkState.set({ phase: "idle", note: err?.message === "timeout" ? "The words took too long to come back." : "I couldn't reach my ears on the server." }); return; }
     if (!text.trim()) { talkState.set({ phase: "idle", note: "I heard a sound but no words." }); return; }
     talkState.set({ heard: text, phase: "thinking" });
+    diag("heard", text.slice(0, 60));
     const outcome = await routeHeard(text, liveDeps);
+    diag("outcome", outcome);
     talkState.set({ phase: "idle", note: outcome === "ignored" ? "Not for me, I think." : outcome === "error" ? "I lost the thread on the server." : "" });
   } finally { busy = false; }
 }

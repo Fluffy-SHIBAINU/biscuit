@@ -22,6 +22,7 @@ import Consent from "./rosa/Consent.jsx";
 import Siri from "./rosa/Siri.jsx";
 import Done from "./rosa/Done.jsx";
 import Settings from "./rosa/Settings.jsx";
+import Diagnostics from "./rosa/Diagnostics.jsx";
 import { listenToWorker } from "./lib/push.js";
 import EarBar from "./components/EarBar.jsx";
 import { core as ear, earCheck, keepEarOpen } from "./lib/ear.js";
@@ -76,6 +77,7 @@ function route(path, s) {
   if (path === "/setup/siri") return <Siri />;
   if (path === "/setup/done") return <Done />;
   if (path === "/settings") return <Settings />;
+  if (path === "/diagnostics") return <Diagnostics />;
   if (path === "/offer") return <Offer />;
   if (path === "/docket") return <Docket />;
   if (path === "/") return <Home />;

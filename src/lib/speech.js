@@ -3,6 +3,7 @@ import { store } from "./store.js";
 import { pickVoice, sentences } from "./voice.js";
 import { core as ear, earRunning, hearNext, holdEar, unholdEar, wakeEar } from "./ear.js";
 import { talkState } from "./talkState.js";
+import { diag } from "./diag.js";
 
 let current = [];
 let currentAudio = null;
@@ -55,12 +56,13 @@ let primed = false;
 export function primeSpeech() {
   if (primed) return;
   primed = true;
+  diag("prime", "first tap");
   try {
     if ("speechSynthesis" in window) { const u = new SpeechSynthesisUtterance("."); u.volume = 0; u.rate = 2; window.speechSynthesis.speak(u); }
     const a = thePlayer();
-    if (a) { a.src = SILENT_WAV; a.volume = 0; a.play().then(() => { playerUnlocked = true; }).catch(() => {}); }
+    if (a) { a.src = SILENT_WAV; a.volume = 0; a.play().then(() => { playerUnlocked = true; diag("player", "unlocked"); }).catch((e) => diag("player", `locked ${e?.name || e}`)); }
     const ctx = theVoiceCtx();
-    if (ctx) { ctx.resume().catch(() => {}); const src = ctx.createBufferSource(); src.buffer = ctx.createBuffer(1, 1, ctx.sampleRate); src.connect(ctx.destination); src.start(0); }
+    if (ctx) { ctx.resume().then(() => diag("voiceCtx", ctx.state)).catch((e) => diag("voiceCtx", `resume failed ${e?.name || e}`)); const src = ctx.createBufferSource(); src.buffer = ctx.createBuffer(1, 1, ctx.sampleRate); src.connect(ctx.destination); src.start(0); }
   } catch { /* nothing to unlock */ }
   if (talkState.get().speechBlocked) talkState.set({ speechBlocked: false });
   wakeEar();
@@ -85,7 +87,7 @@ async function speakDevice(lines, { rate = 1.0 } = {}) {
     // A phone that has had no tap yet refuses to speak: Chrome says "not-allowed" at once, Safari says nothing. Either way the
     // bar shows what he wanted to say with a button, and that tap unlocks the voice for the rest of the visit.
     let started = false;
-    const blocked = () => { if (started) return; talkState.set({ speechBlocked: true }); try { window.speechSynthesis.cancel(); } catch { /* nothing queued */ } clearTimeout(guard); clearTimeout(silent); resolve(); };
+    const blocked = () => { if (started) return; diag("device", "blocked"); talkState.set({ speechBlocked: true }); try { window.speechSynthesis.cancel(); } catch { /* nothing queued */ } clearTimeout(guard); clearTimeout(silent); resolve(); };
     const silent = setTimeout(() => { if (!started && !window.speechSynthesis.speaking) blocked(); }, 4000);
     const done = () => { clearTimeout(guard); clearTimeout(silent); resolve(); };
     current = pieces.map((text) => {
@@ -95,7 +97,7 @@ async function speakDevice(lines, { rate = 1.0 } = {}) {
       return u;
     });
     const last = current[current.length - 1];
-    current.forEach((u) => { u.onstart = () => { started = true; if (talkState.get().speechBlocked) talkState.set({ speechBlocked: false }); }; });
+    current.forEach((u) => { u.onstart = () => { if (!started) diag("device", "speaking"); started = true; if (talkState.get().speechBlocked) talkState.set({ speechBlocked: false }); }; });
     last.onend = done;
     last.onerror = (e) => (e?.error === "not-allowed" ? blocked() : done());
     current[0].onerror = (e) => { if (e?.error === "not-allowed") blocked(); else if (current.length === 1) done(); };
@@ -120,9 +122,10 @@ async function fetchLine(text) {
 async function playBuffer(blob) {
   const ctx = theVoiceCtx();
   if (!ctx) return false;
-  if (ctx.state !== "running") { await ctx.resume().catch(() => {}); if (ctx.state !== "running") return false; }
+  if (ctx.state !== "running") { await ctx.resume().catch(() => {}); if (ctx.state !== "running") { diag("ctx", `not running: ${ctx.state}`); return false; } }
   let buffer;
-  try { buffer = await ctx.decodeAudioData(await blob.arrayBuffer()); } catch { return false; }
+  try { buffer = await ctx.decodeAudioData(await blob.arrayBuffer()); } catch (e) { diag("ctx", `decode failed ${e?.name || e}`); return false; }
+  diag("ctx", `play ${buffer.duration.toFixed(1)}s`);
   return new Promise((resolve) => {
     const src = ctx.createBufferSource();
     src.buffer = buffer;
@@ -133,7 +136,7 @@ async function playBuffer(blob) {
     // The clip must end on its own within its length plus a second; a context the phone suspended mid-clip would otherwise
     // never fire onended, and the ear would stay held for good.
     const guard = setTimeout(() => { if (currentSource === src) { try { src.stop(); } catch { /* done */ } currentSource = null; } resolve(ctx.state === "running"); }, buffer.duration * 1000 + 1000);
-    src.onended = () => { clearTimeout(guard); if (currentSource === src) currentSource = null; resolve(true); };
+    src.onended = () => { clearTimeout(guard); if (currentSource === src) currentSource = null; diag("ctx", "ended"); resolve(true); };
     try { src.start(0); } catch { clearTimeout(guard); currentSource = null; resolve(false); }
   });
 }
@@ -150,13 +153,13 @@ function playUrl(blob) {
     let guard = null;
     const finish = (ok) => { if (finished) return; finished = true; clearTimeout(guard); if (currentAudio === a) currentAudio = null; a.onended = a.onerror = a.onpause = a.onplaying = null; URL.revokeObjectURL(url); resolve(ok); };
     guard = setTimeout(() => finish(started), 30_000);
-    a.onplaying = () => { started = true; playerUnlocked = true; };
+    a.onplaying = () => { started = true; playerUnlocked = true; diag("player", "playing"); };
     a.onended = () => finish(true);
     a.onerror = () => finish(started);
     a.onpause = () => { if (started) finish(true); };
     a.volume = Math.min(1, 0.8 + 0.1 * (store.get().volumeStep || 0));
     a.src = url;
-    a.play().catch(() => finish(false));
+    a.play().catch((e) => { diag("player", `refused ${e?.name || e}`); finish(false); });
   });
 }
 
@@ -165,7 +168,7 @@ async function speakNeural(lines, opts) {
   let next = fetchLine(lines[0]);
   for (let i = 0; i < lines.length; i++) {
     let blob;
-    try { blob = await next; } catch { await speakDevice(lines.slice(i), opts); return; }
+    try { blob = await next; } catch (e) { diag("fetch", `failed ${e?.name || e?.message || e}`); await speakDevice(lines.slice(i), opts); return; }
     if (i + 1 < lines.length) next = fetchLine(lines[i + 1]);
     if (stoppedAt > startedAt) return;
     // The context first (an iPhone plays it without a tap once a tap has woken it), the audio element second.
@@ -188,6 +191,7 @@ export function speak(lines, opts = {}) {
   // The ear is closed while Biscuit talks, so he never answers himself. Only the newest speech may open it again: one that
   // was cut short by this one settles later, and must not unmute the ear under it.
   const id = ++speakSeq;
+  diag("speak", `${store.get().neuralVoice ? "neural" : "device"} "${lines[0].slice(0, 40)}"`);
   ear.mute(true);
   // When the microphone was just closed, the phone needs a moment to move from recording to playback before the first sound,
   // or a quick (cached) line comes out of the earpiece or not at all.
