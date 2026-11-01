@@ -155,3 +155,18 @@ Screens on it: the questions (yes, no, not sure; a number one to six), the mail 
 the consent (yes or no), the voice check (yes or louder). Words that arrive while the last ones are still being handled
 now wait their turn instead of being dropped. On a phone with its own recognizer, a one-off answer goes through it too,
 so no capture of ours opens.
+
+## Late on October 31
+
+- Biscuit wakes on load and says "Hello! Biscuit here." (no sleep gate; a phone that refuses sound before a tap shows
+  the line with Tap to Hear Him).
+- My Mails replaces Your Papers: letters newest day first under Today, Yesterday or the date, each in its own box with
+  Open and Read the Letter to Me, and by voice ("open two", "read the first one", "open the one from Eversource").
+  Home: Read a New Letter for Me, Show Me My Mails.
+- One sound at a time: each speech carries a token; a line fetched for an older speech is dropped when it arrives late.
+- Voice actions off for now (`ACT_ON_VOICE` in `hear.js`): on his own word Biscuit only replies; nothing moves, nothing
+  goes out; a screen's own choices, stop, help and pause still work. The founder: "stop all voice actions, only let
+  users hear for now."
+- Mute in Settings: the words show on the bar, the flow goes on, no sound. The lowest iPhone volume was still loud.
+
+Confirmed on the founder's iPhone: hello on load, choices picked by voice, one sound at a time ("Yes, clean").
