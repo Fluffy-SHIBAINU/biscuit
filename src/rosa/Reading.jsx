@@ -7,6 +7,8 @@ import { speakAndKeep, stopSpeaking } from "../lib/speech.js";
 import { releaseEar } from "../lib/ear.js";
 import { askChoices, cancelChoices } from "../lib/hear.js";
 import { saidMine } from "../lib/talk.js";
+import { sameName } from "../lib/names.js";
+import { speak } from "../lib/speech.js";
 import { store, useStore } from "../lib/store.js";
 
 export const FIELD_LABEL = { addressee: "Addressed To", sender: "From", hospital_name: "Hospital", amount_due: "Amount Due", statement_date: "Statement Date", due_date: "Due Date", financial_assistance: "Financial Assistance", phone_numbers: "Phone Number", account_last4: "Account" };
@@ -21,7 +23,7 @@ export function editFor(field, value) {
 }
 
 /** One field of the letter: its name, its value in a box Rosa can correct, the line it came from underneath. */
-export function Fact({ f, onEdit }) {
+export function Fact({ f, onEdit, extra = null }) {
   const [draft, setDraft] = useState(f.value ?? "");
   useEffect(() => { setDraft(f.value ?? ""); }, [f.value]);
   const commit = () => { if (draft.trim() !== (f.value ?? "")) onEdit(draft.trim()); };
@@ -30,6 +32,7 @@ export function Fact({ f, onEdit }) {
       <span className="label plain">{FIELD_LABEL[f.field] || f.field}</span>
       <input className="field" value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} aria-label={FIELD_LABEL[f.field] || f.field} />
       {f.quote && <span className="quote"><span className="mark">“{f.quote}”</span></span>}
+      {extra}
     </div>
   );
 }
@@ -67,10 +70,22 @@ export default function Reading() {
   function edit(field, value) {
     const have = (r.facts || []).some((f) => f.field === field);
     const facts = have ? (r.facts || []).map((f) => (f.field === field ? { ...f, value, verified: true, spoken: true, edited: true } : f)) : [{ field, value, quote: "", verified: true, spoken: true, edited: true }, ...(r.facts || [])];
-    const entry = { ...r, facts, sender: field === "sender" ? value : r.sender };
+    let entry = { ...r, facts, sender: field === "sender" ? value : r.sender };
+    // The name on it changed: is it hers? Hers makes the letter hers (read in full, shared with Ana); another's makes it someone else's.
+    if (field === "addressee") {
+      const mine = sameName(value, name);
+      if (mine && r.mismatch) entry = { ...entry, mismatch: false, status: "read", needsReview: false, lines: r.mine?.lines || r.lines, offerLines: r.mine?.offerLines || r.offerLines };
+      if (!mine && !r.mismatch) entry = { ...entry, mismatch: true, status: "not_mine", needsReview: true, mine: r.mine || { lines: r.lines, offerLines: r.offerLines } };
+    }
     store.set((st) => ({ docket: st.docket.map((l) => (l.id === r.id ? { ...l, ...entry } : l)), lastReading: entry }));
+    if (field === "addressee" && entry.mismatch !== r.mismatch) {
+      cancelChoices(); stopSpeaking();
+      if (store.get().household?.shareLetters !== false) postLetter(summaryOf(entry)).catch(() => {});
+      speak([entry.mismatch ? `Not yours, then. ${titleOf(entry, name)}` : "Yours, then. I'll read it."]);
+      return;
+    }
     const edits = editFor(field, value);
-    if (edits && !r.mismatch) patchLetter(r.id, { edits }).catch(() => {});
+    if (edits && !entry.mismatch) patchLetter(r.id, { edits }).catch(() => {});
   }
 
   /** On "not to you": Rosa can say it's mine. */
@@ -104,10 +119,10 @@ export default function Reading() {
     <main className="screen">
       <div className="row between"><span className="label">Biscuit Reads It</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); cancelChoices(); stopSpeaking(); navigate("/"); }}>Home</a></div>
       <div className="row"><Dog size={56} /><h1 className="display small">{title}</h1></div>
-      {!r.mismatch && facts.length > 0 && (
+      {facts.length > 0 && (
         <section className="card facts">
           <span className="label">The Letter Says:</span>
-          {facts.map((f) => <Fact key={f.field} f={f} onEdit={(v) => edit(f.field, v)} />)}
+          {facts.map((f) => <Fact key={f.field} f={f} onEdit={(v) => edit(f.field, v)} extra={f.field === "addressee" && !sameName(f.value, name) ? <button type="button" className="btn secondary small" onClick={() => edit("addressee", name)}>This Is Addressed to Me</button> : null} />)}
         </section>
       )}
       <div className="spacer" />
