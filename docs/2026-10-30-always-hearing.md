@@ -120,3 +120,21 @@ seconds, and a desktop browser played the clip, so the key was never the problem
    element the same tap unlocked, then through the phone's own voice; the bar offers Tap to Hear Him when all else fails.
 
 Confirmed on the founder's phone: Fenrir speaks, by himself, after one tap per visit.
+
+## The iPhone, and how Biscuit hears there (October 31, afternoon)
+
+The founder's observations settled it: on the camera page, with the ear off, Biscuit's voice was full; the moment the
+ear came back the volume fell; a reading was silent until the sound arrived mid-sentence. An iPhone routes playback to
+the earpiece while a web page holds a microphone capture, and switches route as the capture opens and closes. Holding
+the capture for the length of each sentence (the earlier fix) only moved the switch into the sentence.
+
+So the ear has two ways to hear. **Recognition**: the phone's own `SpeechRecognition`, which hands words back and keeps
+no capture of ours open; nothing goes to the server for the words. Auto wherever the phone offers it (iPhone Safari and
+Home Screen apps, Chrome on Android). **Capture**: our microphone stream, the segmenter and the server's transcriber,
+elsewhere or by choice. Settings chooses (How Biscuit Hears). The strict turns the founder asked for hold in both:
+nothing is heard while Biscuit talks; after he stops, a grace (1.5 s with the recognizer, whose words arrive late); his
+own last line coming back through the microphone is dropped as an echo (`echoOf`: most of the heard words are in his
+line, and they are most of his line). A Diagnostics screen (Settings) shows the ear's state, the voice's state and a log
+of what each line did, for the next live test.
+
+Confirmed on the founder's iPhone: "Yes, steady."
