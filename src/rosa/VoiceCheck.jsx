@@ -39,8 +39,8 @@ export default function VoiceCheck() {
   function miss() {
     const n = misses + 1;
     setMisses(n);
-    if (n >= 3) { store.set({ buttonsMode: true }); setPhase("buttons"); speak(["We'll use the buttons instead. You can try your voice again later."]); }
-    else { setPhase("miss"); speak(["I didn't catch that. Hold the phone closer and try again."]); }
+    if (n >= 3) { store.set({ buttonsMode: true }); setPhase("buttons"); speak(["We'll use the buttons."]); }
+    else { setPhase("miss"); speak(["I didn't catch that. Once more?"]); }
   }
   useEffect(() => {
     alive.current = true;

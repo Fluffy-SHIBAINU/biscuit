@@ -79,7 +79,7 @@ export async function routeHeard(text, deps) {
   }
   const { intent, text: message } = intentOf(t);
   const act = deps.actOnVoice ?? ACT_ON_VOICE;
-  if (intent === "tell" && !act) { await deps.say(["Tap Tell Ana and say it, and I'll pass it on."]); return "tell-off"; }
+  if (intent === "tell" && !act) { await deps.say(["Tap Tell Ana to send that."]); return "tell-off"; }
   if (intent === "tell") {
     if (!message) { await deps.say(["What shall I tell her? Start with: tell Ana."]); return "tell"; }
     await deps.postEvent("rosa_said", { text: message.slice(0, 300) });

@@ -24,7 +24,7 @@ export default function Mail() {
     alive.current = true;
     if (fromHome) { store.set({ lastMailSeen: new Date().toISOString() }); postEvent("mail_tapped").catch(() => {}); }
     (async () => {
-      const line = due ? `About now is when the mail usually comes, ${name}. Got a letter? Hold it up and I'll read it. Want me to look?` : `Woof! Mail's here, ${name}. Want me to take a look?`;
+      const line = due ? `Mail time, ${name}. Got a letter for me?` : `Woof! Mail's here, ${name}. Shall I look?`;
       keep(line);
       const key = await askChoices({ lines: [line], alive: () => alive.current, options: [
         { key: "yes", say: "yes", match: (t) => answerFrom(t) === "yes" || /\b(look|please|okay|ok)\b/i.test(t) },

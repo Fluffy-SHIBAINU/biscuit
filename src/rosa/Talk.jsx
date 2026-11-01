@@ -36,10 +36,10 @@ export default function Talk() {
       const { blob, spoke } = await listen();
       const text = spoke ? await transcribe(blob) : "";
       if (!alive.current || handleVoiceCommand(text)) return;
-      if (!text.trim()) { await speak(["I didn't catch that. Tap Tell Ana and say it again."]); return; }
+      if (!text.trim()) { await speak(["I didn't catch that."]); return; }
       postEvent("rosa_said", { text: text.trim().slice(0, 300) }).catch(() => {});
       await speak([`I told Ana: ${text.trim()}.`]);
-    } catch { if (alive.current) await speak(["I couldn't hear you. Check the microphone and try again."]); }
+    } catch { if (alive.current) await speak(["I couldn't hear you."]); }
     finally { if (alive.current) setAsking(false); }
   }
 

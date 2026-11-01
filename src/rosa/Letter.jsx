@@ -59,7 +59,7 @@ export default function Letter() {
         // If the phone takes the camera away (a call, a switch of app), it is reopened once.
         const reopen = async () => { if (!alive) return; try { stream.current = await openCamera(video.current); } catch { /* the frame stays */ } };
         stream.current.getVideoTracks().forEach((t) => { t.onended = reopen; });
-        speak(["Show me the letter! Hold it in the frame and I'll snap it when it's clear."]);
+        speak(["Show me the letter."]);
       } catch {
         await speak(["I can't see. Allow the camera for Biscuit and try again."]);
         navigate("/");

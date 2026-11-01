@@ -82,7 +82,7 @@ export default function Reading() {
   /** On "not to you": Rosa can say it's mine. */
   async function askIfMine() {
     if (!alive.current) return;
-    const key = await askChoices({ lines: ["If this letter is yours after all, I'll read it."], alive: () => alive.current, options: [
+    const key = await askChoices({ lines: ["Is this letter yours?"], alive: () => alive.current, options: [
       { key: "mine", say: "it's mine", match: (t) => saidMine(t) },
       { key: "notMine", say: "not mine", match: (t) => /\b(not mine|no|someone else|not me)\b/i.test(t) },
     ] });

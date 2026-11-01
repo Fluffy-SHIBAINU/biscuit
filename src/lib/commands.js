@@ -32,7 +32,7 @@ export function triggerHelpByVoice() {
   store.set({ helpOpenAt: new Date().toISOString() });
   postEvent("help", { by: "voice" }).catch(() => {});
   navigate("/help");
-  speak(["Ana has been told. Tap Call 911 now."]);
+  speak(["Ana knows. Tap Call 911."]);
 }
 
 /** Shared voice commands for every listening screen. True when the words were a command and were handled. */
@@ -40,7 +40,7 @@ export const saidHome = (text) => /\b(go home|home screen|main screen|start over
 export const saidPapers = (text) => /\b(my papers|my mails?|show me my mail|what do i have|what have i got)\b/i.test(text || "");
 
 export function handleVoiceCommand(text) {
-  if (saidPause(text)) { stopSpeaking(); pauseEar(); speak(["All right, I'll stop listening. Tap Listen when you want me."]); return true; }
+  if (saidPause(text)) { stopSpeaking(); pauseEar(); speak(["Paused. Tap Listen when you want me."]); return true; }
   if (saidStop(text)) { stopSpeaking(); navigate("/"); return true; }
   if (saidHelp(text)) { triggerHelpByVoice(); return true; }
   if (saidHome(text)) { stopSpeaking(); navigate("/"); return true; }
