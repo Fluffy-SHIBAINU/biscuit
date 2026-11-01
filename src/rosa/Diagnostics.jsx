@@ -1,7 +1,7 @@
 import React from "react";
 import { navigate } from "../lib/navigate.js";
 import { speak } from "../lib/speech.js";
-import { earError, earStatus } from "../lib/ear.js";
+import { earError, earMode, earStatus } from "../lib/ear.js";
 import { useDiag } from "../lib/diag.js";
 import { useTalk } from "../lib/talkState.js";
 import { useStore } from "../lib/store.js";
@@ -12,7 +12,7 @@ export default function Diagnostics() {
   const t = useTalk();
   const s = useStore();
   const facts = [
-    ["Ear", `${earStatus()}${earError() ? ` (${earError()})` : ""}`],
+    ["Ear", `${earStatus()}${earError() ? ` (${earError()})` : ""} · ${earMode(s) === "recognition" ? "the phone's speech" : "microphone capture"}`],
     ["Bar", `${t.phase}${t.speechBlocked ? " · speech blocked" : ""}${t.note ? ` · ${t.note}` : ""}`],
     ["Voice", s.neuralVoice ? "Biscuit's own" : "the phone's"],
     ["Consent", s.consentedAt ? "yes" : "no"], ["Ear allowed", s.earAllowedAt ? "yes" : "no"], ["Paused", s.earPaused ? "yes" : "no"],

@@ -35,6 +35,7 @@ export default function Settings() {
         <div className="fact"><strong>Voice</strong><span className="label plain">{s.buttonsMode ? "Buttons Mode" : "On"}</span>{s.buttonsMode && <button type="button" className="btn secondary" onClick={() => store.set({ buttonsMode: false })}>Try Voice Again</button>}</div>
         <div className="fact"><strong>Biscuit's Voice</strong><span className="label plain">{s.neuralVoice ? "Biscuit's Own Voice" : chosen ? chosen.name : "The Phone's Voice"}</span>{!s.neuralVoice && voices.length > 1 && <select className="field-select" value={s.voiceName || ""} onChange={(e) => choose(e.target.value)} aria-label="Which voice Biscuit uses"><option value="">Best on this phone</option>{voices.map((v) => <option key={v.voiceURI || v.name} value={v.name}>{v.name}</option>)}</select>}</div>
         <div className="fact"><strong>Mail Chime</strong><span className="label plain">{s.pushSubscribed ? "On" : "Off · Turn It On from Home"}</span></div>
+        <div className="fact"><strong>How Biscuit Hears</strong><span className="label plain">{(s.earMode || "auto") === "auto" ? "The Phone Decides" : s.earMode === "recognition" ? "The Phone's Speech" : "Biscuit's Ear"}</span><div className="row pair"><button type="button" className="btn secondary small" onClick={() => store.set({ earMode: "recognition" })}>Phone's Speech</button><button type="button" className="btn secondary small" onClick={() => store.set({ earMode: "capture" })}>Biscuit's Ear</button></div></div>
         <div className="fact"><strong>Sharing with Ana</strong><span className="label plain">{s.household?.shareLetters === false ? "Off" : "On"}</span></div>
       </section>
       <section className="card facts">
@@ -50,7 +51,8 @@ export default function Settings() {
       <div className="spacer" />
       {!arm ? <button type="button" className="btn danger" onClick={() => { setArm(true); speak(["Delete everything? This cannot be undone. Tap Yes, delete, or say nothing."]); }}>Delete Everything</button>
         : <><button type="button" className="btn danger" disabled={busy} onClick={wipe}>Yes, Delete</button><button type="button" className="btn secondary" onClick={() => setArm(false)}>Keep It</button></>}
-      <p className="foot">Delete removes everything Biscuit kept, here and on Ana's page. <a href="/diagnostics" className="link" onClick={(e) => { e.preventDefault(); navigate("/diagnostics"); }}>Diagnostics</a></p>
+      <button type="button" className="btn secondary" onClick={() => navigate("/diagnostics")}>Diagnostics</button>
+      <p className="foot">Delete removes everything Biscuit kept, here and on Ana's page.</p>
     </main>
   );
 }

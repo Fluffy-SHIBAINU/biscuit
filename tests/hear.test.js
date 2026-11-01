@@ -49,3 +49,13 @@ test("routeHeard: words not meant for Biscuit are ignored, and a model 'help' is
   expect(await routeHeard("my knee aches a bit", second.deps)).toBe("reply");
   expect(second.log.filter((l) => l[0] === "nav")).toHaveLength(0);
 });
+
+// The phone's recognizer hears Biscuit too, a second late: his own last line coming back is not Rosa.
+test("echoOf tells Biscuit's own line from Rosa's words", async () => {
+  const { echoOf } = await import("../src/lib/hear.js");
+  expect(echoOf("Woof! Mail's here, Rosa.", "Woof! Mail's here, Rosa. Want me to take a look?")).toBe(true);
+  expect(echoOf("mail's here Rosa want me to take a look", "Woof! Mail's here, Rosa. Want me to take a look?")).toBe(true);
+  expect(echoOf("yes please take a look", "Woof! Mail's here, Rosa. Want me to take a look?")).toBe(false);
+  expect(echoOf("tell Ana I'm fine", "")).toBe(false);
+  expect(echoOf("yes", "yes")).toBe(false);
+});

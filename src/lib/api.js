@@ -20,6 +20,8 @@ export async function api(path, { method = "GET", json, form, token } = {}) {
 }
 
 export async function transcribe(wavBlob) {
+  // The phone's own recognizer hands the words over already: nothing to send.
+  if (wavBlob && typeof wavBlob.text === "string") return wavBlob.text;
   const form = new FormData();
   form.set("audio", wavBlob, "clip.wav");
   return (await api("/asr", { method: "POST", form })).text;

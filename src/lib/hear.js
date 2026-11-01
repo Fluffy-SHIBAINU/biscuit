@@ -55,6 +55,16 @@ const liveDeps = {
 
 let busy = false;
 export const TRANSCRIBE_TIMEOUT_MS = 15_000;
+const SMALL = new Set(["a", "an", "the", "to", "me", "i", "you", "it", "is", "and", "or", "of", "in", "on", "my", "your", "do", "yes", "no", "please", "ok", "okay"]);
+const norm = (t) => (t || "").toLowerCase().replace(/[^a-z0-9' ]+/g, " ").split(/\s+/).filter((w) => w && !SMALL.has(w));
+/** True when the words are mostly Biscuit's own last line coming back through the microphone. */
+export function echoOf(text, lastReply) {
+  const a = norm(text), b = new Set(norm(lastReply));
+  if (a.length < 2 || !b.size) return false;
+  const hits = a.filter((w) => b.has(w)).length;
+  // most of what was heard is in his line, and it is most of his line too (an answer that borrows three of his words is not an echo)
+  return hits / a.length >= 0.7 && hits / b.size >= 0.5;
+}
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))]);
 /** The ear's default handler: a clip becomes words on the server, and the words are routed. One at a time. */
 export async function onUtterance({ blob, spoke }) {
@@ -65,6 +75,7 @@ export async function onUtterance({ blob, spoke }) {
     let text = "";
     try { text = await withTimeout(transcribe(blob), TRANSCRIBE_TIMEOUT_MS); } catch (err) { talkState.set({ phase: "idle", note: err?.message === "timeout" ? "The words took too long to come back." : "I couldn't reach my ears on the server." }); return; }
     if (!text.trim()) { talkState.set({ phase: "idle", note: "I heard a sound but no words." }); return; }
+    if (echoOf(text, talkState.get().reply)) { diag("echo", text.slice(0, 60)); talkState.set({ phase: "idle" }); return; }
     talkState.set({ heard: text, phase: "thinking" });
     diag("heard", text.slice(0, 60));
     const outcome = await routeHeard(text, liveDeps);

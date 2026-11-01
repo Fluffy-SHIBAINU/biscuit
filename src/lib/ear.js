@@ -45,6 +45,7 @@ export class Segmenter {
 }
 
 const GRACE_MS = 300;
+export const RECOGNITION_GRACE_MS = 1500;
 
 /** Who hears an utterance: a waiting screen first, else the handler; nothing while Biscuit speaks or just stopped. */
 export class EarCore {
@@ -56,7 +57,7 @@ export class EarCore {
   /** Biscuit is talking: nothing is heard, and whatever was under way when he began is his too. */
   mute(on) {
     if (on) { this.muted = true; if (this.inUtterance) this.startedMuted = true; }
-    else { this.muted = false; this.mutedUntil = this.now() + GRACE_MS; }
+    else { this.muted = false; this.mutedUntil = this.now() + (this.graceMs ?? GRACE_MS); }
     if (this.onChange) this.onChange();
   }
   isMuted() { return this.muted || this.now() < this.mutedUntil; }
@@ -92,11 +93,12 @@ export class EarCore {
 }
 
 // The live ear on the phone: one microphone stream, one audio graph, the segmenter and the core above.
-const live = { status: "off", error: null, stream: null, ctx: null, node: null, source: null, seg: null, retry: null, level: 0 };
+const live = { status: "off", error: null, stream: null, ctx: null, node: null, source: null, seg: null, retry: null, level: 0, mode: null };
 const watchers = new Set();
 let lastStatus = "";
 const notify = () => { if (live.status !== lastStatus) { lastStatus = live.status; diag("ear", live.status + (live.error ? ` (${live.error})` : "")); } watchers.forEach((w) => w()); };
 export const core = new EarCore({ onChange: notify });
+if (typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition)) core.graceMs = RECOGNITION_GRACE_MS;
 export const earMuted = () => core.isMuted();
 export function subscribeEar(fn) { watchers.add(fn); return () => watchers.delete(fn); }
 export function earStatus() { return live.status; }
@@ -108,6 +110,7 @@ function wavBlob(samples, rate) {
 }
 
 function teardown() {
+  stopRecognition();
   try { live.node?.disconnect(); live.source?.disconnect(); } catch { /* gone */ }
   live.stream?.getTracks().forEach((t) => { try { t.stop(); } catch { /* gone */ } });
   live.ctx?.close().catch(() => {});
@@ -120,10 +123,68 @@ export function earWanted(st = store.get()) {
   return Boolean(st.deviceToken && st.kind === "rosa" && (st.consentedAt || st.earAllowedAt) && !st.earPaused);
 }
 
-/** Opens the microphone and starts hearing. Fails quietly into "blocked" when the phone needs a tap first. */
+/**
+ * How Biscuit hears. "recognition": the phone's own speech recognizer (SpeechRecognition), which hands back words and
+ * never opens a capture of our own; on an iPhone an open microphone capture turns the loudspeaker down to the earpiece and
+ * leaves it there, so this is the way there. "capture": our microphone stream, the segmenter and the server's transcriber.
+ * Settings can force either; "auto" takes recognition wherever the phone offers it.
+ */
+export function earMode(st = store.get()) {
+  const SR = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+  if (st.earMode === "capture" || st.earMode === "recognition") return st.earMode === "recognition" && !SR ? "capture" : st.earMode;
+  return SR ? "recognition" : "capture";
+}
+let rec = null;
+function startRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const r = new SR();
+  r.continuous = true; r.interimResults = false; r.maxAlternatives = 1; r.lang = store.get().household?.language === "es" ? "es-US" : "en-US";
+  const gen = ++startGen;
+  rec = r;
+  r.onstart = () => { if (rec !== r) return; live.status = "on"; live.error = null; notify(); };
+  r.onaudiostart = () => { if (rec === r && live.status !== "on") { live.status = "on"; notify(); } };
+  r.onspeechstart = () => { if (rec === r) { live.level = 1; notify(); } };
+  r.onspeechend = () => { if (rec === r) { live.level = 0; notify(); } };
+  r.onresult = (e) => {
+    if (rec !== r) return;
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const res = e.results[i];
+      if (!res.isFinal) continue;
+      const text = String(res[0]?.transcript || "").trim();
+      if (!text) continue;
+      // words arrive a moment after they were said: the core decides whether Biscuit was talking then
+      core.begin(); core.end({ blob: { text }, ms: 0 });
+    }
+    live.level = 0; notify();
+  };
+  r.onerror = (e) => {
+    if (rec !== r) return;
+    const kind = e?.error || "error";
+    diag("recognition", kind);
+    if (kind === "not-allowed" || kind === "service-not-allowed") { rec = null; live.status = "blocked"; live.error = kind; notify(); }
+    // "no-speech", "aborted", "network": onend follows and restarts
+  };
+  r.onend = () => {
+    if (rec !== r || gen !== startGen) return;
+    // the recognizer stops by itself after a while of quiet: start it again while it is still wanted
+    rec = null;
+    if (live.status === "on" && earWanted() && awake && !cameraOpen() && document.visibilityState === "visible") setTimeout(() => { if (live.status === "on" && !rec && gen === startGen) startRecognition(); }, 250);
+    else if (live.status === "on") { live.status = "off"; notify(); }
+  };
+  try { r.start(); live.status = "starting"; notify(); }
+  catch (err) { rec = null; live.status = "off"; live.error = err?.name || "failed"; notify(); scheduleRetry(); }
+}
+function stopRecognition() {
+  const r = rec; rec = null;
+  if (r) { r.onend = null; r.onresult = null; r.onerror = null; try { r.abort(); } catch { /* gone */ } }
+}
+
+/** Opens the ear: the phone's recognizer, or the microphone. Fails quietly into "blocked" when the phone needs a tap first. */
 let startGen = 0;
 export async function startEar() {
   if (live.status === "on" || live.status === "starting") return live.status;
+  live.mode = earMode();
+  if (live.mode === "recognition") { startRecognition(); return live.status; }
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) { live.status = "blocked"; live.error = "unsupported"; notify(); return live.status; }
   const gen = ++startGen;
   live.status = "starting"; live.error = null; notify();
@@ -183,6 +244,7 @@ let held = false;
 /** True when the ear was open (or opening) and is now held for the length of Biscuit's sentence. */
 export function holdEar() {
   if (live.status !== "on" && live.status !== "starting") return false;
+  if (earMode() === "recognition") return false;
   held = true; startGen++; teardown(); live.status = "held"; live.level = 0; notify();
   return true;
 }
@@ -227,6 +289,8 @@ export function earCheck() {
   if (!awake) { if (live.status === "on" || live.status === "starting") stopEar(); if (live.status !== "asleep") { live.status = "asleep"; notify(); } return; }
   if (cameraOpen()) { if (live.status === "on" || live.status === "starting") stopEar(); if (live.status !== "looking") { live.status = "looking"; notify(); } return; }
   if (live.status === "asleep" || live.status === "looking") live.status = "off";
+  // Settings changed how he hears: start over the new way.
+  if ((live.status === "on" || live.status === "starting") && live.mode && live.mode !== earMode()) stopEar();
   if (document.visibilityState === "visible" && live.status !== "on" && live.status !== "starting" && live.status !== "blocked" && live.status !== "held") startEar();
 }
 /** Keeps the ear open whenever it is wanted and the app is visible; closes it while the app is hidden. Idempotent. */
