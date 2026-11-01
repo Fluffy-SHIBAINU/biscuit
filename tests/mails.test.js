@@ -23,3 +23,13 @@ test("todayLine counts today's mail in one short sentence", () => {
   expect(todayLine(L, new Date("2026-11-02T20:00:00Z"))).toBe("No mail today.");
   expect(todayLine([], now)).toBe("No mail today.");
 });
+
+// A letter handed to Ana (the caretaker) wears a Sent badge.
+test("sentToAna marks a handoff, a letter sent for her look, one waiting on the hospital; not a plain read", async () => {
+  const { sentToAna } = await import("../src/lib/mails.js");
+  expect(sentToAna({ status: "handoff" })).toBe(true);
+  expect(sentToAna({ status: "read", sentToAna: true })).toBe(true);
+  expect(sentToAna({ status: "waiting_hospital" })).toBe(true);
+  expect(sentToAna({ status: "read" })).toBe(false);
+  expect(sentToAna({ status: "tossed" })).toBe(false);
+});

@@ -24,6 +24,9 @@ export function groupByDay(letters, now = new Date()) {
   return groups;
 }
 
+/** Sent to Ana (the caretaker): an application handed off, a letter she was asked to look at, or one waiting on the hospital. */
+export const sentToAna = (l) => Boolean(l.sentToAna) || l.status === "handoff" || l.status === "waiting_hospital" || l.status === "unknown_number";
+
 export const senderOf = (l) => l.sender || (l.status === "not_mine" ? "someone else's letter" : "an unknown sender");
 
 const CAP = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];

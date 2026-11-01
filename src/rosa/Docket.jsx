@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { navigate } from "../lib/navigate.js";
 import { speak, stopSpeaking } from "../lib/speech.js";
-import { groupByDay, readLine, senderOf, todayLine } from "../lib/mails.js";
+import { groupByDay, readLine, senderOf, sentToAna, todayLine } from "../lib/mails.js";
 import { statusLine } from "../lib/letters.js";
 import { store, useStore } from "../lib/store.js";
 
@@ -27,7 +27,7 @@ export default function Docket() {
           <span className="label">{g.label}</span>
           {g.letters.map((l, i) => (
             <article key={l.id} className="mail">
-              <div className="row between"><span className={`pill ${l.status === "handoff" ? "signal" : l.status === "unknown_number" ? "bad" : "warn"}`}>{KIND[l.kind] || "Letter"}</span><span className="label plain">{clock(l.readAt)}</span></div>
+              <div className="row between"><span className="row"><span className={`pill ${l.status === "handoff" ? "signal" : l.status === "unknown_number" ? "bad" : "warn"}`}>{KIND[l.kind] || "Letter"}</span>{sentToAna(l) && <span className="pill ok">Sent</span>}</span><span className="label plain">{clock(l.readAt)}</span></div>
               <strong className="mail-from">{senderOf(l).replace(/^someone else's letter$/, "Someone Else's Letter").replace(/^an unknown sender$/, "Unknown Sender")}</strong>
               <span className="lead small">{statusLine(l)}</span>
               <div className="row pair">

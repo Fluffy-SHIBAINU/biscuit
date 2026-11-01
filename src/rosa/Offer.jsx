@@ -43,7 +43,7 @@ export default function Offer() {
     try {
       if (mode === "offer") {
         const { waiveUrl } = await handoff(r.id, r.hospital.ccn);
-        setStatus(r.id, "handoff", { waiveUrl, waitingLine: `${r.hospital.name}'s application. Ana has it on her page.` });
+        setStatus(r.id, "handoff", { waiveUrl, sentToAna: true, waitingLine: `${r.hospital.name}'s application. Ana has it on her page.` });
         await speak(["Done! Ana has it on her page. I'll tell you when the hospital answers."]);
       } else if (mode === "ad") {
         await patchLetter(r.id, { status: "tossed" }).catch(() => {});
@@ -51,7 +51,7 @@ export default function Offer() {
         await speak(["Tossed!"]);
       } else if (mode === "send" || mode === "unknown") {
         await patchLetter(r.id, { needsReview: true, ...(mode === "unknown" ? { status: "unknown_number" } : {}) }).catch(() => {});
-        setStatus(r.id, mode === "unknown" ? "unknown_number" : "read", { needsReview: true });
+        setStatus(r.id, mode === "unknown" ? "unknown_number" : "read", { needsReview: true, sentToAna: true });
         await speak(["Sent to Ana!"]);
       }
       navigate("/docket");
