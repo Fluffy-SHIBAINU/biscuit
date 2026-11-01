@@ -40,12 +40,19 @@ export function addressedTo(r, called) {
   return a ? a.value : called;
 }
 
+const KIND_WORD = { bill: "a bill", notice: "a notice", utility: "a utility bill", ad: "an ad", other: "a letter" };
+/** The title and the one spoken line: what it is; and, on a letter for someone else, for whom. */
+export function titleOf(r, called) {
+  const what = KIND_WORD[r?.kind] || "a letter";
+  return r?.mismatch ? `This is ${what} for ${addressedTo(r, called)}, not you.` : `This is ${what}.`;
+}
+
 export default function Reading() {
   const s = useStore();
   const r = s.lastReading;
   const alive = useRef(true);
   const name = s.household?.called || "Rosa";
-  const title = `This is addressed to ${addressedTo(r, name)}.`;
+  const title = titleOf(r, name);
 
   /** Rosa overrules "not to you": the letter becomes hers, and the full summary goes to Ana's page. */
   function claimAsMine() {
@@ -58,7 +65,8 @@ export default function Reading() {
 
   /** A corrected field: this phone keeps her words as the value (spoken from now on), and the server row takes what it can. */
   function edit(field, value) {
-    const facts = (r.facts || []).map((f) => (f.field === field ? { ...f, value, verified: true, spoken: true, edited: true } : f));
+    const have = (r.facts || []).some((f) => f.field === field);
+    const facts = have ? (r.facts || []).map((f) => (f.field === field ? { ...f, value, verified: true, spoken: true, edited: true } : f)) : [{ field, value, quote: "", verified: true, spoken: true, edited: true }, ...(r.facts || [])];
     const entry = { ...r, facts, sender: field === "sender" ? value : r.sender };
     store.set((st) => ({ docket: st.docket.map((l) => (l.id === r.id ? { ...l, ...entry } : l)), lastReading: entry }));
     const edits = editFor(field, value);
@@ -89,7 +97,8 @@ export default function Reading() {
   }, [r?.id, r?.mismatch]);
 
   if (!r) { navigate("/"); return null; }
-  const facts = (r.facts || []).filter((f) => f.field !== "addressee");
+  // Addressed To is a field like the others, and can be corrected; when the reading found no name, the phone's own goes in.
+  const facts = (r.facts || []).some((f) => f.field === "addressee") ? r.facts : [{ field: "addressee", value: name, quote: "" }, ...(r.facts || [])];
   // Read two ways: the value shown is the primary reader's, the more confident of the two.
   return (
     <main className="screen">
