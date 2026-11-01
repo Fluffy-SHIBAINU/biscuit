@@ -12,7 +12,7 @@ export function intentOf(text) {
   if (tell) return { intent: "tell", text: tell[1].replace(/[.?!\s]+$/, "").trim() };
   if (/\b(mail|mailbox|post)\b.*\b(came|come|arrived|here|delivered)\b|\b(came|arrived)\b.*\bmail\b/i.test(t)) return { intent: "mail" };
   if (/\b(letter|bill|mail|envelope|statement|notice|read)\b/i.test(t)) return { intent: "letter" };
-  if (/\b(papers?|what do i have|what have i got|my list|the list|anything waiting)\b/i.test(t)) return { intent: "papers" };
+  if (/\b(papers?|my mails?|what do i have|what have i got|my list|the list|anything waiting)\b/i.test(t)) return { intent: "papers" };
   return { intent: "menu" };
 }
 

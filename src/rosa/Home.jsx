@@ -79,8 +79,8 @@ export default function Home() {
       )}
       {!s.pushSubscribed && pushSupported() && <button type="button" className="btn secondary" onClick={turnOnChime}>Turn On the Mail Chime</button>}
       {chimeError && <p className="foot bad">{chimeError}</p>}
-      <button type="button" className="btn big" onClick={() => navigate("/letter")}>Show Me a Letter</button>
-      <button type="button" className="btn secondary" onClick={() => navigate("/docket")}>My Papers</button>
+      <button type="button" className="btn big" onClick={() => navigate("/letter")}>Read a New Letter for Me</button>
+      <button type="button" className="btn secondary" onClick={() => navigate("/docket")}>Show Me My Mails</button>
       {s.consentedAt && <button type="button" ref={helpRef} className={`btn danger hold ${armed ? "armed" : ""}`} style={{ "--hold": holding }}>{armed ? "Let Go to Call 911" : "Help"} <span className="hint">{armed ? "Ana Is Told When You Let Go" : "Hold 2 s · Calls 911, Tells Ana"}</span></button>}
       <div className="spacer" />
       {waiting && (

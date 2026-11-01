@@ -288,7 +288,7 @@ export function releaseEar() { core.release(); }
 let wired = false;
 // After a reload the phone plays no sound until it has been tapped once, so hearing Rosa before that tap would only
 // produce silent answers: the ear sleeps until the first tap anywhere (speech.js's primeSpeech calls wakeEar).
-let awake = false;
+let awake = true;
 export const earAwake = () => awake;
 export function wakeEar() { awake = true; earCheck(); }
 // While the letter camera is open the ear steps aside: on an iPhone a microphone opening and closing beside a camera

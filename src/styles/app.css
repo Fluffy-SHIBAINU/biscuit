@@ -142,3 +142,9 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .earbody { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .earline { margin: 0; font-size: 24px; line-height: 1.35; color: var(--ink); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
 .btn.earbtn { width: auto; height: 60px; padding: 0 22px; font-size: 20px; flex: 0 0 auto; }
+
+/* My Mails: each letter in its own box, under its day. */
+.mailday { display: flex; flex-direction: column; gap: 10px; }
+.mail { background: var(--sheet); border: 2px solid var(--rule-strong); border-radius: var(--r-sheet); padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.mail-from { font-size: 22px; }
+.btn.secondary.small { height: 60px; font-size: 19px; }

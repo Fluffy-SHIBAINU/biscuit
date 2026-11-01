@@ -25,7 +25,8 @@ import Settings from "./rosa/Settings.jsx";
 import Diagnostics from "./rosa/Diagnostics.jsx";
 import { listenToWorker } from "./lib/push.js";
 import EarBar from "./components/EarBar.jsx";
-import { core as ear, earCheck, keepEarOpen } from "./lib/ear.js";
+import { core as ear, earCheck, keepEarOpen, subscribeEar, earStatus } from "./lib/ear.js";
+import { speak } from "./lib/speech.js";
 import { onUtterance } from "./lib/hear.js";
 import Family from "./ana/Family.jsx";
 import WhoFor from "./ana/WhoFor.jsx";
@@ -42,6 +43,7 @@ function Placeholder({ surface }) {
 }
 
 let workerListening = false;
+let greeted = false;
 
 export default function App() {
   const path = usePath();
@@ -52,6 +54,8 @@ export default function App() {
   // Biscuit hears all day on Rosa's phone once she has agreed; the bar at the foot shows it and pauses it.
   const rosaHome = Boolean(s.deviceToken && s.kind === "rosa") && !path.startsWith("/ana") && !path.startsWith("/cam") && !path.startsWith("/setup") && path !== "/link";
   useEffect(() => { if (!rosaHome) return; ear.setHandler(onUtterance); keepEarOpen(); earCheck(); }, [rosaHome, s.consentedAt, s.earAllowedAt, s.earPaused, path]);
+  // The first time the ear opens on this visit, Biscuit says hello.
+  useEffect(() => subscribeEar(() => { if (!greeted && earStatus() === "on") { greeted = true; speak(["Hello! Biscuit here."]); } }), []);
   const page = route(path, s);
   return <>{page}{rosaHome && <EarBar />}</>;
 }

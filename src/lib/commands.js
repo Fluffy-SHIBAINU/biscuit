@@ -37,7 +37,7 @@ export function triggerHelpByVoice() {
 
 /** Shared voice commands for every listening screen. True when the words were a command and were handled. */
 export const saidHome = (text) => /\b(go home|home screen|main screen|start over)\b/i.test(text || "");
-export const saidPapers = (text) => /\b(my papers|what do i have|what have i got)\b/i.test(text || "");
+export const saidPapers = (text) => /\b(my papers|my mails?|show me my mail|what do i have|what have i got)\b/i.test(text || "");
 
 export function handleVoiceCommand(text) {
   if (saidPause(text)) { stopSpeaking(); pauseEar(); speak(["All right, I'll stop listening. Tap Listen when you want me."]); return true; }

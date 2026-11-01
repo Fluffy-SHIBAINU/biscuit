@@ -56,9 +56,9 @@ export default function Talk() {
       {t.heard && <section className="card"><span className="label">You Said</span><p className="lead quote">“{t.heard}”</p></section>}
       {t.reply && <section className="card"><span className="label">Biscuit Says</span><p className="lead">{t.reply}</p></section>}
       <div className="spacer" />
-      <button type="button" className="btn big" onClick={() => { stopSpeaking(); navigate("/letter"); }}>Read a Letter</button>
+      <button type="button" className="btn big" onClick={() => { stopSpeaking(); navigate("/letter"); }}>Read a New Letter for Me</button>
       <div className="row pair">
-        <button type="button" className="btn secondary" onClick={() => { stopSpeaking(); readPapers(); }}>My Papers</button>
+        <button type="button" className="btn secondary" onClick={() => { stopSpeaking(); navigate("/docket"); }}>Show Me My Mails</button>
         <button type="button" className="btn secondary" onClick={() => { stopSpeaking(); askWhatToTell(); }} disabled={asking}>Tell Ana</button>
       </div>
     </main>
