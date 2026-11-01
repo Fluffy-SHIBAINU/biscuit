@@ -58,6 +58,7 @@ export default function VoiceCheck() {
       {phase === "heard" && <><button type="button" className="btn big" onClick={next}>Just Right</button><button type="button" className="btn secondary" onClick={() => { store.set((st) => ({ volumeStep: Math.min(2, (st.volumeStep || 0) + 1) })); speak(["Is this better?"]); }}>Louder</button><button type="button" className="btn secondary" onClick={tryOnce}>Say It Again</button></>}
       {phase === "miss" && <><button type="button" className="btn big" onClick={tryOnce}>Try Again</button><button type="button" className="btn secondary" onClick={() => { store.set({ buttonsMode: true }); next(); }}>Use Buttons Instead</button></>}
       {phase === "buttons" && <button type="button" className="btn big" onClick={next}>Go On</button>}
+      {phase !== "buttons" && <button type="button" className="btn secondary" onClick={next}>Skip</button>}
     </main>
   );
 }
