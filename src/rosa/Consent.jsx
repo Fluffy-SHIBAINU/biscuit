@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import Dog from "../components/Dog.jsx";
-import { api, postEvent, transcribe } from "../lib/api.js";
+import { api, postEvent } from "../lib/api.js";
 import { navigate } from "../lib/navigate.js";
 import { subscribePush } from "../lib/push.js";
-import { listen, speak, stopSpeaking } from "../lib/speech.js";
-import { saidHelp, saidStop } from "../lib/commands.js";
+import { speak, stopSpeaking } from "../lib/speech.js";
+import { askChoices, cancelChoices } from "../lib/hear.js";
+import { answerFrom } from "../lib/answers.js";
 import { store, useStore } from "../lib/store.js";
 
 export const CONSENT_TEXT = (name) => `I'm Biscuit. I listen while this phone is open so you can just talk to me; tap Pause and I stop listening. I speak up when the mail comes. I read your letters out loud and keep a list of them on this phone. Ana sees what I read, unless you tell me not to share one. If you press Help, this phone calls 911 and Ana is told. Say stop and I stop. Shall I go on?`;
@@ -17,7 +18,7 @@ export default function Consent() {
   const alive = useRef(true);
 
   async function yes() {
-    stopSpeaking();
+    cancelChoices(); stopSpeaking();
     const at = new Date().toISOString();
     store.set((st) => ({ consentedAt: at, household: { ...(st.household || {}), shareLetters: share } }));
     postEvent("consent").catch(() => {});
@@ -25,22 +26,19 @@ export default function Consent() {
     try { await subscribePush(); } catch { /* Home offers the chime again */ }
     navigate("/setup/help");
   }
-  function no() { stopSpeaking(); setPaused(true); speak(["All right. Nothing is turned on. Ana can come back another day."]); }
+  function no() { cancelChoices(); stopSpeaking(); setPaused(true); speak(["All right. Nothing is turned on. Ana can come back another day."]); }
 
   useEffect(() => {
     alive.current = true;
     (async () => {
-      await speak([CONSENT_TEXT(name)]);
-      if (!alive.current || s.buttonsMode) return;
-      try {
-        const { blob, spoke } = await listen();
-        const text = spoke ? await transcribe(blob) : "";
-        if (!alive.current) return;
-        if (saidStop(text) || saidHelp(text) || /\b(no|nope|not now)\b/i.test(text)) no();
-        else if (/\b(yes|yeah|yep|go on|okay|ok|sure)\b/i.test(text)) yes();
-      } catch { /* buttons remain */ }
+      const key = await askChoices({ lines: [CONSENT_TEXT(name)], alive: () => alive.current, options: [
+        { key: "yes", say: "yes", match: (t) => answerFrom(t) === "yes" || /\b(go on|okay|ok)\b/i.test(t) },
+        { key: "no", say: "no", match: (t) => answerFrom(t) === "no" || /\b(not now|stop)\b/i.test(t) },
+      ] });
+      if (!alive.current) return;
+      if (key === "yes") yes(); else if (key === "no") no();
     })();
-    return () => { alive.current = false; stopSpeaking(); };
+    return () => { alive.current = false; stopSpeaking(); cancelChoices(); };
   }, []);
 
   return (

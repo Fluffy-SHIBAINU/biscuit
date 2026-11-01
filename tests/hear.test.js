@@ -59,3 +59,27 @@ test("echoOf tells Biscuit's own line from Rosa's words", async () => {
   expect(echoOf("tell Ana I'm fine", "")).toBe(false);
   expect(echoOf("yes", "yes")).toBe(false);
 });
+
+// A screen with choices (yes, no, not sure) owns the next words: a match picks the option, anything else gets the options
+// said again, and nothing goes to the companion while the choices stand. Commands still win.
+test("routeHeard with choices: a match picks the option, a miss repeats the options, the companion is never asked", async () => {
+  const { optionsLine } = await import("../src/lib/hear.js");
+  const options = [{ key: "yes", say: "yes", match: (t) => /\byes\b/i.test(t) }, { key: "no", say: "no", match: (t) => /\bno\b/i.test(t) }, { key: "unsure", say: "not sure", match: (t) => /not sure/i.test(t) }];
+  expect(optionsLine(options)).toBe("Say yes, no, or not sure.");
+  expect(optionsLine(options.slice(0, 1))).toBe("Say yes.");
+  const picked = [];
+  const choices = { options, misses: 0, resolve: (k) => picked.push(k) };
+  const { deps, log } = fake({ reply: "I'd love to chat.", action: "none", ignore: false });
+  deps.choices = () => choices;
+  expect(await routeHeard("I had oatmeal and I think not sure really", deps)).toBe("choice:unsure");
+  expect(picked).toEqual(["unsure"]);
+  expect(await routeHeard("the weather is lovely", deps)).toBe("choice-miss");
+  expect(log.at(-1)).toEqual(["say", "I didn't catch that. Say yes, no, or not sure."]);
+  expect(await routeHeard("stop", deps)).toBe("command");
+  expect(log.filter((l) => l[0] === "ask")).toHaveLength(0);
+  // after two misses the options are not repeated a third time, so the room does not get lectured
+  await routeHeard("blah", deps);
+  const before = log.length;
+  expect(await routeHeard("blah again", deps)).toBe("choice-miss");
+  expect(log.length).toBe(before);
+});

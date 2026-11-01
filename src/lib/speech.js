@@ -1,7 +1,7 @@
 import { downsample, encodeWav, isSilent } from "./audio.js";
 import { store } from "./store.js";
 import { pickVoice, sentences } from "./voice.js";
-import { core as ear, earRunning, hearNext, holdEar, unholdEar, wakeEar } from "./ear.js";
+import { core as ear, earMode, earRunning, hasRecognizer, hearNext, hearOnce, holdEar, unholdEar, wakeEar } from "./ear.js";
 import { talkState } from "./talkState.js";
 import { diag } from "./diag.js";
 
@@ -214,6 +214,8 @@ export async function listen({ maxMs = 6000, silenceMs = 1200, onLevel } = {}) {
   // Paused means paused: no screen opens the microphone on its own once Rosa has agreed to the ear and then closed it.
   const st = store.get();
   if (st.consentedAt && st.earPaused) return { blob: null, ms: 0, spoke: false };
+  // A phone with its own recognizer answers through it, so no capture of ours opens (an iPhone turns its speaker down for one).
+  if (earMode(st) === "recognition" && hasRecognizer()) return hearOnce({ maxMs });
   const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
   const Ctx = window.AudioContext || window.webkitAudioContext;
   const ctx = new Ctx();

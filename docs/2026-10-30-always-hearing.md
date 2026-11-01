@@ -138,3 +138,20 @@ line, and they are most of his line). A Diagnostics screen (Settings) shows the 
 of what each line did, for the next live test.
 
 Confirmed on the founder's iPhone: "Yes, steady."
+
+## Choices (October 31, evening)
+
+The founder: "the workflows for each step, such as Is this the first bill for this visit (yes, no, not sure), should
+say what options are available, and only these options should be viable. Currently, when Rosa speaks the option, Biscuit
+doesn't select it but just talks to her without the context."
+
+Now a screen with choices registers them with the hearing router (`askChoices` in `hear.js`): Biscuit says the question
+and then the options ("Say yes, no, or not sure."); while the choices stand, every utterance is matched against them
+first, a match picks the option, anything else gets the options said again (twice at most), and nothing reaches the
+companion. Commands (stop, help, pause) still win. The buttons stay as helpers and cancel the choices when tapped; so
+does leaving the screen. Where the ear is not open (setup, asleep), the same helper hears one answer at a time, twice.
+Screens on it: the questions (yes, no, not sure; a number one to six), the mail ("yes" or "not now"), the offer ("yes" or
+"not now" / "keep it"), the reading ("it's mine" or "not mine"; "did I get anything wrong?" yes or no, then free words),
+the consent (yes or no), the voice check (yes or louder). Words that arrive while the last ones are still being handled
+now wait their turn instead of being dropped. On a phone with its own recognizer, a one-off answer goes through it too,
+so no capture of ours opens.

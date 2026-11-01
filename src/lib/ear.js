@@ -259,6 +259,23 @@ export function resumeEar() { store.set({ earPaused: false }); return startEar()
 export function allowEar() { store.set({ earPaused: false, earAllowedAt: store.get().earAllowedAt || new Date().toISOString() }); live.status = "off"; live.error = null; awake = true; return startEar(); }
 export const earRunning = () => live.status === "on";
 
+/** One answer through the phone's recognizer when the ear is not open (setup, asleep): the first words, or quiet after maxMs. */
+export function hearOnce({ maxMs = 6000 } = {}) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (v) => { if (done) return; done = true; clearTimeout(timer); try { r.abort(); } catch { /* gone */ } resolve(v); };
+    const r = new SR();
+    r.continuous = false; r.interimResults = false; r.maxAlternatives = 1; r.lang = store.get().household?.language === "es" ? "es-US" : "en-US";
+    const timer = setTimeout(() => finish({ blob: null, ms: 0, spoke: false }), maxMs);
+    r.onresult = (e) => { const text = String(e.results?.[0]?.[0]?.transcript || "").trim(); finish(text ? { blob: { text }, ms: 0, spoke: true } : { blob: null, ms: 0, spoke: false }); };
+    r.onerror = (e) => { diag("recognition once", e?.error || "error"); finish({ blob: null, ms: 0, spoke: false }); };
+    r.onend = () => finish({ blob: null, ms: 0, spoke: false });
+    try { r.start(); } catch (err) { diag("recognition once", err?.name || "failed"); finish({ blob: null, ms: 0, spoke: false }); }
+  });
+}
+export const hasRecognizer = () => typeof window !== "undefined" && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+
 /** A screen's turn to hear: the next utterance, else quiet after maxMs. The onLevel callback follows the sound meter. */
 export function hearNext({ maxMs = 6000, onLevel } = {}) {
   let unsub = null;

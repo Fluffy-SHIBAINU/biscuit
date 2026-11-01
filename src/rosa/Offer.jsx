@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import Dog from "../components/Dog.jsx";
-import { handoff, patchLetter, transcribe } from "../lib/api.js";
+import { handoff, patchLetter } from "../lib/api.js";
 import { navigate } from "../lib/navigate.js";
-import { listen, speak, speakAndKeep, stopSpeaking } from "../lib/speech.js";
+import { keep, speak, stopSpeaking } from "../lib/speech.js";
 import { releaseEar } from "../lib/ear.js";
-import { handleVoiceCommand } from "../lib/commands.js";
+import { askChoices, cancelChoices } from "../lib/hear.js";
+import { answerFrom } from "../lib/answers.js";
 import { store, useStore } from "../lib/store.js";
 
 function setStatus(id, status, extra = {}) {
@@ -23,23 +24,22 @@ export default function Offer() {
     alive.current = true;
     if (!r) { navigate("/"); return; }
     (async () => {
-      await speakAndKeep(lines);
-      if (!alive.current || s.buttonsMode || !(mode === "offer" || mode === "ad" || mode === "send" || mode === "unknown")) return;
-      try {
-        const { blob, spoke } = await listen();
-        const text = spoke ? await transcribe(blob) : "";
-        if (!alive.current) return;
-        if (handleVoiceCommand(text)) return;
-        if (/\b(yes|yeah|yep|please|go ahead|toss)\b/i.test(text)) yes();
-        else if (/\b(no|nope|not now|keep)\b/i.test(text)) no();
-      } catch { /* buttons remain */ }
+      keep(lines.join(" "));
+      const asks = mode === "offer" || mode === "ad" || mode === "send" || mode === "unknown";
+      if (!asks) { await speak(lines); return; }
+      const key = await askChoices({ lines, alive: () => alive.current, options: [
+        { key: "yes", say: "yes", match: (t) => answerFrom(t) === "yes" || /\b(go ahead|toss|send it|start it)\b/i.test(t) },
+        { key: "no", say: mode === "ad" ? "keep it" : "not now", match: (t) => answerFrom(t) === "no" || /\b(keep|not now|later)\b/i.test(t) },
+      ] });
+      if (!alive.current) return;
+      if (key === "yes") yes(); else if (key === "no") no();
     })();
-    return () => { alive.current = false; stopSpeaking(); releaseEar(); };
+    return () => { alive.current = false; stopSpeaking(); cancelChoices(); releaseEar(); };
   }, [r?.id]);
 
   async function yes() {
     if (busy || !r) return;
-    setBusy(true); stopSpeaking();
+    cancelChoices(); setBusy(true); stopSpeaking();
     try {
       if (mode === "offer") {
         const { waiveUrl } = await handoff(r.id, r.hospital.ccn);
@@ -62,7 +62,7 @@ export default function Offer() {
   }
 
   async function no() {
-    stopSpeaking();
+    cancelChoices(); stopSpeaking();
     await speak([mode === "ad" ? "I'll keep it." : "All right. It's on your papers if you change your mind."]);
     navigate("/docket");
   }

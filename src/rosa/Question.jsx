@@ -1,11 +1,18 @@
 import React, { useEffect, useRef, useState } from "react";
 import Dog from "../components/Dog.jsx";
-import { api, transcribe } from "../lib/api.js";
+import { api } from "../lib/api.js";
 import { navigate } from "../lib/navigate.js";
-import { listen, speak, stopSpeaking } from "../lib/speech.js";
+import { stopSpeaking } from "../lib/speech.js";
 import { releaseEar } from "../lib/ear.js";
-import { handleVoiceCommand } from "../lib/commands.js";
+import { askChoices, cancelChoices } from "../lib/hear.js";
 import { answerFrom } from "../lib/answers.js";
+
+const YES_NO = [
+  { key: "yes", say: "yes", match: (t) => answerFrom(t) === "yes" },
+  { key: "no", say: "no", match: (t) => answerFrom(t) === "no" },
+  { key: "unsure", say: "not sure", match: (t) => answerFrom(t) === "unsure" },
+];
+const NUMBERS = ["1", "2", "3", "4", "5", "6"].map((n) => ({ key: n, say: n, match: (t) => answerFrom(t) === n }));
 import { store, useStore } from "../lib/store.js";
 
 export default function Question() {
@@ -23,7 +30,7 @@ export default function Question() {
     api("/question", { method: "POST", json: { kind: r.kind, hasSheet: Boolean(r.sheet?.freeCare), known } })
       .then((res) => { if (alive.current) setQuestions(res.questions); })
       .catch(() => { if (alive.current) setQuestions([]); });
-    return () => { alive.current = false; stopSpeaking(); releaseEar(); };
+    return () => { alive.current = false; stopSpeaking(); cancelChoices(); releaseEar(); };
   }, []);
 
   const q = questions?.[index];
@@ -31,21 +38,16 @@ export default function Question() {
   useEffect(() => {
     if (!q) { if (questions && !q) navigate("/offer"); return; }
     (async () => {
-      await speak([q.text]);
-      if (!alive.current || s.buttonsMode) return;
+      // Biscuit asks, says the options, and only those options are an answer; the buttons stay as helpers.
       setListening(true);
-      try {
-        const { blob, spoke } = await listen();
-        const text = spoke ? await transcribe(blob) : "";
-        if (!alive.current) return;
-        if (handleVoiceCommand(text)) return;
-        const a = answerFrom(text);
-        if (a) record(a);
-      } catch { /* fall back to the buttons */ } finally { if (alive.current) setListening(false); }
+      const key = await askChoices({ lines: [q.text], options: q.id === "Q2" ? NUMBERS : YES_NO, alive: () => alive.current });
+      if (alive.current) setListening(false);
+      if (key && alive.current) record(key);
     })();
   }, [q?.id]);
 
   function record(answer) {
+    cancelChoices();
     store.set((st) => ({ answers: { ...st.answers, [r.id]: { ...(st.answers[r.id] || {}), [q.id]: answer } } }));
     stopSpeaking();
     setIndex(index + 1);
@@ -56,7 +58,7 @@ export default function Question() {
     <main className="screen">
       <div className="row between"><span className="label">One Question</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); stopSpeaking(); navigate("/"); }}>Stop</a></div>
       <div className="row"><Dog size={56} /><h1 className="display small">{q ? q.text : questions ? "No questions this time." : "One moment."}</h1></div>
-      {q && listening && <p className="lead small muted">Listening. You can just say yes or no.</p>}
+      {q && listening && <p className="lead small muted">{q.id === "Q2" ? "Say a number, one to six." : "Say yes, no, or not sure."}</p>}
       <div className="spacer" />
       {q && q.id === "Q2" ? (
         <div className="grid3">{["1", "2", "3", "4", "5", "6"].map((n) => <button key={n} type="button" className="btn secondary" onClick={() => record(n)}>{n}</button>)}</div>

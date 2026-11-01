@@ -6,6 +6,7 @@ import { navigate } from "../lib/navigate.js";
 import { listen, speak, speakAndKeep, stopSpeaking } from "../lib/speech.js";
 import { releaseEar } from "../lib/ear.js";
 import { handleVoiceCommand } from "../lib/commands.js";
+import { askChoices, cancelChoices } from "../lib/hear.js";
 import { saidMine, saidWrong } from "../lib/talk.js";
 import { store, useStore } from "../lib/store.js";
 
@@ -54,17 +55,15 @@ export default function Reading() {
 
   /** After the reading: "Did I get anything wrong?" A complaint becomes a note for Ana and a mark on the letter; a no, or silence, goes on. */
   async function askIfWrong() {
-    if (!alive.current || s.buttonsMode) return;
-    setAsked(true);
-    await speak(["Did I get anything wrong?"]);
     if (!alive.current) return;
+    setAsked(true);
+    const key = await askChoices({ lines: ["Did I get anything wrong?"], alive: () => alive.current, options: [
+      { key: "yes", say: "yes", match: (t) => saidWrong(t) },
+      { key: "no", say: "no", match: (t) => /^\s*(no|nope|nothing|no thanks|all good|that's right|fine|it's right|correct)\b/i.test(t) },
+    ] });
+    if (!alive.current || key === null) return;
     try {
-      const { blob, spoke, displaced } = await listen();
-      // A newer question (a tap on Something's wrong) took over this wait: it is not silence, so nothing moves on.
-      if (displaced) return;
-      const text = spoke ? await transcribe(blob) : "";
-      if (!alive.current || handleVoiceCommand(text)) return;
-      if (saidWrong(text)) {
+      if (key === "yes") {
         await speak(["Tell me what, and I'll pass it to Ana."]);
         const second = await listen();
         if (second.displaced) return;
@@ -82,17 +81,14 @@ export default function Reading() {
 
   /** On "not to you": Rosa can say it's mine. */
   async function askIfMine() {
-    if (!alive.current || s.buttonsMode) return;
-    await speak(["If this letter is yours after all, say it's mine, and I'll read it."]);
     if (!alive.current) return;
-    try {
-      const { blob, spoke, displaced } = await listen();
-      if (displaced) return;
-      const text = spoke ? await transcribe(blob) : "";
-      if (!alive.current || handleVoiceCommand(text)) return;
-      if (saidMine(text)) claimAsMine();
-      else if (text.trim()) navigate("/docket");
-    } catch { /* the buttons remain */ }
+    const key = await askChoices({ lines: ["If this letter is yours after all, I'll read it."], alive: () => alive.current, options: [
+      { key: "mine", say: "it's mine", match: (t) => saidMine(t) },
+      { key: "notMine", say: "not mine", match: (t) => /\b(not mine|no|someone else|not me)\b/i.test(t) },
+    ] });
+    if (!alive.current) return;
+    if (key === "mine") claimAsMine();
+    else if (key === "notMine") navigate("/docket");
   }
 
   useEffect(() => {
@@ -102,7 +98,7 @@ export default function Reading() {
       if (!alive.current || !r) return;
       if (r.mismatch) await askIfMine(); else if (!asked) await askIfWrong();
     })();
-    return () => { alive.current = false; stopSpeaking(); releaseEar(); };
+    return () => { alive.current = false; stopSpeaking(); cancelChoices(); releaseEar(); };
   }, [r?.id, r?.mismatch]);
 
   if (!r) { navigate("/"); return null; }
@@ -128,10 +124,10 @@ export default function Reading() {
         </section>
       )}
       <div className="spacer" />
-      {r.mismatch && r.mine && <button type="button" className="btn big" onClick={claimAsMine}>It's Mine, Read It</button>}
-      <button type="button" className={`btn ${r.mismatch ? "secondary" : "big"}`} onClick={() => { stopSpeaking(); navigate(r.mismatch ? "/docket" : "/question"); }}>{r.mismatch ? "All Right" : "Go On"}</button>
-      {!r.mismatch && <button type="button" className="btn secondary" onClick={() => { stopSpeaking(); askIfWrong(); }}>Something's Wrong</button>}
-      <button type="button" className="btn secondary" onClick={() => { stopSpeaking(); navigate("/"); }}>Done</button>
+      {r.mismatch && r.mine && <button type="button" className="btn big" onClick={() => { cancelChoices(); claimAsMine(); }}>It's Mine, Read It</button>}
+      <button type="button" className={`btn ${r.mismatch ? "secondary" : "big"}`} onClick={() => { cancelChoices(); stopSpeaking(); navigate(r.mismatch ? "/docket" : "/question"); }}>{r.mismatch ? "All Right" : "Go On"}</button>
+      {!r.mismatch && <button type="button" className="btn secondary" onClick={() => { cancelChoices(); stopSpeaking(); askIfWrong(); }}>Something's Wrong</button>}
+      <button type="button" className="btn secondary" onClick={() => { cancelChoices(); stopSpeaking(); navigate("/"); }}>Done</button>
     </main>
   );
 }
