@@ -26,6 +26,15 @@ try {
   const s = await fetch(`${base}/api/biscuit/speak`, { method: "POST", headers, body: JSON.stringify({ text: "Woof! Mail's here, Rosa." }) });
   const buf = Buffer.from(await s.arrayBuffer());
   console.log("speak", s.status, s.headers.get("content-type"), buf.length, "bytes", Date.now() - started, "ms", buf.toString("ascii", 0, 4), s.status !== 200 ? buf.toString("utf8", 0, 300) : "");
+  if (process.env.PROBE_ASR) {
+    // PROBE_ASR=<wav>: the clip goes to /asr as the phone would send it, and the words come back.
+    const { readFileSync } = await import("node:fs");
+    const form = new FormData();
+    form.set("audio", new Blob([new Uint8Array(readFileSync(process.env.PROBE_ASR))], { type: "audio/wav" }), "clip.wav");
+    const a0 = Date.now();
+    const a = await fetch(`${base}/api/biscuit/asr`, { method: "POST", headers: { authorization: `Bearer ${t.token}` }, body: form });
+    console.log("asr", a.status, Date.now() - a0, "ms", (await a.text()).slice(0, 200));
+  }
   if (process.env.PROBE_OUT) { const { writeFileSync } = await import("node:fs"); writeFileSync(process.env.PROBE_OUT, buf); console.log("saved", process.env.PROBE_OUT); }
   if (process.env.PROBE_KEEP) console.log("token", t.token);
 } finally {
