@@ -76,10 +76,11 @@ if (typeof document !== "undefined") {
 }
 
 /** Speaks with the phone's own voice: the best English voice it has (or the one chosen in Settings), a sentence at a time, at talking pace. */
-async function speakDevice(lines, { rate = 1.0 } = {}) {
+async function speakDevice(lines, { rate = 1.0 } = {}, id = speakSeq) {
   if (!("speechSynthesis" in window) || !lines.length) return;
   const volume = Math.min(1, 0.8 + 0.1 * (store.get().volumeStep || 0));
   const voice = pickVoice(await voicesReady(), { name: store.get().voiceName || null });
+  if (id !== speakSeq) return;
   const pieces = lines.flatMap((l) => sentences(l));
   if (!pieces.length) return;
   await new Promise((resolve) => {
@@ -164,20 +165,22 @@ function playUrl(blob) {
 }
 
 /** Speaks with the neural voice, fetching the next line while the current one plays; a failure hands the rest to the device voice. */
-async function speakNeural(lines, opts) {
+async function speakNeural(lines, opts, id) {
+  // Only the latest speech may make a sound: a line fetched for an older one is dropped when it arrives.
+  const stale = () => id !== speakSeq;
   let next = fetchLine(lines[0]);
   for (let i = 0; i < lines.length; i++) {
     let blob;
-    try { blob = await next; } catch (e) { diag("fetch", `failed ${e?.name || e?.message || e}`); await speakDevice(lines.slice(i), opts); return; }
+    try { blob = await next; } catch (e) { if (stale()) return; diag("fetch", `failed ${e?.name || e?.message || e}`); await speakDevice(lines.slice(i), opts, id); return; }
+    if (stale()) return;
     if (i + 1 < lines.length) next = fetchLine(lines[i + 1]);
-    if (stoppedAt > startedAt) return;
     // The context first (an iPhone plays it without a tap once a tap has woken it), the audio element second.
     let played = await playBuffer(blob);
-    if (stoppedAt > startedAt) return;
+    if (stale()) return;
     if (!played) played = await playUrl(blob);
-    if (stoppedAt > startedAt) return;
+    if (stale()) return;
     // The phone would not play the clip (no tap yet): the device voice says this line and the rest, and the bar offers the tap.
-    if (!played) { talkState.set({ speechBlocked: !playerUnlocked }); await speakDevice(lines.slice(i), opts); return; }
+    if (!played) { talkState.set({ speechBlocked: !playerUnlocked }); await speakDevice(lines.slice(i), opts, id); return; }
   }
 }
 
@@ -191,12 +194,14 @@ export function speak(lines, opts = {}) {
   // The ear is closed while Biscuit talks, so he never answers himself. Only the newest speech may open it again: one that
   // was cut short by this one settles later, and must not unmute the ear under it.
   const id = ++speakSeq;
+  // Muted: the words show on the bar and the flow goes on at once, with no sound.
+  if (store.get().muted) { diag("speak", `muted "${lines[0].slice(0, 40)}"`); return new Promise((r) => setTimeout(r, 300)); }
   diag("speak", `${store.get().neuralVoice ? "neural" : "device"} "${lines[0].slice(0, 40)}"`);
   ear.mute(true);
   // When the microphone was just closed, the phone needs a moment to move from recording to playback before the first sound,
   // or a quick (cached) line comes out of the earpiece or not at all.
   const settle = holdEar() ? new Promise((r) => setTimeout(r, SETTLE_MS)) : Promise.resolve();
-  const done = settle.then(() => (stoppedAt > startedAt ? undefined : store.get().neuralVoice ? speakNeural(lines, opts) : speakDevice(lines, opts)));
+  const done = settle.then(() => (id !== speakSeq ? undefined : store.get().neuralVoice ? speakNeural(lines, opts, id) : speakDevice(lines, opts, id)));
   return done.finally(() => { if (id === speakSeq) { ear.mute(false); unholdEar(); } });
 }
 const SETTLE_MS = 350;

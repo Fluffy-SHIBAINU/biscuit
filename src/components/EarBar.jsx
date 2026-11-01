@@ -21,6 +21,7 @@ export default function EarBar() {
     : status === "blocked" ? (earError() === "unsupported" ? "This Phone Can't Hear" : "Biscuit Can't Hear Yet")
     : status === "asleep" ? "Biscuit Is Asleep"
     : status === "looking" ? "Biscuit Is Looking at the Letter"
+    : st.muted && t.phase === "speaking" ? "Biscuit Is Muted"
     : status === "held" ? "Biscuit Is Talking"
     : status !== "on" ? "Biscuit Is Waking Up"
     : t.phase === "speaking" || earMuted() ? "Biscuit Is Talking"

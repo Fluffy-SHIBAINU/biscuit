@@ -18,6 +18,7 @@ function fake(reply) {
 // Everything Biscuit hears goes one of these ways: nothing, a command, a message for Ana, the mail, or the companion.
 test("routeHeard: silence does nothing, a command is a command, tell Ana and the mail stay local", async () => {
   const { deps, log } = fake({ reply: "x", action: "none", ignore: false });
+  deps.actOnVoice = true;
   expect(await routeHeard("", deps)).toBe("empty");
   expect(await routeHeard("stop", deps)).toBe("command");
   expect(await routeHeard("tell Ana I'm fine today", deps)).toBe("tell");
@@ -28,8 +29,9 @@ test("routeHeard: silence does nothing, a command is a command, tell Ana and the
   expect(log.filter((l) => l[0] === "ask")).toHaveLength(0);
 });
 
-test("routeHeard: anything else is a conversation; the reply is spoken, an action moves the screen, and the history keeps the last turns", async () => {
+test("routeHeard: anything else is a conversation; the reply is spoken, an action moves the screen only when voice actions are on, and the history keeps the last turns", async () => {
   const { deps, log } = fake((body) => body.messages.at(-1).content.includes("letter") ? { reply: "Show me!", action: "read_letter", ignore: false } : { reply: "Oatmeal sounds lovely.", action: "none", ignore: false });
+  deps.actOnVoice = true;
   expect(await routeHeard("I had oatmeal", deps)).toBe("reply");
   expect(log).toContainEqual(["say", "Oatmeal sounds lovely."]);
   expect(deps.history.turns).toEqual([{ role: "user", content: "I had oatmeal" }, { role: "assistant", content: "Oatmeal sounds lovely." }]);
@@ -40,6 +42,18 @@ test("routeHeard: anything else is a conversation; the reply is spoken, an actio
 });
 
 // The room talks too: the television, a visitor. When the model says the words were not for Biscuit, he stays quiet.
+// For now Biscuit only talks back: no screen moves and no message goes out on his word alone. Rosa taps for those.
+test("routeHeard with voice actions off: a reply is spoken, the screen stays, tell Ana and the mail become words", async () => {
+  const { deps, log } = fake({ reply: "Show me!", action: "read_letter", ignore: false });
+  expect(await routeHeard("read this letter", deps)).toBe("reply");
+  expect(log.filter((l) => l[0] === "nav")).toHaveLength(0);
+  expect(await routeHeard("tell Ana I'm fine", deps)).toBe("tell-off");
+  expect(log.filter((l) => l[0] === "event")).toHaveLength(0);
+  expect(log.at(-1)[1]).toMatch(/Tell Ana/);
+  expect(await routeHeard("the mail came", deps)).toBe("reply");
+  expect(log.filter((l) => l[0] === "nav")).toHaveLength(0);
+});
+
 test("routeHeard: words not meant for Biscuit are ignored, and a model 'help' is never the Help flow", async () => {
   const { deps, log } = fake({ reply: "", action: "none", ignore: true });
   expect(await routeHeard("and now the weather for the tri-state area", deps)).toBe("ignored");

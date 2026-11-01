@@ -12,6 +12,9 @@ import { talkState } from "./talkState.js";
 import { diag } from "./diag.js";
 
 export const HISTORY_MAX = 12;
+// For now Biscuit only talks back on his own word: no screen moves, no message goes out. Rosa taps for those. Screens'
+// own choices (yes, no, open one) still work, and so do stop, help and pause.
+export const ACT_ON_VOICE = false;
 export const HISTORY_IDLE_MS = 10 * 60_000;
 const AFTER = { read_letter: "/letter", papers: "/docket", mail_came: "/mail?from=home" };
 
@@ -75,13 +78,15 @@ export async function routeHeard(text, deps) {
     return "choice-miss";
   }
   const { intent, text: message } = intentOf(t);
+  const act = deps.actOnVoice ?? ACT_ON_VOICE;
+  if (intent === "tell" && !act) { await deps.say(["Tap Tell Ana and say it, and I'll pass it on."]); return "tell-off"; }
   if (intent === "tell") {
     if (!message) { await deps.say(["What shall I tell her? Start with: tell Ana."]); return "tell"; }
     await deps.postEvent("rosa_said", { text: message.slice(0, 300) });
     await deps.say([`I told Ana: ${message}.`]);
     return "tell";
   }
-  if (intent === "mail") { deps.navigate("/mail?from=home"); return "mail"; }
+  if (intent === "mail" && act) { deps.navigate("/mail?from=home"); return "mail"; }
   const h = deps.history;
   if (h.at && Date.now() - h.at > HISTORY_IDLE_MS) h.turns = [];
   const turns = [...h.turns, { role: "user", content: t }].slice(-HISTORY_MAX);
@@ -90,7 +95,7 @@ export async function routeHeard(text, deps) {
   catch { await deps.say(["I lost my train of thought. Say that again?"]); return "error"; }
   if (!r || r.ignore || !String(r.reply || "").trim()) return "ignored";
   h.turns = [...turns, { role: "assistant", content: r.reply }].slice(-HISTORY_MAX); h.at = Date.now();
-  const after = AFTER[r.action] || null;
+  const after = act ? AFTER[r.action] || null : null;
   await deps.say([r.reply]);
   if (after) { deps.navigate(after); return `action:${after}`; }
   return "reply";
