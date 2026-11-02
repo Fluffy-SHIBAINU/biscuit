@@ -109,7 +109,7 @@ test("the openai provider prefers a bearer key when one is set, and the default 
 
 // Gemini text-to-speech (the production voice): generateContent with AUDIO out, a style prefix, a prebuilt voice; base64 PCM at
 // 24 kHz comes back and leaves as a 16-bit WAV. Repeated lines are served from memory.
-test("the gemini provider asks for audio with a style prefix and a voice, wraps the PCM, and caches a repeated line", async () => {
+test("the gemini provider asks for audio with the bare line and a voice, wraps the PCM, and caches a repeated line", async () => {
   const calls: any[] = [];
   const pcm = Buffer.alloc(8); pcm.writeInt16LE(1000, 0); pcm.writeInt16LE(-1000, 2);
   const fetcher = (async (url: string, init: any) => { calls.push({ url, init }); return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: "audio/L16;codec=pcm;rate=24000", data: pcm.toString("base64") } }] } }] }), { status: 200, headers: { "content-type": "application/json" } }); }) as any;
@@ -125,7 +125,7 @@ test("the gemini provider asks for audio with a style prefix and a voice, wraps 
   expect(calls[0].url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash-tts:generateContent");
   expect(calls[0].init.headers["x-goog-api-key"]).toBe("g1");
   const body = JSON.parse(calls[0].init.body);
-  expect(body.contents[0].parts[0].text).toMatch(/cheerful.*Woof! Mail's here, Rosa\.$/s);
+  expect(body.contents[0].parts[0].text).toBe("Woof! Mail's here, Rosa.");
   expect(body.generationConfig.responseModalities).toEqual(["AUDIO"]);
   expect(body.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName).toBe("Puck");
   const again = await app.request("/api/biscuit/speak", { method: "POST", headers, body: JSON.stringify({ text: "Woof! Mail's here, Rosa." }) });
@@ -156,16 +156,20 @@ test("the gemini provider passes a WAV answer through untouched", async () => {
   expect(out.readInt16LE(44)).toBe(1234);
 });
 
-// Gemini 3 text-to-speech reads a sentence of instruction aloud; it takes its style as a bracketed tag instead. The 2.5
-// preview takes the spoken instruction.
-test("the style goes to Gemini 3 as a bracket tag, and to the 2.5 preview as a sentence", async () => {
+// Gemini 3 text-to-speech reads instructions aloud, a sentence or a bracket tag alike (the founder heard Biscuit describe
+// his own tone to Rosa): it gets the bare line, and only an explicit TTS_STYLE goes in, as a tag. The 2.5 preview takes
+// the spoken instruction.
+test("Gemini 3 gets the bare line; the 2.5 preview gets the style sentence", async () => {
   const calls: any[] = [];
   const pcm = Buffer.alloc(4);
   const fetcher = (async (url: string, init: any) => { calls.push({ url, init }); return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: "audio/L16;codec=pcm;rate=24000", data: pcm.toString("base64") } }] } }] }), { status: 200, headers: { "content-type": "application/json" } }); }) as any;
   const three = createApp({ lookup: linked, ttsEnv: { TTS_PROVIDER: "gemini", TTS_API_KEY: "g1", TTS_MODEL: "gemini-3.8-flash-tts" }, ttsFetch: fetcher });
   await three.request("/api/biscuit/speak", { method: "POST", headers, body: JSON.stringify({ text: "Hello, Rosa." }) });
-  expect(JSON.parse(calls[0].init.body).contents[0].parts[0].text).toMatch(/^\[[^\]]*cheerful[^\]]*\] Hello, Rosa\.$/);
+  expect(JSON.parse(calls[0].init.body).contents[0].parts[0].text).toBe("Hello, Rosa.");
   const two = createApp({ lookup: linked, ttsEnv: { TTS_PROVIDER: "gemini", TTS_API_KEY: "g1", TTS_MODEL: "gemini-2.5-flash-preview-tts" }, ttsFetch: fetcher });
   await two.request("/api/biscuit/speak", { method: "POST", headers, body: JSON.stringify({ text: "Hello, Rosa." }) });
   expect(JSON.parse(calls[1].init.body).contents[0].parts[0].text).toMatch(/^Say this as .*: Hello, Rosa\.$/);
+  const styled = createApp({ lookup: linked, ttsEnv: { TTS_PROVIDER: "gemini", TTS_API_KEY: "g1", TTS_MODEL: "gemini-3.8-flash-tts", TTS_STYLE: "whispering" }, ttsFetch: fetcher });
+  await styled.request("/api/biscuit/speak", { method: "POST", headers, body: JSON.stringify({ text: "Hello, Rosa." }) });
+  expect(JSON.parse(calls[2].init.body).contents[0].parts[0].text).toBe("[whispering] Hello, Rosa.");
 });

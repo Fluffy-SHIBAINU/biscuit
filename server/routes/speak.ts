@@ -11,11 +11,11 @@ export const DEFAULT_GEMINI_TTS_VOICE = "Fenrir";
 export const TTS_TIMEOUT_MS = 20_000;
 export const DEFAULT_GEMINI_TTS_MODEL = "gemini-3.8-flash-tts";
 export const DEFAULT_TTS_STYLE = "Say this as a cheerful, warm, quick helper, a friendly border collie of a voice, clear for an older listener, at a moderate pace:";
-// Gemini 3 text-to-speech reads a sentence of instruction aloud (ten seconds of it before every line, measured October 31);
-// it takes its style as a short bracketed tag instead.
-export const DEFAULT_TTS_TAG = "cheerful, warm, quick, friendly, clear for an older listener, moderate pace";
+// Gemini 3 text-to-speech reads instructions aloud, a sentence (ten seconds of it, measured October 31) or now and then a
+// bracket tag (Biscuit described his own tone to Rosa, November 2). It gets the bare line; the voice itself carries the
+// tone. Only an explicit TTS_STYLE goes in, as a tag, for whoever wants to try one.
 export function styledText(model: string, text: string, style?: string): string {
-  if (/^gemini-3/i.test(model)) { const tag = (style || DEFAULT_TTS_TAG).replace(/^\[|\]$/g, ""); return `[${tag}] ${text}`; }
+  if (/^gemini-3/i.test(model)) return style ? `[${style.replace(/^\[|\]$/g, "")}] ${text}` : text;
   return `${style || DEFAULT_TTS_STYLE} ${text}`;
 }
 const LINE_CACHE_MAX = 300;
@@ -46,7 +46,7 @@ export function speakRoutes(deps: { auth: MiddlewareHandler<AuthVars>; env?: Rec
       const b = await c.req.json().catch(() => ({}));
       const text = typeof b?.text === "string" ? b.text.trim().slice(0, SPEAK_MAX_CHARS) : "";
       if (!text) return c.json({ error: "no_text" }, 400);
-      const cacheKey = `${url}|${env.TTS_MODEL ?? ""}|${env.TTS_VOICE ?? ""}|${env.TTS_SPEED ?? ""}|${text}`;
+      const cacheKey = `${url}|${env.TTS_MODEL ?? ""}|${env.TTS_VOICE ?? ""}|${env.TTS_SPEED ?? ""}|${env.TTS_STYLE ?? ""}|${text}`;
       const cached = lineCache.get(cacheKey);
       if (cached) return new Response(new Uint8Array(cached), { headers: { "content-type": "audio/wav", "cache-control": "private, max-age=86400" } });
       const key = keyFor();
