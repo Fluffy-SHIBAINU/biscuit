@@ -20,6 +20,9 @@ export default function Settings() {
   useEffect(() => { voicesReady().then((v) => setVoices(v.filter((x) => (x.lang || "").toLowerCase().startsWith("en")))); }, []);
   const chosen = pickVoice(voices, { name: s.voiceName || null });
   const choose = (name) => { store.set({ voiceName: name || null }); speak(["This is how I sound. Is this all right?"]); };
+  // Armed Delete sits where the first tap landed, so Keep It takes that slot; a second tap in the first 600 ms does nothing; ten quiet seconds disarm it.
+  const [armedAt, setArmedAt] = useState(0);
+  useEffect(() => { if (!arm) return; const t = setTimeout(() => setArm(false), 10_000); return () => clearTimeout(t); }, [arm]);
   async function wipe() {
     setBusy(true);
     try { await api("/household", { method: "DELETE" }); } catch { /* the phone is wiped either way */ }
@@ -50,8 +53,8 @@ export default function Settings() {
         {reminders.map((r) => <div key={r.id} className="fact"><strong>{r.label} at {r.time}</strong><button type="button" className="btn secondary small" onClick={() => dropReminder(r.id)}>Remove</button></div>)}
       </section>
       <div className="spacer" />
-      {!arm ? <button type="button" className="btn danger" onClick={() => { setArm(true); speak(["Delete everything? This cannot be undone. Tap Yes, delete, or say nothing."]); }}>Delete Everything</button>
-        : <><button type="button" className="btn danger" disabled={busy} onClick={wipe}>Yes, Delete</button><button type="button" className="btn secondary" onClick={() => setArm(false)}>Keep It</button></>}
+      {!arm ? <button type="button" className="btn danger" onClick={() => { setArm(true); setArmedAt(Date.now()); speak(["Delete everything? This cannot be undone. Tap Yes, Delete, or do nothing."]); }}>Delete Everything</button>
+        : <><button type="button" className="btn secondary" onClick={() => setArm(false)}>Keep It</button><button type="button" className="btn danger" disabled={busy || Date.now() - armedAt < 600} onClick={wipe}>Yes, Delete</button></>}
       <button type="button" className="btn secondary" onClick={() => navigate("/diagnostics")}>Diagnostics</button>
       <p className="foot">Delete removes everything Biscuit kept, here and on Ana's page.</p>
     </main>

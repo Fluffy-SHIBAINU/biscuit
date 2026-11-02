@@ -7,7 +7,7 @@ import { getDocket } from "../lib/api.js";
 import { useEffect, useRef, useState } from "react";
 import { holdToHelp } from "../lib/hold.js";
 import { postEvent } from "../lib/api.js";
-import { mailSourceLabel, todaysMailLine } from "../lib/mailtime.js";
+import { todaysMailLine } from "../lib/mailtime.js";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const clock = (d) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -33,8 +33,8 @@ export default function Home() {
     if (!helpRef.current) return;
     return holdToHelp(helpRef.current, () => {
       // Runs inside the pointerup handler: the release is the gesture that may open the phone's "Call 911?" sheet.
-      store.set({ helpOpenAt: new Date().toISOString() });
-      postEvent("help").catch(() => {});
+      store.set({ helpOpenAt: new Date().toISOString(), helpTold: "sending" });
+      postEvent("help").then(() => store.set({ helpTold: "told" })).catch(() => store.set({ helpTold: "failed" }));
       window.location.assign("tel:911");
       navigate("/help");
     }, 2000, setHolding, () => setArmed(true));
@@ -67,8 +67,8 @@ export default function Home() {
       <section className="card">
         <span className="label">Today's Mail</span>
         <p className="lead">{todaysMailLine({ seenAt: s.lastMailSeen, now, mailMinutes: s.mailMinutes })}</p>
-        <span className="label plain">{mailSourceLabel({ hasCam: s.hasCam, mailMinutes: s.mailMinutes })}</span>
-        <a href="/mail?from=home" className="link" onClick={(e) => { e.preventDefault(); navigate("/mail?from=home"); }}>Mail came and I didn't say so? Tap here.</a>
+        {waiting && <p className="lead small">{waiting.waitingLine || `${waiting.sender}'s answer.`}</p>}
+        {!s.hasCam && <button type="button" className="btn secondary" onClick={() => navigate("/mail?from=home")}>The Mail Came</button>}
       </section>
       {s.lookRequest && (
         <section className="card">
@@ -81,14 +81,8 @@ export default function Home() {
       {chimeError && <p className="foot bad">{chimeError}</p>}
       <button type="button" className="btn big" onClick={() => navigate("/letter")}>Read a New Letter for Me</button>
       <button type="button" className="btn secondary" onClick={() => navigate("/docket")}>Show Me My Mails</button>
-      {s.consentedAt && <button type="button" ref={helpRef} className={`btn danger hold ${armed ? "armed" : ""}`} style={{ "--hold": holding }}>{armed ? "Let Go to Call 911" : "Help"} <span className="hint">{armed ? "Ana Is Told When You Let Go" : "Hold 2 s · Calls 911, Tells Ana"}</span></button>}
+      {s.consentedAt && <button type="button" ref={helpRef} className={`btn danger hold ${armed ? "armed" : ""}`} style={{ "--hold": holding }}>{armed ? "Let Go to Call 911" : "Help"}<span className="hint">{armed ? "Ana Is Told When You Let Go" : "Hold Two Seconds. Calls 911 and Tells Ana."}</span></button>}
       <div className="spacer" />
-      {waiting && (
-        <section className="card">
-          <span className="label">Waiting On</span>
-          <p className="lead small">{waiting.waitingLine || `${waiting.sender}'s answer.`}</p>
-        </section>
-      )}
       <p className="foot">Just talk to him. Say <strong>stop</strong> and he stops. <a href="/settings" className="link" onClick={(e) => { e.preventDefault(); navigate("/settings"); }}>Settings</a></p>
     </main>
   );

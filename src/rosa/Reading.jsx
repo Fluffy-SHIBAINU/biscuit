@@ -23,14 +23,24 @@ export function editFor(field, value) {
 }
 
 /** One field of the letter: its name, its value in a box Rosa can correct, the line it came from underneath. */
+const FORMAT = { amount_due: ["decimal", "Like 1,234.50"], due_date: ["numeric", "Like 11/20/2026"], statement_date: ["numeric", "Like 11/2/2026"], phone_numbers: ["tel", null], account_last4: ["numeric", null] };
 export function Fact({ f, onEdit, extra = null }) {
   const [draft, setDraft] = useState(f.value ?? "");
+  const [hint, setHint] = useState("");
   useEffect(() => { setDraft(f.value ?? ""); }, [f.value]);
-  const commit = () => { if (draft.trim() !== (f.value ?? "")) onEdit(draft.trim()); };
+  const [mode, example] = FORMAT[f.field] || ["text", null];
+  // A date or an amount the server cannot take is said so, under the box, instead of failing quietly.
+  const commit = () => {
+    const v = draft.trim();
+    if (v === (f.value ?? "")) return;
+    if (example && editFor(f.field, v) === null) { setHint(example); return; }
+    setHint(""); onEdit(v);
+  };
   return (
     <div className="fact">
       <span className="label plain">{FIELD_LABEL[f.field] || f.field}</span>
-      <input className="field" value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} aria-label={FIELD_LABEL[f.field] || f.field} />
+      <input className="field" value={draft} inputMode={mode} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} aria-label={FIELD_LABEL[f.field] || f.field} />
+      {hint && <span className="lead small bad">{hint}</span>}
       {f.quote && <span className="quote"><span className="mark">“{f.quote}”</span></span>}
       {extra}
     </div>
@@ -127,7 +137,7 @@ export default function Reading() {
       )}
       <div className="spacer" />
       {r.mismatch && r.mine && <button type="button" className="btn big" onClick={() => { cancelChoices(); claimAsMine(); }}>It's Mine, Read It</button>}
-      <button type="button" className={`btn ${r.mismatch ? "secondary" : "big"}`} onClick={() => { cancelChoices(); stopSpeaking(); navigate(r.mismatch ? "/docket" : "/question"); }}>{r.mismatch ? "All Right" : "Next"}</button>
+      <button type="button" className={`btn ${r.mismatch ? "secondary" : "big sticky"}`} onClick={() => { cancelChoices(); stopSpeaking(); navigate(r.mismatch ? "/docket" : "/question"); }}>{r.mismatch ? "All Right" : "Next"}</button>
     </main>
   );
 }

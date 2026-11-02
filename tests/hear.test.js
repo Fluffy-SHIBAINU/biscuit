@@ -49,7 +49,7 @@ test("routeHeard with voice actions off: a reply is spoken, the screen stays, te
   expect(log.filter((l) => l[0] === "nav")).toHaveLength(0);
   expect(await routeHeard("tell Ana I'm fine", deps)).toBe("tell-off");
   expect(log.filter((l) => l[0] === "event")).toHaveLength(0);
-  expect(log.at(-1)[1]).toMatch(/Tell Ana/);
+  expect(log.at(-1)[1]).toMatch(/Ana/);
   expect(await routeHeard("the mail came", deps)).toBe("reply");
   expect(log.filter((l) => l[0] === "nav")).toHaveLength(0);
 });

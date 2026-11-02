@@ -37,5 +37,6 @@ export function todayLine(letters, now = new Date()) {
   return `Today you got ${CAP[today - 1] || today} ${today === 1 ? "mail" : "mails"}.`;
 }
 
-/** The spoken reading of one letter from the list: who, then its status line. */
-export const readLine = (l) => `${senderOf(l)}. ${statusLine(l)}`;
+/** The spoken reading of one letter from the list: who, the reading itself when this phone kept it, then its status line. */
+export const readLines = (l) => [`${senderOf(l)}.`, ...(Array.isArray(l.lines) ? l.lines : []), statusLine(l)];
+export const readLine = (l) => readLines(l).join(" ");

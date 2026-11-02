@@ -58,7 +58,7 @@ export default function Question() {
     <main className="screen">
       <div className="row between"><span className="label">One Question</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); stopSpeaking(); navigate("/"); }}>Stop</a></div>
       <div className="row"><Dog size={56} /><h1 className="display small">{q ? q.text : questions ? "No questions this time." : "One moment."}</h1></div>
-      {q && listening && <p className="lead small muted">{q.id === "Q2" ? "Say a number, one to six." : "Say yes, no, or not sure."}</p>}
+      {q && listening && <p className="lead small muted">{q.id === "Q2" ? "Say a number, one to six. Count yourself." : "Say yes, no, or not sure."}</p>}
       <div className="spacer" />
       {q && q.id === "Q2" ? (
         <div className="grid3">{["1", "2", "3", "4", "5", "6"].map((n) => <button key={n} type="button" className="btn secondary" onClick={() => record(n)}>{n}</button>)}</div>

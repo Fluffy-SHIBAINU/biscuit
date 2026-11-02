@@ -79,7 +79,7 @@ export async function routeHeard(text, deps) {
   }
   const { intent, text: message } = intentOf(t);
   const act = deps.actOnVoice ?? ACT_ON_VOICE;
-  if (intent === "tell" && !act) { await deps.say(["Tap Tell Ana to send that."]); return "tell-off"; }
+  if (intent === "tell" && !act) { await deps.say(["Messages to Ana are off for now."]); return "tell-off"; }
   if (intent === "tell") {
     if (!message) { await deps.say(["What shall I tell her? Start with: tell Ana."]); return "tell"; }
     await deps.postEvent("rosa_said", { text: message.slice(0, 300) });
@@ -135,14 +135,14 @@ export async function onUtterance({ blob, spoke }) {
   try {
     talkState.set({ phase: "thinking", note: "" });
     let text = "";
-    try { text = await withTimeout(transcribe(blob), TRANSCRIBE_TIMEOUT_MS); } catch (err) { talkState.set({ phase: "idle", note: err?.message === "timeout" ? "The words took too long to come back." : "I couldn't reach my ears on the server." }); return; }
+    try { text = await withTimeout(transcribe(blob), TRANSCRIBE_TIMEOUT_MS); } catch (err) { talkState.set({ phase: "idle", note: err?.message === "timeout" ? "That took too long. Say it again?" : "I couldn't hear that. Say it again?" }); return; }
     if (!text.trim()) { talkState.set({ phase: "idle", note: "I heard a sound but no words." }); return; }
     if (echoOf(text, talkState.get().reply)) { diag("echo", text.slice(0, 60)); talkState.set({ phase: "idle" }); return; }
     talkState.set({ heard: text, phase: "thinking" });
     diag("heard", text.slice(0, 60));
     const outcome = await routeHeard(text, liveDeps);
     diag("outcome", outcome);
-    talkState.set({ phase: "idle", note: outcome === "ignored" ? "Not for me, I think." : outcome === "error" ? "I lost the thread on the server." : "" });
+    talkState.set({ phase: "idle", note: outcome === "ignored" ? "Not for me, I think." : outcome === "error" ? "I lost my train of thought." : "" });
   } finally {
     busy = false;
     if (queued) { const next = queued; queued = null; onUtterance(next); }

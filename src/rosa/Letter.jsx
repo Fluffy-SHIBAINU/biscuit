@@ -86,7 +86,7 @@ export default function Letter() {
 
   const s = statusLine(check);
   return (
-    <main className="screen">
+    <main className="screen camera">
       <div className="row between"><span className="label">Show Me the Letter</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); navigate("/"); }}>Stop</a></div>
       {phase === "reading" ? (
         <>
@@ -95,13 +95,12 @@ export default function Letter() {
         </>
       ) : (
         <>
-          <h1 className="display small">Hold the letter in the frame.</h1>
           <div className="frame"><video ref={video} autoPlay playsInline muted /></div>
           <section className="card status"><span className={`pill ${check?.ok ? "ok" : "warn"}`}>{s.pill}</span><p className="lead small">{s.text}</p></section>
         </>
       )}
       <div className="spacer" />
-      {phase !== "reading" && <button type="button" className="btn big" onClick={capture}>Take the Picture</button>}
+      {phase !== "reading" && <button type="button" className="btn big sticky" onClick={capture}>Take the Picture</button>}
     </main>
   );
 }

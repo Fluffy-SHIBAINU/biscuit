@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { navigate } from "../lib/navigate.js";
 import { speak, stopSpeaking } from "../lib/speech.js";
-import { groupByDay, readLine, senderOf, sentToAna, todayLine } from "../lib/mails.js";
+import { groupByDay, readLines, senderOf, sentToAna, todayLine } from "../lib/mails.js";
 import { statusLine } from "../lib/letters.js";
 import { store, useStore } from "../lib/store.js";
 
@@ -15,7 +15,7 @@ export default function Docket() {
   const groups = groupByDay(letters);
   const alive = useRef(true);
   const open = (l) => { stopSpeaking(); store.set({ lastReading: { ...l } }); navigate("/reading"); };
-  const read = (l) => { stopSpeaking(); speak([readLine(l)]); };
+  const read = (l) => { stopSpeaking(); speak(readLines(l)); };
   useEffect(() => { alive.current = true; speak([todayLine(letters)]); return () => { alive.current = false; stopSpeaking(); }; }, []);
 
   return (

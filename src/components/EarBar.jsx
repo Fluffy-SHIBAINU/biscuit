@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { allowEar, earError, earLevel, earMuted, earStatus, earWanted, resumeEar, pauseEar, subscribeEar } from "../lib/ear.js";
 import { primeSpeech, speak } from "../lib/speech.js";
 import { useStore } from "../lib/store.js";
@@ -12,6 +12,16 @@ export default function EarBar() {
   const t = useTalk();
   const [, tick] = useState(0);
   useEffect(() => subscribeEar(() => tick((n) => n + 1)), []);
+  // The bar tells the page how tall it is, so every screen reserves exactly that much and a primary button can sit above it.
+  const barRef = useRef(null);
+  useEffect(() => {
+    const el = barRef.current; if (!el) return;
+    const set = () => document.documentElement.style.setProperty("--earbar-h", `${el.getBoundingClientRect().height}px`);
+    set();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(set) : null;
+    ro?.observe(el);
+    return () => { ro?.disconnect(); document.documentElement.style.removeProperty("--earbar-h"); };
+  }, []);
   const st = useStore();
   const wanted = earWanted(st);
   const status = earStatus();
@@ -34,10 +44,10 @@ export default function EarBar() {
     : t.heard ? ["You Said", t.heard]
     : null;
   return (
-    <div className={`earbar ${status === "on" ? "on" : ""}`} role="status" aria-live="polite">
+    <div ref={barRef} className={`earbar ${status === "on" ? "on" : ""}`}>
       <div className="earhead">
         <span className={`eardot ${status === "on" ? (level ? "loud" : "on") : status === "paused" ? "paused" : ""}`} aria-hidden="true" />
-        <span className="eartitle">{title}</span>
+        <span className="eartitle" role="status" aria-live="polite">{title}</span>
         {status === "asleep" && <button type="button" className="btn earbtn" onClick={() => primeSpeech()}>Tap to Wake Him</button>}
         {t.speechBlocked && t.reply && status === "on" && <button type="button" className="btn earbtn" onClick={() => { primeSpeech(); speak([t.reply]); }}>Tap to Hear Him</button>}
         {(status === "paused" || st.earPaused) && <button type="button" className="btn earbtn" onClick={() => resumeEar()}>Listen</button>}

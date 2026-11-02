@@ -7,7 +7,8 @@ import { store, useStore } from "../lib/store.js";
 
 export default function AfterHelp() {
   const s = useStore();
-  useEffect(() => { speak(["Ana knows. Her phone buzzed. Tap Call Ana, or I'm OK."]); return () => stopSpeaking(); }, []);
+  const told = s.helpTold === "told";
+  useEffect(() => { speak([told ? "Ana knows. Tap Call Ana, or I'm OK." : "Tap Call Ana, or I'm OK."]); return () => stopSpeaking(); }, []);
   async function ok() {
     stopSpeaking();
     store.set({ helpOpenAt: null });
@@ -19,10 +20,10 @@ export default function AfterHelp() {
   return (
     <main className="screen night">
       <div className="row between"><span className="label night">Biscuit · Help</span><span className="label plain">{new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span></div>
-      <div className="row"><Dog /><h1 className="display">Ana Knows</h1></div>
-      <p className="lead">Her phone buzzed{at ? ` at ${at}` : ""}. Her page says: {s.household?.called || "Rosa"} called 911.</p>
-      {s.anaPhone && <a className="btn big light" href={`tel:${s.anaPhone.replace(/[^\d+]/g, "")}`}>Call Ana <span className="hint">Your Phone Dials Her · One Tap</span></a>}
-      <button type="button" className="btn secondary night tall" onClick={ok}>I'm OK <span className="hint">Tells Ana's Page</span></button>
+      <div className="row"><Dog /><h1 className="display">{told ? "Ana Knows" : "Are You OK?"}</h1></div>
+      <p className="lead">{told ? `Her phone buzzed${at ? ` at ${at}` : ""}.` : "I couldn't reach Ana's page. Call her yourself if you can."}</p>
+      {s.anaPhone && <a className="btn big light" href={`tel:${s.anaPhone.replace(/[^\d+]/g, "")}`}>Call Ana</a>}
+      <button type="button" className="btn secondary night tall" onClick={ok}>I'm OK</button>
       <section className="card night">
         <div className="row">Need 911 again? Hold Help.</div>
         <div className="row">Biscuit stays quiet unless you ask. He never calls anyone by himself.</div>

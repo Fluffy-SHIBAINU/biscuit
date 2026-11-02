@@ -75,12 +75,12 @@ export default function Offer() {
       {mode === "offer" && fc && (
         <section className="card">
           <span className="label">The Hospital's Own Rule</span>
-          <p className="lead small">{r.sheet.hospital} gives free care to households at or below {fc.maxFpl}% of the federal poverty level.</p>
+          <p className="lead small">{r.sheet.hospital} gives free care to families with low income, up to {fc.maxFpl}% of the poverty line.</p>
           <p className="quote"><span className="mark">“{fc.quote}”</span></p>
           <span className="label plain">Checked {fc.checkedOn || r.sheet.checkedOn}</span>
         </section>
       )}
-      <div className="row"><Dog size={56} /><div><span className="label">Biscuit Says</span>{lines.map((l, i) => <p key={i} className="lead small">{l}</p>)}</div></div>
+      <div className="row"><Dog size={56} /><div><span className="label">Biscuit Says</span>{lines.map((l, i) => <p key={i} className="lead">{l}</p>)}</div></div>
       <div className="spacer" />
       {(mode === "offer" || mode === "ad" || mode === "send" || mode === "unknown") && (
         <button type="button" className="btn big" disabled={busy} onClick={yes}>{mode === "offer" ? "Yes, Start It with Ana" : mode === "ad" ? "Toss It" : "Send It to Ana"}</button>

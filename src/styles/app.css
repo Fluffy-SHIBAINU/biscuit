@@ -2,7 +2,7 @@
 html, body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--ui); -webkit-text-size-adjust: 100%; }
 .screen { min-height: 100dvh; display: flex; flex-direction: column; gap: 14px; padding: 30px 22px 26px; max-width: 480px; margin: 0 auto; }
 .display { margin: 0; font-family: var(--display); font-weight: 400; font-size: 34px; line-height: 1.05; }
-.label { font-family: var(--mono); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.label { font-family: var(--mono); font-size: 15px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .muted { color: var(--muted); }
 .btn { border: 0; border-radius: var(--r-btn); background: var(--btn); color: var(--btn-ink); font: 600 24px/1.2 var(--ui); height: 96px; width: 100%; cursor: pointer; }
 .btn.big { height: 112px; font-size: 26px; }
@@ -14,31 +14,38 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .spacer { flex: 1 1 auto; }
 .row { display: flex; align-items: center; gap: 16px; }
 .row.between { justify-content: space-between; }
-.label.plain { letter-spacing: 0; text-transform: none; }
+.label.plain { letter-spacing: 0; text-transform: none; font-size: 16px; }
 .lead { margin: 0; font-size: 21px; line-height: 1.4; }
 .lead.small { font-size: 18px; }
 .lead.bad { color: var(--bad); }
-.link { font-size: 16px; color: var(--signal); text-decoration: none; }
-.foot { margin: 0; font-size: 14px; line-height: 1.45; color: var(--muted); }
+.link { font-size: 19px; color: var(--signal); text-decoration: none; display: inline-flex; align-items: center; min-height: 44px; padding: 0 6px; }
+.foot { margin: 0; font-size: 16px; line-height: 1.45; color: var(--muted); }
 .foot strong { color: var(--ink); }
-.hint { font: 400 13px/1 var(--mono); color: var(--muted); margin-left: 6px; }
+.hint { font: 400 15px/1.2 var(--mono); color: var(--muted); margin-left: 6px; }
+/* The Help button says what it does in its own colour, on its own line, at a size a 75-year-old reads. */
+.btn.danger.hold { height: auto; min-height: 112px; padding: 14px 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.btn.danger.hold .hint { display: block; margin: 0; font: 500 18px/1.3 var(--ui); color: inherit; text-align: center; }
 .btn:disabled { opacity: .45; cursor: default; }
+/* A tap shows: a short dip, no layout change. Keyboard focus shows too. */
+.btn:active:not(:disabled) { filter: brightness(.88); transition: filter 80ms; }
+:where(button, a, input, select):focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .eardot, .bars span, .btn { transition: none !important; } }
 .code { height: 84px; border: 2px solid var(--rule-strong); border-radius: var(--r-btn); background: var(--sheet); font: 500 40px/1 var(--mono); letter-spacing: .3em; text-align: center; width: 100%; color: var(--ink); }
 .bars { display: flex; gap: 6px; align-items: flex-end; height: 32px; }
 .bars span { width: 6px; height: 8px; background: var(--rule-strong); border-radius: 3px; transition: height .15s; }
 .bars span.on { background: var(--signal); height: 28px; }
 .bars span.on:nth-child(2) { height: 20px; } .bars span.on:nth-child(4) { height: 16px; }
 .display.small { font-size: 30px; line-height: 1.1; }
-.frame { width: 100%; aspect-ratio: 4 / 5; background: var(--night); border-radius: var(--r-sheet); overflow: hidden; border: 1px solid #1F2A3D; }
+.frame { width: 100%; aspect-ratio: 4 / 5; max-height: 42dvh; background: var(--night); border-radius: var(--r-sheet); overflow: hidden; border: 1px solid #1F2A3D; }
 .frame video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .card.status { flex-direction: row; align-items: center; gap: 12px; }
-.pill { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; border-radius: 999px; padding: 4px 10px; white-space: nowrap; border: 1px solid currentColor; }
+.pill { font-family: var(--mono); font-size: 14px; letter-spacing: .1em; text-transform: uppercase; border-radius: 999px; padding: 5px 12px; white-space: nowrap; border: 1px solid currentColor; }
 .pill.ok { color: var(--ok); } .pill.warn { color: var(--warn); } .pill.bad { color: var(--bad); } .pill.signal { color: var(--signal); }
 .foot.mono { font-family: var(--mono); font-size: 12px; }
 .facts { gap: 12px; }
 .fact { display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 1px solid var(--rule); }
 .fact strong { font-size: 18px; }
-.fact .quote { font-size: 15px; line-height: 1.5; }
+.fact .quote { font-size: 18px; line-height: 1.5; }
 .fact.unverified strong { color: var(--muted); text-decoration: line-through; }
 .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .grid3 .btn { height: 76px; }
@@ -90,6 +97,10 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .center { text-align: center; }
 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 10px; }
 .dot.ok { background: #34D399; }
+.dot.bad { background: #F87171; }
+.dot.wait { background: #FBBF24; }
+/* Night screens: the clock and the hints read against the navy. */
+.screen.night .label.plain, .screen.night .hint { color: var(--night-muted); }
 .toggle { gap: 12px; } .toggle input { width: 28px; height: 28px; }
 .btn.danger.hold.armed { background: var(--bad); color: #fff; }
 /* Read twice: what the two readers made of a fact. */
@@ -131,7 +142,12 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .details.night > summary { color: var(--night-muted); }
 
 /* Biscuit's ear: the bar at the foot of Rosa's screens. Large, for an older reader. */
-.screen { padding-bottom: calc(210px + env(safe-area-inset-bottom, 0px)); }
+.screen { padding-bottom: calc(var(--earbar-h, 110px) + 20px + env(safe-area-inset-bottom, 0px)); }
+/* A primary button that stays in view above the bar on a long page. */
+.btn.sticky { position: sticky; bottom: calc(var(--earbar-h, 110px) + 12px); box-shadow: 0 10px 24px -10px rgba(11, 18, 32, .45); }
+/* Header rows: the brand label and the clock stay on one line at phone width. */
+.row.between > .label, .row.between > .row > .label { font-size: 13px; }
+.row.between > .label.plain { font-size: 15px; white-space: nowrap; }
 .earbar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px max(16px, env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); background: var(--sheet); border-top: 2px solid var(--rule-strong); max-width: 480px; margin: 0 auto; }
 .earhead { display: flex; align-items: center; gap: 12px; }
 .eardot { width: 16px; height: 16px; border-radius: 50%; background: var(--rule-strong); flex: 0 0 auto; transition: transform .15s, background .15s; }
@@ -152,3 +168,4 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 /* A letter's field, in a box Rosa can correct. */
 .fact .field { width: 100%; height: 56px; border: 1.5px solid var(--rule-strong); border-radius: var(--r-btn); background: var(--sheet); padding: 0 14px; font: 500 22px/1 var(--ui); color: var(--ink); }
 .fact .field:focus { outline: 3px solid var(--signal); outline-offset: 1px; }
+
