@@ -56,7 +56,7 @@ export default function App() {
   const rosaHome = Boolean(s.deviceToken && s.kind === "rosa") && !path.startsWith("/ana") && !path.startsWith("/cam") && !path.startsWith("/setup") && path !== "/link" && !/^\/[0-9a-f-]{36}$/i.test(path);
   useEffect(() => { if (!rosaHome) return; ear.setHandler(onUtterance); keepEarOpen(); earCheck(); }, [rosaHome, s.consentedAt, s.earAllowedAt, s.earPaused, path]);
   // The first time the ear opens on this visit, Biscuit says hello, and the dog tilts his head once.
-  useEffect(() => subscribeEar(() => { if (!greeted && earStatus() === "on") { greeted = true; talkState.set({ helloAt: Date.now() }); speak(["Hello! Biscuit here."]); } }), []);
+  useEffect(() => { const hello = () => { if (!greeted && earStatus() === "on") { greeted = true; talkState.set({ helloAt: Date.now() }); speak(["Hello! Biscuit here."]); } }; hello(); return subscribeEar(hello); }, []);
   // Nothing loops while the app is hidden.
   useEffect(() => { const f = () => document.documentElement.toggleAttribute("data-hidden", document.visibilityState === "hidden"); f(); document.addEventListener("visibilitychange", f); return () => document.removeEventListener("visibilitychange", f); }, []);
   const page = route(path, s);
