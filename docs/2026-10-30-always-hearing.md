@@ -170,3 +170,18 @@ so no capture of ours opens.
 - Mute in Settings: the words show on the bar, the flow goes on, no sound. The lowest iPhone volume was still loud.
 
 Confirmed on the founder's iPhone: hello on load, choices picked by voice, one sound at a time ("Yes, clean").
+
+## The design review (November 2)
+
+ui-ux-pro-max and impeccable, installed at user scope, reviewed Rosa's screens: the mechanical detector found nothing;
+three independent readers (impeccable's critique rubric, ui-ux-pro-max's accessibility and touch rules, a specialist in
+older-adult interfaces) found the rest, each finding verified by a skeptic. Fixed in commit 62ce898: an honest Help
+screen (Telling Ana, Ana's Phone Buzzed, Couldn't Reach Ana's Page with Call Ana), primary buttons pinned above the ear
+bar (which now publishes its height), the Help button's instruction at 18px in its own colour, a safe Delete (Keep It in
+the tapped slot, a dead 600 ms, a ten-second disarm), no meaningful type under 14px, Home reordered, inputs with keypads
+and format hints, pressed and focus states, reduced motion, night contrast.
+
+Rulings by the founder:
+- The reading page speaks the title only ("This is a bill."), not the letter; Read the Letter to Me on My Mails reads it.
+- Settings keeps its technical controls (how Biscuit hears, the voice picker, Diagnostics) while the live tests run.
+- Sizes stay in px for now; the iPhone's Larger Text setting is a later change.
