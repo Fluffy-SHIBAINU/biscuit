@@ -26,7 +26,8 @@ import Diagnostics from "./rosa/Diagnostics.jsx";
 import { listenToWorker } from "./lib/push.js";
 import EarBar from "./components/EarBar.jsx";
 import { core as ear, earCheck, keepEarOpen, subscribeEar, earStatus } from "./lib/ear.js";
-import { speak } from "./lib/speech.js";
+import { speak, hasSpoken } from "./lib/speech.js";
+import { shouldGreet } from "./lib/greeting.js";
 import { talkState } from "./lib/talkState.js";
 import { onUtterance } from "./lib/hear.js";
 import Family from "./ana/Family.jsx";
@@ -56,7 +57,7 @@ export default function App() {
   const rosaHome = Boolean(s.deviceToken && s.kind === "rosa") && !path.startsWith("/ana") && !path.startsWith("/cam") && !path.startsWith("/setup") && path !== "/link" && !/^\/[0-9a-f-]{36}$/i.test(path);
   useEffect(() => { if (!rosaHome) return; ear.setHandler(onUtterance); keepEarOpen(); earCheck(); }, [rosaHome, s.consentedAt, s.earAllowedAt, s.earPaused, path]);
   // The first time the ear opens on this visit, Biscuit says hello, and the dog tilts his head once.
-  useEffect(() => { const hello = () => { if (!greeted && earStatus() === "on") { greeted = true; talkState.set({ helloAt: Date.now() }); speak(["Hello! Biscuit here."]); } }; hello(); return subscribeEar(hello); }, []);
+  useEffect(() => { const hello = () => { if (greeted || earStatus() !== "on") return; const greet = shouldGreet({ greeted, earOn: true, spoke: hasSpoken() }); greeted = true; if (greet) { talkState.set({ helloAt: Date.now() }); speak(["Hello! Biscuit here."]); } }; hello(); return subscribeEar(hello); }, []);
   // Nothing loops while the app is hidden.
   useEffect(() => { const f = () => document.documentElement.toggleAttribute("data-hidden", document.visibilityState === "hidden"); f(); document.addEventListener("visibilitychange", f); return () => document.removeEventListener("visibilitychange", f); }, []);
   const page = route(path, s);

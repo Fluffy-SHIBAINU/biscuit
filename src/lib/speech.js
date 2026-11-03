@@ -185,6 +185,8 @@ async function speakNeural(lines, opts, id) {
 }
 
 let startedAt = 0, stoppedAt = 0;
+/** Whether anything has been spoken since this page loaded. */
+export const hasSpoken = () => startedAt > 0;
 
 /** Speaks the lines in order; resolves when the last one ends. The neural voice when the server has one, else the phone's own. */
 export function speak(lines, opts = {}) {
