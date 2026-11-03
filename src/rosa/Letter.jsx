@@ -3,7 +3,7 @@ import Dog from "../components/Dog.jsx";
 import { frameCheck, postLetter, readLetter } from "../lib/api.js";
 import { summaryOf } from "../lib/letters.js";
 import { grabJpeg, openCamera, stopCamera } from "../lib/camera.js";
-import { navigate } from "../lib/navigate.js";
+import { navigate, transition } from "../lib/navigate.js";
 import { speak, stopSpeaking } from "../lib/speech.js";
 import { store } from "../lib/store.js";
 
@@ -22,18 +22,21 @@ export default function Letter() {
   const [check, setCheck] = useState(null);
   const [phase, setPhase] = useState("looking");
   const [shot, setShot] = useState("");
+  const [flashed, setFlashed] = useState(false);
   // What the frame check says is also said aloud, once per change and not more than every three seconds.
   const spoken = useRef({ text: "", at: 0 });
 
   async function capture() {
     if (busy.current) return;
     busy.current = true;
-    setPhase("reading");
     try {
       const jpeg = await grabJpeg(video.current, 2000, 2_000_000);
-      // The picture is taken: the camera stops and the screen shows the picture Biscuit is reading.
+      // The picture is taken: one soft blink of the frame, the camera stops, and the picture travels to its place under Reading It Now.
+      setFlashed(true);
       stopCamera(stream.current);
-      setShot(URL.createObjectURL(jpeg));
+      const url = URL.createObjectURL(jpeg);
+      await new Promise((r) => setTimeout(r, 180));
+      transition(() => { setShot(url); setPhase("reading"); });
       speak(["Got it! One moment while I read."]);
       const r = await readLetter(jpeg);
       // The whole reading stays with the letter on this phone so a tap on Your papers can play it again, and so Rosa can overrule a wrong "not to you"; what leaves the phone for someone else's letter is a date, a kind and the status (summaryOf).
@@ -90,12 +93,12 @@ export default function Letter() {
       <div className="row between"><span className="label">Show Me the Letter</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); navigate("/"); }}>Stop</a></div>
       {phase === "reading" ? (
         <>
-          <div className="row"><Dog /><h1 className="display small">Reading It Now.</h1></div>
-          {shot && <img className="shot" src={shot} alt="The letter Biscuit is reading" />}
+          <div className="row"><Dog mood="looking" /><h1 className="display small">Reading It Now.</h1></div>
+          {shot && <div className="shotwrap"><img className="shot" src={shot} alt="The letter Biscuit is reading" /><span className="gaze" aria-hidden="true" /></div>}
         </>
       ) : (
         <>
-          <div className="frame"><video ref={video} autoPlay playsInline muted /></div>
+          <div className={`frame ${check?.ok ? "ready" : ""}`}><video ref={video} autoPlay playsInline muted /><div className={`flash ${flashed ? "fired" : ""}`} aria-hidden="true" /></div>
           <section className="card status"><span className={`pill ${check?.ok ? "ok" : "warn"}`}>{s.pill}</span><p className="lead small">{s.text}</p></section>
         </>
       )}

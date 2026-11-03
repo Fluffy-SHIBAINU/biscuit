@@ -45,6 +45,7 @@ export default function Offer() {
         const { waiveUrl } = await handoff(r.id, r.hospital.ccn);
         setStatus(r.id, "handoff", { waiveUrl, sentToAna: true, waitingLine: `${r.hospital.name}'s application. Ana has it on her page.` });
         await speak(["Done! Ana has it on her page. I'll tell you when the hospital answers."]);
+        navigate(`/docket?sent=${r.id}`); return;
       } else if (mode === "ad") {
         await patchLetter(r.id, { status: "tossed" }).catch(() => {});
         setStatus(r.id, "tossed");
@@ -53,6 +54,7 @@ export default function Offer() {
         await patchLetter(r.id, { needsReview: true, ...(mode === "unknown" ? { status: "unknown_number" } : {}) }).catch(() => {});
         setStatus(r.id, mode === "unknown" ? "unknown_number" : "read", { needsReview: true, sentToAna: true });
         await speak(["Sent to Ana!"]);
+        navigate(`/docket?sent=${r.id}`); return;
       }
       navigate("/docket");
     } catch {
@@ -83,7 +85,7 @@ export default function Offer() {
       <div className="row"><Dog size={56} /><div><span className="label">Biscuit Says</span>{lines.map((l, i) => <p key={i} className="lead">{l}</p>)}</div></div>
       <div className="spacer" />
       {(mode === "offer" || mode === "ad" || mode === "send" || mode === "unknown") && (
-        <button type="button" className="btn big" disabled={busy} onClick={yes}>{mode === "offer" ? "Yes, Start It with Ana" : mode === "ad" ? "Toss It" : "Send It to Ana"}</button>
+        <button type="button" className="btn big" disabled={busy} onClick={yes}>{busy ? (mode === "offer" ? "Starting It with Ana…" : mode === "ad" ? "Tossing It…" : "Sending to Ana…") : mode === "offer" ? "Yes, Start It with Ana" : mode === "ad" ? "Toss It" : "Send It to Ana"}</button>
       )}
       <button type="button" className="btn secondary" onClick={mode === "keep" ? () => navigate("/docket") : no}>{mode === "keep" ? "Done" : mode === "ad" ? "Keep It" : "Not Now"}</button>
     </main>

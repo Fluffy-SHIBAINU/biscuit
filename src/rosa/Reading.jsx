@@ -27,19 +27,22 @@ const FORMAT = { amount_due: ["decimal", "Like 1,234.50"], due_date: ["numeric",
 export function Fact({ f, onEdit, extra = null }) {
   const [draft, setDraft] = useState(f.value ?? "");
   const [hint, setHint] = useState("");
+  const [kept, setKept] = useState(false);
   useEffect(() => { setDraft(f.value ?? ""); }, [f.value]);
+  useEffect(() => { if (!kept) return; const k = setTimeout(() => setKept(false), 1200); return () => clearTimeout(k); }, [kept]);
   const [mode, example] = FORMAT[f.field] || ["text", null];
-  // A date or an amount the server cannot take is said so, under the box, instead of failing quietly.
+  // A date or an amount the server cannot take is said so, under the box, instead of failing quietly. A kept value gets a
+  // green ring for a moment and a Kept mark for good.
   const commit = () => {
     const v = draft.trim();
     if (v === (f.value ?? "")) return;
     if (example && editFor(f.field, v) === null) { setHint(example); return; }
-    setHint(""); onEdit(v);
+    setHint(""); setKept(true); onEdit(v);
   };
   return (
     <div className="fact">
-      <span className="label plain">{FIELD_LABEL[f.field] || f.field}</span>
-      <input className="field" value={draft} inputMode={mode} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} aria-label={FIELD_LABEL[f.field] || f.field} />
+      <span className="row fact-head"><span className="label plain">{FIELD_LABEL[f.field] || f.field}</span>{f.edited && <span className="pill ok kept-pill">Kept</span>}</span>
+      <input className={`field ${kept ? "kept" : ""} ${hint ? "wrong" : ""}`} value={draft} inputMode={mode} onChange={(e) => { setDraft(e.target.value); if (hint) setHint(""); }} onBlur={commit} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} aria-label={FIELD_LABEL[f.field] || f.field} />
       {hint && <span className="lead small bad">{hint}</span>}
       {f.quote && <span className="quote"><span className="mark">“{f.quote}”</span></span>}
       {extra}
@@ -110,6 +113,7 @@ export default function Reading() {
     else if (key === "notMine") navigate("/docket");
   }
 
+  useEffect(() => { if (!r) navigate("/"); }, [r]);
   useEffect(() => {
     alive.current = true;
     (async () => {
@@ -121,7 +125,7 @@ export default function Reading() {
     return () => { alive.current = false; stopSpeaking(); cancelChoices(); releaseEar(); };
   }, [r?.id, r?.mismatch]);
 
-  if (!r) { navigate("/"); return null; }
+  if (!r) return null;
   // Addressed To is a field like the others, and can be corrected; when the reading found no name, the phone's own goes in.
   const facts = (r.facts || []).some((f) => f.field === "addressee") ? r.facts : [{ field: "addressee", value: name, quote: "" }, ...(r.facts || [])];
   // Read two ways: the value shown is the primary reader's, the more confident of the two.
@@ -130,7 +134,7 @@ export default function Reading() {
       <div className="row between"><span className="label">Biscuit Reads It</span><a href="/" className="link" onClick={(e) => { e.preventDefault(); cancelChoices(); stopSpeaking(); navigate("/"); }}>Home</a></div>
       <div className="row"><Dog size={56} /><h1 className="display small">{title}</h1></div>
       {facts.length > 0 && (
-        <section className="card facts">
+        <section className="card facts" style={{ viewTransitionName: "letter" }}>
           <span className="label">The Letter Says:</span>
           {facts.map((f) => <Fact key={f.field} f={f} onEdit={(v) => edit(f.field, v)} extra={f.field === "addressee" && !sameName(f.value, name) ? <button type="button" className="btn secondary small" onClick={() => edit("addressee", name)}>This Is Addressed to Me</button> : null} />)}
         </section>

@@ -81,7 +81,7 @@ export default function Home() {
       {chimeError && <p className="foot bad">{chimeError}</p>}
       <button type="button" className="btn big" onClick={() => navigate("/letter")}>Read a New Letter for Me</button>
       <button type="button" className="btn secondary" onClick={() => navigate("/docket")}>Show Me My Mails</button>
-      {s.consentedAt && <button type="button" ref={helpRef} className={`btn danger hold ${armed ? "armed" : ""}`} style={{ "--hold": holding }}>{armed ? "Let Go to Call 911" : "Help"}<span className="hint">{armed ? "Ana Is Told When You Let Go" : "Hold Two Seconds. Calls 911 and Tells Ana."}</span></button>}
+      {s.consentedAt && <button type="button" ref={helpRef} className={`btn danger hold ${armed ? "armed" : ""} ${holding ? "holding" : ""}`} style={{ "--hold": holding }}>{armed ? "Let Go to Call 911" : "Help"}<span className="hint">{armed ? "Ana Is Told When You Let Go" : "Hold Two Seconds. Calls 911 and Tells Ana."}</span></button>}
       <div className="spacer" />
       <p className="foot">Just talk to him. Say <strong>stop</strong> and he stops. <a href="/settings" className="link" onClick={(e) => { e.preventDefault(); navigate("/settings"); }}>Settings</a></p>
     </main>

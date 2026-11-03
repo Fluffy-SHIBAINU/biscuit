@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { allowEar, earError, earLevel, earMuted, earStatus, earWanted, resumeEar, pauseEar, subscribeEar } from "../lib/ear.js";
+import { allowEar, earError, earStatus, earWanted, resumeEar, pauseEar } from "../lib/ear.js";
+import { useMood } from "../lib/mood.js";
 import { primeSpeech, speak } from "../lib/speech.js";
 import { useStore } from "../lib/store.js";
 import { useTalk } from "../lib/talkState.js";
@@ -10,8 +11,14 @@ import { useTalk } from "../lib/talkState.js";
  */
 export default function EarBar() {
   const t = useTalk();
-  const [, tick] = useState(0);
-  useEffect(() => subscribeEar(() => tick((n) => n + 1)), []);
+  const { mood, title } = useMood();
+  // Resumed from paused: the dot swells once. His name heard: the dot lights for a moment.
+  const lastMood = useRef(mood);
+  const [woke, setWoke] = useState(false);
+  useEffect(() => { if (lastMood.current === "paused" && mood !== "paused") { setWoke(true); const k = setTimeout(() => setWoke(false), 300); return () => clearTimeout(k); } lastMood.current = mood; }, [mood]);
+  const [named, setNamed] = useState(false);
+  const lastAt = useRef(0);
+  useEffect(() => { if (!t.heard || t.at === lastAt.current) return; lastAt.current = t.at; if (/\bbiscuit\b/i.test(t.heard)) { setNamed(true); const k = setTimeout(() => setNamed(false), 700); return () => clearTimeout(k); } }, [t.at, t.heard]);
   // The bar tells the page how tall it is, so every screen reserves exactly that much and a primary button can sit above it.
   const barRef = useRef(null);
   useEffect(() => {
@@ -25,18 +32,6 @@ export default function EarBar() {
   const st = useStore();
   const wanted = earWanted(st);
   const status = earStatus();
-  const level = earLevel();
-  const title = !wanted && !st.earPaused ? "Biscuit Isn't Listening Yet"
-    : status === "paused" || st.earPaused ? "Biscuit Is Paused"
-    : status === "blocked" ? (earError() === "unsupported" ? "This Phone Can't Hear" : "Biscuit Can't Hear Yet")
-    : status === "asleep" ? "Biscuit Is Asleep"
-    : status === "looking" ? "Biscuit Is Looking at the Letter"
-    : st.muted && t.phase === "speaking" ? "Biscuit Is Muted"
-    : status === "held" ? "Biscuit Is Talking"
-    : status !== "on" ? "Biscuit Is Waking Up"
-    : t.phase === "speaking" || earMuted() ? "Biscuit Is Talking"
-    : t.phase === "thinking" ? "One Moment"
-    : "Biscuit Is Listening";
   // What shows large under the title: his words while he speaks (or when he could not), else hers, else a short note.
   const shown = t.speechBlocked && t.reply ? ["Biscuit Wants to Say", t.reply]
     : t.phase === "speaking" || (t.reply && !t.heard) ? ["Biscuit Says", t.reply]
@@ -44,10 +39,10 @@ export default function EarBar() {
     : t.heard ? ["You Said", t.heard]
     : null;
   return (
-    <div ref={barRef} className={`earbar ${status === "on" ? "on" : ""}`}>
+    <div ref={barRef} className={`earbar ${status === "on" ? "on" : ""}`} data-mood={mood} data-named={named || undefined} style={{ viewTransitionName: "earbar" }}>
       <div className="earhead">
-        <span className={`eardot ${status === "on" ? (level ? "loud" : "on") : status === "paused" ? "paused" : ""}`} aria-hidden="true" />
-        <span className="eartitle" role="status" aria-live="polite">{title}</span>
+        <span className={`eardot ${woke ? "woke" : ""}`} aria-hidden="true" />
+        <span className="eartitle" role="status" aria-live="polite"><span key={title} className="eartitle-text">{title}</span></span>
         {status === "asleep" && <button type="button" className="btn earbtn" onClick={() => primeSpeech()}>Tap to Wake Him</button>}
         {t.speechBlocked && t.reply && status === "on" && <button type="button" className="btn earbtn" onClick={() => { primeSpeech(); speak([t.reply]); }}>Tap to Hear Him</button>}
         {(status === "paused" || st.earPaused) && <button type="button" className="btn earbtn" onClick={() => resumeEar()}>Listen</button>}
@@ -57,7 +52,7 @@ export default function EarBar() {
       {shown && (
         <div className="earbody">
           {shown[0] && <span className="label">{shown[0]}</span>}
-          <p className="earline">{shown[1]}</p>
+          <p key={shown[1]} className="earline">{shown[1]}</p>
         </div>
       )}
     </div>

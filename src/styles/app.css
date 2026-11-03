@@ -29,7 +29,7 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 /* A tap shows: a short dip, no layout change. Keyboard focus shows too. */
 .btn:active:not(:disabled) { filter: brightness(.88); transition: filter 80ms; }
 :where(button, a, input, select):focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { .eardot, .bars span, .btn { transition: none !important; } }
+
 .code { height: 84px; border: 2px solid var(--rule-strong); border-radius: var(--r-btn); background: var(--sheet); font: 500 40px/1 var(--mono); letter-spacing: .3em; text-align: center; width: 100%; color: var(--ink); }
 .bars { display: flex; gap: 6px; align-items: flex-end; height: 32px; }
 .bars span { width: 6px; height: 8px; background: var(--rule-strong); border-radius: 3px; transition: height .15s; }
@@ -90,7 +90,7 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .card.night .row { font-size: 16px; color: #B3BECD; padding: 6px 0; border-top: 1px solid var(--night-border); }
 .card.night .row:first-child { border-top: 0; }
 .btn.danger.hold { position: relative; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
-.btn.danger.hold::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--hold, 0) * 100%); background: rgba(180,35,24,.15); pointer-events: none; }
+.btn.danger.hold::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; background: rgba(180,35,24,.15); pointer-events: none; }
 .btn.danger.big { height: 112px; font-size: 26px; text-decoration: none; display: flex; align-items: center; justify-content: center; background: var(--bad); color: #fff; border: 0; }
 .btn.big.light { background: #E8EDF5; color: var(--ink); text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
 .btn.secondary.night.tall { height: 84px; }
@@ -150,10 +150,7 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .row.between > .label.plain { font-size: 15px; white-space: nowrap; }
 .earbar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px max(16px, env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); background: var(--sheet); border-top: 2px solid var(--rule-strong); max-width: 480px; margin: 0 auto; }
 .earhead { display: flex; align-items: center; gap: 12px; }
-.eardot { width: 16px; height: 16px; border-radius: 50%; background: var(--rule-strong); flex: 0 0 auto; transition: transform .15s, background .15s; }
-.eardot.on { background: var(--signal); }
-.eardot.loud { background: var(--signal); transform: scale(1.5); }
-.eardot.paused { background: var(--bad); }
+.eardot { width: 16px; height: 16px; border-radius: 50%; background: var(--rule-strong); flex: 0 0 auto; }
 .eartitle { flex: 1 1 auto; min-width: 0; font: 600 22px/1.2 var(--ui); color: var(--ink); }
 .earbody { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .earline { margin: 0; font-size: 24px; line-height: 1.35; color: var(--ink); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
@@ -169,3 +166,109 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
 .fact .field { width: 100%; height: 56px; border: 1.5px solid var(--rule-strong); border-radius: var(--r-btn); background: var(--sheet); padding: 0 14px; font: 500 22px/1 var(--ui); color: var(--ink); }
 .fact .field:focus { outline: 3px solid var(--signal); outline-offset: 1px; }
 
+
+/* ---- Biscuit alive: one mood on the dog and the bar (data-mood), set by src/lib/mood.js. Motion explains state, acknowledges
+   action, or gives him life; every item keeps a shape, colour or word under reduced motion. Nothing loops while hidden. ---- */
+[data-hidden] * { animation-play-state: paused !important; }
+.ear-l, .ear-r, .eye, .mouth-open, .tag, .head { transform-box: fill-box; }
+.ear-l { transform-origin: 100% 55%; } .ear-r { transform-origin: 0% 55%; }
+.ear { transition: transform 200ms cubic-bezier(.16, 1, .3, 1); }
+.dog { --perk: 0deg; }
+.dog[data-mood="listening"], .dog[data-mood="talking"], .dog[data-mood="muted"] { --perk: 8deg; }
+.dog[data-mood="hearing"] { --perk: 20deg; } .dog[data-mood="hearing"] .ear { transition-duration: 120ms; }
+.dog[data-mood="looking"] { --perk: 12deg; }
+.dog[data-mood="paused"] { --perk: -8deg; }
+.dog[data-mood="asleep"] { --perk: -14deg; }
+.dog .ear-l { transform: rotate(calc(-1 * var(--perk))); } .dog .ear-r { transform: rotate(var(--perk)); }
+.dog[data-mood="thinking"] .ear-l { transform: rotate(-16deg); } .dog[data-mood="thinking"] .ear-r { transform: rotate(0deg); }
+.eye { transform-origin: 50% 50%; transition: scale 200ms, translate 200ms; }
+.dog[data-mood="asleep"] .eye { scale: 1 .12; }
+.dog[data-mood="paused"] .eye { scale: 1 .55; }
+.dog[data-mood="thinking"] .eye { translate: 0 -1.2px; }
+.dog[data-mood="looking"] .eye { translate: 0 1.2px; }
+.mouth-open { transform-origin: 50% 0; opacity: 0; scale: 1 .2; transition: opacity 150ms; }
+.smile { transition: opacity 150ms; }
+.dog[data-mood="talking"] .mouth-open { opacity: 1; animation: talk 420ms ease-in-out infinite; }
+.dog[data-mood="talking"] .smile { opacity: .35; }
+@keyframes talk { 0%, 100% { scale: 1 .25; } 50% { scale: 1 1; } }
+/* he hears his name: a turn of the head, ears up, the tag lit, once */
+.head { transform-origin: 50% 100%; }
+.dog[data-named] .head { animation: turn 700ms cubic-bezier(.16, 1, .3, 1); }
+@keyframes turn { 36%, 57% { transform: rotate(8deg); } 100% { transform: rotate(0); } }
+.dog[data-named] { --perk: 20deg; }
+.dog[data-named] .tag, .earbar[data-named] .eardot { fill: var(--brand); background: var(--brand); }
+/* the hello: one tilt of the head, once per visit */
+.dog.greet .head { animation: tilt 450ms cubic-bezier(.16, 1, .3, 1) both; }
+@keyframes tilt { 35% { transform: rotate(-7deg); } 100% { transform: rotate(0); } }
+/* the bar's edge, the dot and the collar tag are one light */
+.earbar { transition: border-top-color 200ms; }
+.earbar[data-mood="listening"], .earbar[data-mood="hearing"], .earbar[data-mood="talking"], .earbar[data-mood="thinking"] { border-top-color: var(--signal); }
+.earbar[data-mood="paused"] { border-top-color: var(--bad); }
+.eardot, .tag { transform-origin: 50% 50%; transition: transform 250ms ease-out, background 150ms, fill 150ms, border-radius 150ms, box-shadow 150ms; }
+.earbar[data-mood="listening"] .eardot, .dog[data-mood="listening"] .tag { background: var(--signal); fill: var(--signal); }
+.earbar[data-mood="hearing"] .eardot { background: var(--brand); transform: scale(1.5); transition-duration: 100ms; }
+.dog[data-mood="hearing"] .tag { fill: var(--brand); transform: scale(1.25); transition-duration: 100ms; }
+.earbar[data-mood="thinking"] .eardot, .dog[data-mood="thinking"] .tag { background: var(--signal); fill: var(--signal); animation: think 1.2s ease-in-out infinite; }
+@keyframes think { 50% { opacity: .45; } }
+.earbar[data-mood="talking"] .eardot, .earbar[data-mood="muted"] .eardot { background: var(--sheet); box-shadow: inset 0 0 0 4px var(--signal); }
+.dog[data-mood="talking"] .tag, .dog[data-mood="muted"] .tag { fill: var(--signal); }
+.earbar[data-mood="paused"] .eardot { background: var(--bad); border-radius: 3px; }
+.dog[data-mood="paused"] .tag { fill: var(--bad); }
+.eardot.woke { animation: wake 300ms ease-out; }
+@keyframes wake { 50% { transform: scale(1.6); } }
+/* the title turns, not swaps */
+.eartitle-text { display: inline-block; animation: arrive 150ms cubic-bezier(.16, 1, .3, 1); }
+.earline { animation: arrive 150ms cubic-bezier(.16, 1, .3, 1); }
+@keyframes arrive { from { opacity: .25; transform: translateY(3px); } }
+/* one sheet turns, Biscuit stays */
+::view-transition { pointer-events: none; }
+::view-transition-old(root) { animation-duration: 150ms; }
+::view-transition-new(root) { animation-duration: 250ms; animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+::view-transition-group(biscuit) { animation-duration: 300ms; animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+::view-transition-old(earbar), ::view-transition-new(earbar) { animation: none; }
+/* the letter: the frame says ready, blinks once, and the picture travels to its place; his gaze passes over it */
+.frame { position: relative; outline: 6px solid transparent; outline-offset: -6px; transition: outline-color 100ms ease-out; view-transition-name: letter; }
+.frame.ready { outline-color: var(--ok); transition-duration: 150ms; }
+.pill { transition: color 150ms, border-color 150ms; }
+.flash { position: absolute; inset: 0; background: var(--sheet); opacity: 0; pointer-events: none; }
+.flash.fired { animation: shutter 220ms ease-out forwards; }
+@keyframes shutter { from { opacity: .6; } to { opacity: 0; } }
+.shotwrap { position: relative; width: fit-content; margin: 8px auto; overflow: hidden; border-radius: var(--r-btn); view-transition-name: letter; }
+.shotwrap .shot { margin: 0; }
+.gaze { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, var(--night-signal) 2px, rgba(34, 211, 238, .35) 4px, transparent 8px) no-repeat; animation: gaze 1.6s ease-in-out infinite alternate; }
+@keyframes gaze { from { transform: translateY(8%); } to { transform: translateY(90%); } }
+::view-transition-group(letter) { animation-duration: 400ms; animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+::view-transition-old(letter) { animation: 180ms ease-out both vt-out; }
+::view-transition-new(letter) { animation: 300ms 100ms cubic-bezier(.16, 1, .3, 1) both vt-in; }
+@keyframes vt-out { to { opacity: 0; } } @keyframes vt-in { from { opacity: 0; } }
+/* a field kept */
+.fact-head { gap: 10px; }
+.kept-pill { animation: kept-in 150ms ease-out; }
+@keyframes kept-in { from { opacity: 0; transform: translateY(2px); } }
+.fact .field { transition: box-shadow 300ms; }
+.fact .field.kept { box-shadow: inset 0 0 0 2.5px var(--ok); transition-duration: 120ms; }
+.fact .field.wrong { box-shadow: inset 0 0 0 2.5px var(--bad); transition-duration: 120ms; }
+/* the Sent badge lands on the right card */
+.mail.arrived .pill.ok { animation: stamp 300ms cubic-bezier(.16, 1, .3, 1) 150ms both; }
+@keyframes stamp { from { opacity: 0; transform: scale(1.25); } }
+.mail.arrived { animation: settle 1200ms ease-out; }
+@keyframes settle { from { border-color: var(--ok); } to { border-color: var(--rule-strong); } }
+.btn { transition: opacity 150ms; }
+/* the Help hold: the fill scales (no layout), drains when let go, and the button turns solid when armed */
+.btn.danger.hold::before { width: 100%; transform: scaleX(var(--hold, 0)); transform-origin: left center; }
+.btn.danger.hold:not(.holding)::before { transition: transform 150ms ease-out; }
+.btn.danger.hold { transition: background-color 100ms, color 100ms; }
+.btn.danger.hold.armed::before { background: rgba(255, 255, 255, .18); }
+/* reduced motion: shapes, colours and words stay; movement goes */
+@media (prefers-reduced-motion: reduce) {
+  .ear, .eye, .eardot, .tag, .btn, .bars span, .fact .field, .earbar, .btn.danger.hold, .btn.danger.hold::before { transition: none !important; }
+  .dog[data-mood="talking"] .mouth-open { animation: none; scale: 1 .6; }
+  .dog[data-mood="talking"] .smile { opacity: 1; }
+  .dog[data-named] .head, .dog.greet .head, .eardot.woke, .mail.arrived .pill.ok, .kept-pill, .eartitle-text, .earline, .flash.fired, .gaze { animation: none !important; }
+  .earbar[data-mood="hearing"] .eardot, .dog[data-mood="hearing"] .tag { transform: none; }
+  .earbar[data-mood="thinking"] .eardot, .dog[data-mood="thinking"] .tag { animation: none; opacity: .7; }
+  .gaze { background-position: 0 40%; }
+  .eartitle-text, .earline { animation: fade 150ms !important; }
+  .kept-pill, .mail.arrived .pill.ok { animation: fade 150ms !important; }
+  @keyframes fade { from { opacity: 0; } }
+}

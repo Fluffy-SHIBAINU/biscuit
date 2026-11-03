@@ -27,6 +27,7 @@ import { listenToWorker } from "./lib/push.js";
 import EarBar from "./components/EarBar.jsx";
 import { core as ear, earCheck, keepEarOpen, subscribeEar, earStatus } from "./lib/ear.js";
 import { speak } from "./lib/speech.js";
+import { talkState } from "./lib/talkState.js";
 import { onUtterance } from "./lib/hear.js";
 import Family from "./ana/Family.jsx";
 import WhoFor from "./ana/WhoFor.jsx";
@@ -54,8 +55,10 @@ export default function App() {
   // Biscuit hears all day on Rosa's phone once she has agreed; the bar at the foot shows it and pauses it.
   const rosaHome = Boolean(s.deviceToken && s.kind === "rosa") && !path.startsWith("/ana") && !path.startsWith("/cam") && !path.startsWith("/setup") && path !== "/link";
   useEffect(() => { if (!rosaHome) return; ear.setHandler(onUtterance); keepEarOpen(); earCheck(); }, [rosaHome, s.consentedAt, s.earAllowedAt, s.earPaused, path]);
-  // The first time the ear opens on this visit, Biscuit says hello.
-  useEffect(() => subscribeEar(() => { if (!greeted && earStatus() === "on") { greeted = true; speak(["Hello! Biscuit here."]); } }), []);
+  // The first time the ear opens on this visit, Biscuit says hello, and the dog tilts his head once.
+  useEffect(() => subscribeEar(() => { if (!greeted && earStatus() === "on") { greeted = true; talkState.set({ helloAt: Date.now() }); speak(["Hello! Biscuit here."]); } }), []);
+  // Nothing loops while the app is hidden.
+  useEffect(() => { const f = () => document.documentElement.toggleAttribute("data-hidden", document.visibilityState === "hidden"); f(); document.addEventListener("visibilitychange", f); return () => document.removeEventListener("visibilitychange", f); }, []);
   const page = route(path, s);
   return <>{page}{rosaHome && <EarBar />}</>;
 }
