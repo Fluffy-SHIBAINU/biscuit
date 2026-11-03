@@ -1,4 +1,7 @@
-# The demo video (November 3, 2026)
+# The demo video (November 3, 2026; the first, feature-by-feature cut)
+
+Superseded on November 4 by the story cut in `docs/2026-11-04-demo-video-v2-plan.md`; the pipeline below is the same
+one, with `vo.mjs` (the narrator) and `broll.mjs` (the scene pictures) added.
 
 Three minutes, 1920 by 1080, for the Meta Global AI Developer Hackathon submission (November 4, 9 PM ET). Everything on
 screen is the deployed product at biscuit.kindred-ai.dev, recorded by `video/record.mjs` (Playwright driving Chromium as
@@ -41,7 +44,8 @@ recorder's `events.json`; a re-recording moves them.
 3. `node build-timeline.mjs`: segments, captions, callouts and audio, times in seconds, into `public/timeline.json`;
    media copied under `public/`. Only the latest line sounds on the phone, so a line asked for well before another
    line's clip started is dropped (the camera page's "That's it! Hold still." under "Got it!").
-4. `npx remotion render src/index.ts Demo out/biscuit.mp4 --browser-executable=<Playwright's Chromium>`: the headless
+4. `npm run render` (Remotion with `--browser-executable=<Playwright's Chromium>`, then `repair.mjs`, which drops any
+   frame Chromium captured wrong and refills it from the frame before; `out/biscuit-story.mp4` is the result): the headless
    shell cannot decode the recordings; Playwright's full Chromium can.
 
 ## Rules

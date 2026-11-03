@@ -1,4 +1,8 @@
-# Demo video, second cut: a story, YC-style (plan for review, November 4, 2026)
+# Demo video, second cut: a story, YC-style (approved and rendered November 4, 2026)
+
+Final: `video/out/biscuit-story.mp4`, 2:54. Narrator: Gemini voice Sadaltager. Nine scene pictures (`video/broll.mjs`)
+sit beside the phone. The closing narration is "Biscuit helps Rosa and Ana save on healthcare bills. Powered by Meta,
+and Kindred AI."
 
 The first cut shows every feature in order with Biscuit's own voice carrying it. It is accurate and flat. This cut tells
 one story with stakes in the first ten seconds, a founder narrating what the viewer is watching (YC's rule: show the

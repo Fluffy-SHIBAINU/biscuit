@@ -62,5 +62,9 @@ under the hospital's rule, not a photo. Nothing is filed by the software; people
 
 ## Demo video
 
-`video/out/biscuit.mp4`, three minutes, recorded on the deployed product (Playwright as an iPhone against production for
-Rosa, as a laptop for Ana; Biscuit's lines are his own voice). Script and pipeline: `docs/2026-11-03-demo-video.md`.
+`video/out/biscuit-story.mp4`, 2:54, 1920x1080. One story, narrated: a $1,234.50 hospital bill reaches Rosa, who cannot
+read it; Biscuit reads it, asks her two questions by voice, finds Massachusetts General's own free-care rule, and hands
+the case to her daughter Ana, who starts the application; the rest of the day he is company. Every screen is the deployed
+product (Playwright as an iPhone against production, as a laptop for Ana's page); Biscuit's lines are his own voice;
+the narrator is a Gemini voice reading the founder's script; the scene pictures beside the phone are generated stills.
+Script, plan and pipeline: `docs/2026-11-04-demo-video-v2-plan.md`, `docs/2026-11-03-demo-video.md`.
