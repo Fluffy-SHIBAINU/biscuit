@@ -16,9 +16,10 @@ export const LINES = {
   "vo-q-b": "From her answers, he decides whether Kindred should take a look.",
   "vo-rule": "When there's a way Kindred can save money, Biscuit passes the bill to Ana, and Ana can start the process.",
   "vo-ana": "Across town, Ana's page updates the same minute: the bill, in Rosa's own words, and a mark on the day it's due. She gets a notification, and one button to start the Kindred application, ready to go. And because Ana is a caregiver now, Kindred shows her the help she's owed, too.",
-  "vo-day": "The rest of the day, Biscuit is company. A reminder, just by asking. Quiet when she wants it. And if she ever needs help, she holds one button, and Ana knows.",
+  "vo-day-a": "The rest of the day, Biscuit is company. A reminder, just by asking.",
+  "vo-day-b": "Quiet when she wants it. And if she ever needs help, she holds one button, and Ana knows.",
   "vo-meta": "Behind the scenes, Meta's AI models do the work: watching the mailbox, reading the bill, hearing Rosa, and passing everything between Biscuit, Rosa, Ana, and Kindred. Meta AI powers this elder-care agent.",
-  "vo-payoff": "Rosa may owe nothing. Now someone told her.",
+  "vo-close": "Biscuit helps Rosa and Ana save on healthcare bills. Powered by Meta, and Kindred AI.",
 };
 const wavMs = (buf) => { let i = 12; while (i < buf.length - 8) { const id = buf.toString("ascii", i, i + 4), sz = buf.readUInt32LE(i + 4); if (id === "data") { const rate = buf.readUInt32LE(24) || 24000, block = buf.readUInt16LE(32) || 2; return Math.round(sz / (rate * block) * 1000); } i += 8 + sz; } return 0; };
 mkdirSync("audio", { recursive: true });
