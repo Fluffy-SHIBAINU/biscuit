@@ -49,7 +49,7 @@ const rosa = (at, text) => ({ at, dur: 3.2, text, who: "rosa" });
   const caps = steps.map(([m, text], i) => { const at = mark(sr, m) - from; const next = steps[i + 1] ? mark(sr, steps[i + 1][0]) - from : dur; return title(at, Math.max(1, Math.min(3, next - at - 0.15)), text); });
   seg({ kind: "phone", video: media(videosOf(sr)[0]), from, dur, captions: caps, callouts: [{ at: 0.4, dur: 5, text: "Four steps, once" }] }); }
 // 4 the mail: the chime
-{ const sc = "rosa-loop"; const from = mark(sc, "mail") - 0.3; const t = seg({ kind: "phone", video: media(videosOf(sc)[0]), from, to: mark(sc, "camera"), audio: [{ at: vo["vo-mail-a"].ms / 1000 + 0.45, ...clip(sc, /^Woof/) }], captions: [] });
+{ const sc = "rosa-loop"; const from = mark(sc, "mail") - 0.3; const t = seg({ kind: "phone", video: media(videosOf(sc)[0]), from, to: mark(sc, "camera"), audio: [{ at: vo["vo-mail-a"].ms / 1000 + 0.45, ...clip(sc, /^Woof/) }], captions: [], push: [{ at: 1.2, dur: 5.2, x: 195, y: 160, scale: 1.4 }], callouts: [{ at: 0.5, dur: 5.5, text: "The mailbox phone saw the carrier" }] });
   narrate("vo-mail-a", t + 0.2);
   const g = segs[segs.length - 1]; g.captions.push(rosa(g.audio[0].at + g.audio[0].ms / 1000 + 0.3, "yes")); }
 // 5 the picture
@@ -64,7 +64,7 @@ const rosa = (at, text) => ({ at, dur: 3.2, text, who: "rosa" });
 { const sc = "rosa-loop"; const q = mark(sc, "questions");
   const t = seg({ kind: "phone", video: media(videosOf(sc)[0]), from: q - 0.2, dur: 11.0, audio: [{ at: vo["vo-q-a"].ms / 1000 + 0.45, ...clip(sc, /^Is this the first bill/) }], callouts: [{ at: 0.4, dur: 4, text: "By voice, on the phone" }] });
   narrate("vo-q-a", t + 0.2);
-  const g1 = segs[segs.length - 1]; g1.captions = [rosa(g1.audio[0].at + g1.audio[0].ms / 1000 + 0.4, "not sure")]; g1.dur = g1.captions[0].at + 2.6; g1.to = g1.from + g1.dur;
+  const g1 = segs[segs.length - 1]; g1.captions = [rosa(g1.audio[0].at + g1.audio[0].ms / 1000 + 0.4, "not sure")]; T -= g1.dur; g1.dur = g1.captions[0].at + 2.6; g1.to = g1.from + g1.dur; T += g1.dur;
   const r2 = ev[sc].events.filter((e) => e.type === "rosa")[2]; // her "yes" to the second question
   const t2 = seg({ kind: "phone", video: media(videosOf(sc)[0]), from: s(r2.t) - 9.9, dur: 8.6, audio: [{ at: 1.3, ...clip(sc, /^Did you already pay/) }], captions: [] });
   const g2 = segs[segs.length - 1]; const yesAt = g2.audio[0].at + g2.audio[0].ms / 1000 + 0.5; g2.captions.push(rosa(yesAt, "yes"));

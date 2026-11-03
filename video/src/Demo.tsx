@@ -123,9 +123,9 @@ const Hook: React.FC<{ seg: any }> = ({ seg }) => {
   const t = f / fps; const scale = 1.08 + 0.12 * (t / seg.dur);
   return (
     <AbsoluteFill style={{ background: NIGHT, overflow: "hidden" }}>
-      <Img src={staticFile(seg.image)} style={{ position: "absolute", left: 560, top: -40, width: 1440, height: 1080, objectFit: "cover", objectPosition: "top", transformOrigin: "60% 30%", transform: `scale(${scale})`, opacity: fadeIn(f, 20) * 0.92 }} />
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(8,13,24,1) 34%, rgba(8,13,24,.72) 58%, rgba(8,13,24,.15) 100%)" }} />
-      <div style={{ position: "absolute", left: 120, top: 110, display: "flex", alignItems: "center", gap: 16, opacity: fadeIn(f - 4, 12) }}><Dog size={44} /><span style={{ font: `400 24px ${MONO}`, letterSpacing: ".14em", textTransform: "uppercase", color: "#97A3B6" }}>A true story, with the names changed</span></div>
+      <Img src={staticFile(seg.image)} style={{ position: "absolute", left: 480, top: -40, width: 1440, height: 1080, objectFit: "cover", objectPosition: "top", transformOrigin: "60% 30%", transform: `scale(${scale})`, opacity: fadeIn(f, 20) }} />
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(8,13,24,1) 30%, rgba(8,13,24,.78) 52%, rgba(8,13,24,.05) 100%)" }} />
+      <div style={{ position: "absolute", left: 120, top: 110, display: "flex", alignItems: "center", gap: 16, opacity: fadeIn(f - 4, 12) }}><Dog size={44} /><span style={{ font: `400 24px ${MONO}`, letterSpacing: ".14em", textTransform: "uppercase", color: "#97A3B6" }}>Biscuit · Kindred AI</span></div>
       <Overlays seg={seg} fps={fps} />
     </AbsoluteFill>
   );
@@ -158,7 +158,7 @@ const Payoff: React.FC<{ seg: any }> = ({ seg }) => {
       <div style={{ position: "absolute", left: 150, top: 120, width: 620, height: 840, overflow: "hidden", borderRadius: 8, transform: "rotate(-2.5deg)", boxShadow: "0 50px 90px -30px rgba(0,0,0,.8)" }}>
         <Img src={staticFile(seg.image)} style={{ width: 1000, height: 750, objectFit: "cover", display: "block", marginLeft: -190, marginTop: 30 }} />
       </div>
-      <div style={{ position: "absolute", left: 430, top: 300, padding: "18px 34px", border: `8px solid ${BRAND}`, borderRadius: 14, color: BRAND, font: `700 64px ${UI}`, letterSpacing: ".06em", textTransform: "uppercase", transform: `rotate(-12deg) scale(${0.6 + 0.4 * stamp})`, opacity: stamp, background: "rgba(8,13,24,.55)" }}>Sent to Ana</div>
+      <div style={{ position: "absolute", left: 250, top: 330, padding: "14px 28px", border: `8px solid ${BRAND}`, borderRadius: 14, color: BRAND, font: `700 54px ${UI}`, letterSpacing: ".06em", textTransform: "uppercase", transform: `rotate(-12deg) scale(${0.6 + 0.4 * stamp})`, opacity: stamp, background: "rgba(8,13,24,.55)" }}>Sent to Ana</div>
       <div style={{ position: "absolute", left: 900, top: 150, width: 920 }}>
         <div style={{ font: `400 24px ${MONO}`, letterSpacing: ".14em", textTransform: "uppercase", color: "#97A3B6", opacity: fadeIn(f - 6) }}>Massachusetts General Hospital · its own rule</div>
         <div style={{ font: `italic 400 46px/1.3 ${DISPLAY}`, marginTop: 22, color: "#C9D2E0", opacity: fadeIn(f - 12) }}>“Family Income % FPG Discount 0 to 150% 100%”</div>
