@@ -134,6 +134,8 @@ export function earWanted(st = store.get()) {
  */
 export function earMode(st = store.get()) {
   const SR = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+  // "scripted": no microphone at all; words come only through the page-local hook (the demo recorder, a laptop without a mic).
+  if (st.earMode === "scripted") return "scripted";
   if (st.earMode === "capture" || st.earMode === "recognition") return st.earMode === "recognition" && !SR ? "capture" : st.earMode;
   return SR ? "recognition" : "capture";
 }
@@ -187,6 +189,7 @@ let startGen = 0;
 export async function startEar() {
   if (live.status === "on" || live.status === "starting") return live.status;
   live.mode = earMode();
+  if (live.mode === "scripted") { live.status = "on"; live.error = null; notify(); return live.status; }
   if (live.mode === "recognition") { startRecognition(); return live.status; }
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) { live.status = "blocked"; live.error = "unsupported"; notify(); return live.status; }
   const gen = ++startGen;
