@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { createApp } from "../server/app.js";
 import { getDb } from "../server/db.js";
 import { cameraStatus } from "../server/routes/ana.js";
-import { cam, device, event, household } from "../server/schema.js";
+import { cam, device, event, household, letter } from "../server/schema.js";
 
 test("cameraStatus", () => {
   const now = new Date("2026-10-27T12:00:00Z");
@@ -80,5 +80,34 @@ describe.skipIf(!process.env.DATABASE_URL)("a re-linked mailbox phone", () => {
     expect(fam.events.filter((e: any) => e.kind === "cam_motion")).toHaveLength(2);
     expect(fam.events.find((e: any) => e.kind === "cam_motion" && e.data.seen === null).data.level).toBe(17.5);
     expect(fam.camera.movementsToday).toBe(1);
+  });
+});
+
+// Ana passes a letter to a Kindred product; the page shows where it went, and the fields Rosa corrected ride with each letter.
+describe.skipIf(!process.env.DATABASE_URL)("passing a letter on, and Rosa's corrections on Ana's page", () => {
+  const EMAIL2 = "family-pass-test@biscuit.local";
+  const app = createApp({ anaEnv: { KINDRED_AUTH_BYPASS: EMAIL2 } });
+  const req = (path: string, init: RequestInit = {}) => app.request(path, { ...init, headers: { "content-type": "application/json", ...(init.headers as any) } });
+  let householdId = "";
+  beforeAll(async () => {
+    const db = getDb();
+    await db.delete(household).where(eq(household.ownerEmail, EMAIL2));
+    const [h] = await db.insert(household).values({ ownerEmail: EMAIL2, seniorName: "Rosa", called: "Rosa" }).returning();
+    householdId = h.id;
+    await db.insert(letter).values({ id: "11111111-1111-4111-8111-111111111111", householdId, readAt: new Date(), kind: "bill", sender: "Mass General", amountCents: 123450, dueOn: "2026-11-20", quotes: [], answers: {}, status: "read" });
+    await db.insert(event).values({ householdId, kind: "letter_edited", data: { letterId: "11111111-1111-4111-8111-111111111111", fields: ["amountCents"] } });
+  });
+  afterAll(async () => { await getDb().delete(household).where(eq(household.ownerEmail, EMAIL2)); });
+
+  test("pass records where the letter went; the family page shows it and the corrected fields", async () => {
+    expect((await req("/api/biscuit/family/letter/11111111-1111-4111-8111-111111111111/pass", { method: "POST", body: JSON.stringify({ to: "nowhere" }) })).status).toBe(400);
+    expect((await req("/api/biscuit/family/letter/11111111-1111-4111-8111-111111111111/pass", { method: "POST", body: JSON.stringify({ to: "lull" }) })).status).toBe(200);
+    expect((await req("/api/biscuit/family/letter/22222222-2222-4222-8222-222222222222/pass", { method: "POST", body: JSON.stringify({ to: "waive" }) })).status).toBe(404);
+    const fam = await (await req("/api/biscuit/family")).json();
+    const l = fam.letters.find((x: any) => x.id === "11111111-1111-4111-8111-111111111111");
+    expect(l.edited).toEqual(["amountCents"]);
+    expect(l.passed.map((p: any) => p.to)).toEqual(["lull"]);
+    expect(fam.events.some((e: any) => e.kind === "passed")).toBe(true);
+    expect(fam.events.some((e: any) => e.kind === "letter_edited")).toBe(false);
   });
 });

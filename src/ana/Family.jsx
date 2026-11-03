@@ -3,8 +3,9 @@ import Details from "../components/Details.jsx";
 import { api } from "../lib/api.js";
 import { cameraLine, cameraSummary } from "../lib/camline.js";
 import { seenWords } from "../lib/clips.js";
-import { readerName } from "../lib/letters.js";
-import { helpLine, lettersLine, readersLine, recentLine, saidLine } from "../lib/lines.js";
+import { helpLine, lettersLine, recentLine, saidLine } from "../lib/lines.js";
+import { groupByDay } from "../lib/mails.js";
+import Calendar from "./Calendar.jsx";
 import { mailTimeLine } from "../lib/mailtime.js";
 import { navigate, useSearch } from "../lib/navigate.js";
 import { isAdminView } from "../lib/admin.js";
@@ -14,24 +15,24 @@ import MailTime from "./MailTime.jsx";
 import SignIn from "./SignIn.jsx";
 
 const WAIVE = "https://waive.kindred-ai.dev";
+const LULL = "https://lull.kindred-ai.dev";
+/** Where a letter can go next: Waive for a hospital bill's financial-assistance application, Lull for a caregiver's break. */
+export function passUrl(to, l) {
+  if (to === "waive") return l.hospitalCcn ? `${WAIVE}/start?ccn=${encodeURIComponent(l.hospitalCcn)}` : `${WAIVE}/start`;
+  const q = new URLSearchParams({ from: "biscuit", ...(l.sender ? { sender: l.sender } : {}), ...(Number.isInteger(l.amountCents) ? { amount: String(l.amountCents / 100) } : {}), ...(l.dueOn ? { due: String(l.dueOn).slice(0, 10) } : {}) });
+  return `${LULL}/?${q}`;
+}
+const PRODUCT = { waive: "Waive", lull: "Lull" };
 const KIND = { bill: "Bill", notice: "Notice", utility: "Utility", ad: "Advertising", other: "Letter" };
 const when = (iso) => (iso ? new Date(iso).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "");
 const clock = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "");
 const money = (c) => (Number.isInteger(c) ? `$${(c / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : null);
 const CAMERA_LINE = { online: "Online", offline: "Offline", paused: "Paused", asleep: "Camera Asleep", not_set: "Not Set Up" };
-const FIELD_PHRASE = { amount_due: "The amount", statement_date: "The statement date", due_date: "The due date", sender: "The sender", hospital_name: "The hospital's name", account_last4: "The account number", phone_numbers: "A phone number", financial_assistance: "The help-paying line" };
-const READER_STATE = { ok: ["ok", "OK"], timeout: ["bad", "Timed Out"], failed: ["bad", "Error"], unreadable: ["warn", "Couldn't Read"] };
 
-/** The pill that says how a letter was read: twice and clean, twice with a line read two ways, or once. */
-export function readPill(l) {
-  if (l.readBy === "once") return ["warn", "Read Once"];
-  if (l.readBy === "twice") return l.checks?.length ? ["warn", "Check"] : ["ok", "Read Twice ✓"];
-  return null;
-}
 
 function letterLine(l) {
   const parts = [money(l.amountCents), l.statementOn ? `statement ${l.statementOn}` : null, l.dueOn ? `due ${l.dueOn}` : null].filter(Boolean);
-  const status = { handoff: "Waive case started, with Rosa's yes", waiting_hospital: "Waiting on the hospital", tossed: "Rosa tossed it", unknown_number: "Asks for a call to a number nobody publishes. Sent to you." }[l.status];
+  const status = { handoff: "Waive case started, with Rosa's yes", waiting_hospital: "Waiting on the hospital", tossed: "Rosa tossed it", unknown_number: "Asks for a call to a number nobody publishes. Sent to you.", not_mine: "Addressed to someone else" }[l.status];
   return [parts.join(", "), status].filter(Boolean).join(" · ");
 }
 
@@ -42,17 +43,24 @@ export default function Family() {
   const search = useSearch();
   const load = () => api("/family").then((f) => { setFam(f); setState("ok"); }).catch((e) => setState(e?.status === 401 ? "signin" : e?.status === 404 ? "new" : "error"));
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, []);
+  // Every family has its own address: /ana/<household id>. The bare /ana becomes it; another family's id is not this page.
+  const pathId = window.location.pathname.replace(/^\/ana\/?/, "").split("/")[0] || null;
+  useEffect(() => { if (state === "ok" && fam?.household?.id && pathId !== fam.household.id && !pathId) window.history.replaceState({}, "", `/ana/${fam.household.id}`); }, [state, fam?.household?.id, pathId]);
   if (state === "signin") return <SignIn />;
   if (state === "new") { navigate("/ana/new"); return null; }
+  if (state === "ok" && pathId && pathId !== fam.household.id) return <main className="screen ana"><span className="label">Biscuit · Family Page</span><h1 className="display small">Not Your Family's Page</h1><p className="lead small">This address belongs to another family. <a href={`/ana/${fam.household.id}`} className="link" onClick={(e) => { e.preventDefault(); navigate(`/ana/${fam.household.id}`); }}>Open Your Page</a></p></main>;
   if (state !== "ok") return <main className="screen ana"><span className="label">Biscuit · Family Page</span><p className="lead small">{state === "error" ? "Couldn't load the page. Try again in a moment." : "One Moment"}</p></main>;
 
-  const { household: h, letters, said, events, camera, help, devices, readers } = fam;
+  const { household: h, letters, said, events, camera, help, devices } = fam;
   // The admin view: the founder's household and ?admin=1, never anyone else; nothing of it is rendered otherwise.
   const adminView = isAdminView(search, h.admin);
   const Admin = ({ children }) => (adminView ? <Details open>{children}</Details> : null);
   const needs = letters.filter((l) => l.status === "handoff" || l.needsReview);
   const rosaPhone = devices.find((d) => d.kind === "rosa");
   const act = (path, msg) => () => api(path, { method: "POST" }).then(() => { setNote(msg); load(); }).catch(() => setNote("That didn't work. Try again."));
+  // Ana passes a letter on: the hand-off is recorded here, then the product opens in a new tab with what Biscuit read.
+  const pass = (l, to) => () => { api(`/family/letter/${l.id}/pass`, { method: "POST", json: { to } }).then(load).catch(() => {}); window.open(passUrl(to, l), "_blank", "noopener"); };
+  const byDay = groupByDay(letters);
   const RECENT = { cam_frozen: "The camera fell asleep; the mailbox phone needs a tap.", mail_seen: "Mail came.", mail_due: "Chimed: the mail usually comes about now.", handoff: "Waive case started.", help: "Help pressed.", help_cancel: "Help cancelled.", help_ok: `${h.called} said she's OK.`, help_test: "Help test sent.", help_test_ack: "Help test reached this page.", consent: `${h.called} said yes to Biscuit.` };
   const recentWords = (e) => RECENT[e.kind] || (e.kind === "rosa_said" ? `${h.called} said: “${e.data?.text || ""}”` : e.kind === "look_requested" ? `Asked ${h.called} for another look at the letter from ${e.data?.sender || "a sender"}.` : e.kind === "cam_motion" ? (e.data?.seen ? `Movement at the box · saw ${seenWords(e.data.seen)}.` : "Movement at the box · nothing recognised.") : e.kind);
 
@@ -67,35 +75,40 @@ export default function Family() {
         <section className="card grow">
           <h2 className="h2">Letters Biscuit Read</h2>
           {lettersLine(letters.length) && <p className="lead small muted">{lettersLine(letters.length)}</p>}
-          {letters.map((l) => (
-            <div key={l.id} className="fact">
-              <div className="row between"><span className="row"><span className={`pill ${l.status === "unknown_number" ? "bad" : l.kind === "bill" ? "signal" : "warn"}`}>{l.status === "unknown_number" ? "Unknown Number" : KIND[l.kind] || "Letter"}</span>{readPill(l) && <span className={`pill ${readPill(l)[0]}`}>{readPill(l)[1]}</span>}</span><span className="label plain">{when(l.readAt)}</span></div>
-              <strong>{l.sender || "Unknown sender"}</strong>
-              <span className="lead small">{letterLine(l) || "Read aloud."}</span>
-              {l.quotes?.length > 0 && <span className="quote small">{l.quotes.slice(0, 3).map((q, i) => <span key={i} className="mark">“{q.quote}”</span>).reduce((a, b) => [a, " · ", b])}</span>}
-              {(l.checks || []).map((c) => (
-                <p key={c.field} className="lead small">{FIELD_PHRASE[c.field] || "One line"} was read two ways and not said to {h.called}: {c.quotes.map((q, i) => <span key={i}>{i > 0 && " · "}<span className="quote"><span className="mark">“{q.quote}”</span></span> <span className="label plain">{readerName(q.reader)}</span></span>)}</p>
-              ))}
-              {(l.checks?.length > 0 || l.readBy === "once") && (
-                <div className="row wrap">
-                  <button type="button" className="btn ana small" onClick={act(`/family/letter/${l.id}/again`, `${h.called}'s phone will ask her to show it again. Both readers read it again; Biscuit keeps no picture.`)}>Ask {h.called} for Another Look</button>
-                  {l.lookRequestedAt && <span className="label plain">Asked {when(l.lookRequestedAt)}</span>}
+          {byDay.map((g) => (
+            <div key={g.day} className="ana-day">
+              <span className="label">{g.label}</span>
+              {g.letters.map((l) => (
+                <div key={l.id} className="ana-letter">
+                  <div className="row between"><span className="row wrap"><span className={`pill ${l.status === "unknown_number" ? "bad" : l.kind === "bill" ? "signal" : "warn"}`}>{l.status === "unknown_number" ? "Unknown Number" : KIND[l.kind] || "Letter"}</span>{l.edited?.length > 0 && <span className="pill ok">Corrected by {h.called}</span>}{l.needsReview && l.status !== "not_mine" && <span className="pill warn">Flagged for You</span>}</span><span className="label plain">{clock(l.readAt)}</span></div>
+                  <strong>{l.sender || (l.status === "not_mine" ? "Someone Else's Letter" : "Unknown Sender")}</strong>
+                  <span className="lead small">{letterLine(l) || "Read aloud."}</span>
+                  {l.quotes?.length > 0 && <span className="quote small">{l.quotes.slice(0, 3).map((q, i) => <span key={i} className="mark">“{q.quote}”</span>).reduce((a, b) => [a, " · ", b])}</span>}
+                  {l.passed?.length > 0 && <span className="label plain">{l.passed.map((p) => `Passed to ${PRODUCT[p.to] || p.to} ${when(p.at)}`).join(" · ")}</span>}
+                  {l.status !== "not_mine" && l.status !== "tossed" && (
+                    <div className="row wrap">
+                      <button type="button" className="btn ana small" onClick={pass(l, "waive")}>Pass to Waive</button>
+                      <button type="button" className="btn ana small" onClick={pass(l, "lull")}>Pass to Lull</button>
+                      {l.needsReview && <button type="button" className="btn ana small" onClick={act(`/family/letter/${l.id}/again`, `${h.called}'s phone will ask her to show it again.`)}>Ask {h.called} for Another Look</button>}
+                      {l.lookRequestedAt && <span className="label plain">Asked {when(l.lookRequestedAt)}</span>}
+                    </div>
+                  )}
                 </div>
-              )}
-              {l.status === "handoff" && l.hospitalCcn && <a className="link" href={`${WAIVE}/start?ccn=${l.hospitalCcn}`} target="_blank" rel="noreferrer">Open in Waive</a>}
+              ))}
             </div>
           ))}
           <Admin>
-            <span className="label plain">When Biscuit reads a letter on {h.called}'s phone, its summary shows here: the sender, the amount, the dates and the quotes Biscuit spoke, never the picture or the full text. Letters she hid never appear. Read Twice means two readers agreed on what was said; Check means a line was read two ways and not spoken.</span>
+            <span className="label plain">When Biscuit reads a letter on {h.called}'s phone, its summary shows here: the sender, the amount, the dates and the quotes Biscuit spoke, never the picture or the full text. Letters she hid never appear. What {h.called} corrected on her phone is what shows here.</span>
           </Admin>
         </section>
         {(h.keepClips || camera.clips?.total > 0) && <ClipCarousel household={h} camera={camera} onLabelled={load} admin={adminView} />}
         <div className="stack">
+          <Calendar letters={letters} called={h.called} />
           <section className="card night">
             <span className="label night">Needs You</span>
             {needs.length ? needs.map((l) => (
               <div key={l.id} className="stack tight">
-                <p className="lead small">{l.status === "handoff" ? `${l.sender}: ${h.called} said yes to the application. Open it in Waive, check what Biscuit read, and approve the packet.` : l.checks?.length ? `${l.sender || "A letter"}: ${l.checks.length === 1 ? "one line" : `${l.checks.length} lines`} read two ways, not said to ${h.called}. See the letter, or ask her for another look.` : `${l.sender || "A letter"} needs a look.`}</p>
+                <p className="lead small">{l.status === "handoff" ? `${l.sender}: ${h.called} said yes to the application. Open it in Waive, check what Biscuit read, and approve the packet.` : `${l.sender || "A letter"}: flagged for you.`}</p>
                 {l.hospitalCcn && <a className="btn ana light" href={`${WAIVE}/start?ccn=${l.hospitalCcn}`} target="_blank" rel="noreferrer">Review in Waive</a>}
               </div>
             )) : <p className="lead small">Nothing Waiting on You</p>}
@@ -106,16 +119,6 @@ export default function Family() {
             {said.slice(0, 6).map((e, i) => <p key={i} className="said"><span className="label plain">{clock(e.at)}</span> “{e.text}”</p>)}
             <Admin>
               <span className="label plain">What Biscuit said is kept. {h.called}'s voice is not.</span>
-            </Admin>
-          </section>
-          <section className="card">
-            <span className="label">Readers</span>
-            <p className="lead small">{readersLine(readers)}</p>
-            <Admin>
-              {readers && <span className="label plain">Last letter {when(readers.at)}. Two readers read every letter; {h.called} hears only what both read the same way.</span>}
-              {!readers && <span className="label plain">Two readers read every letter; {h.called} hears only what both read the same way.</span>}
-              {readers && readers.list.map((r) => <div key={r.name} className="row"><span className={`pill ${r.shadow ? "signal" : (READER_STATE[r.status] || READER_STATE.failed)[0]}`}>{r.shadow ? "Shadow" : (READER_STATE[r.status] || READER_STATE.failed)[1]}</span><span className="label plain">{readerName(r)}{r.shadow ? ` · ${r.status === "ok" ? `agreed on ${r.agreed} of ${r.of}` : (READER_STATE[r.status] || READER_STATE.failed)[1].toLowerCase()}` : ""}{Number.isFinite(r.ms) ? ` · ${(r.ms / 1000).toFixed(1)} s` : ""}</span></div>)}
-              <span className="label plain">Meta's reader is Spark 1.3 on Meta Model API; the second reader is DeepSeek V4.1 Flash on Fireworks. Kindred's reader, Meta's Glimmer 30B trained on synthetic letters, reads in the shadow: logged here, never spoken.</span>
             </Admin>
           </section>
           <section className="card">

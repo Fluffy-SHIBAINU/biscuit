@@ -272,3 +272,16 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); font-family
   .kept-pill, .mail.arrived .pill.ok { animation: fade 150ms !important; }
   @keyframes fade { from { opacity: 0; } }
 }
+
+/* Ana's calendar: a dot on a date that needs something done. */
+.calendar .cal-nav { width: 48px; height: 44px; padding: 0; font-size: 22px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-dow { text-align: center; font-size: 12px; }
+.cal-day { position: relative; height: 48px; border: 1px solid transparent; border-radius: var(--r-btn); background: none; font: 500 16px var(--ui); color: var(--ink); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
+.cal-day.dim { color: var(--muted); opacity: .55; }
+.cal-day.today { border-color: var(--rule-strong); }
+.cal-day.picked { background: var(--mark); border-color: var(--signal); }
+.cal-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--bad); }
+/* Ana's letters: one box per letter under its day; where it went */
+.ana-letter { border: 1px solid var(--rule); border-radius: var(--r-sheet); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; background: var(--sheet); }
+.ana-day { display: flex; flex-direction: column; gap: 10px; }

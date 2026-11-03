@@ -83,7 +83,7 @@ export function clipsSummary({ keepClips, movementsToday, attention, classified,
   const checked = Object.values(tuning?.prompts || {}).reduce((n, s) => n + (s.fired || 0), 0);
   if (tuning?.auto?.classified > 0) lines.push("Biscuit Sorts the Sure Ones Itself");
   else if (checked > 0) lines.push("Good Job! Biscuit Is Getting Smarter");
-  return { title: "Who Was at the Box", lines };
+  return { title: "Mailbox Status", lines };
 }
 
 /** One line for Details: what her taps did to the floor and gate. Null with no taps. */

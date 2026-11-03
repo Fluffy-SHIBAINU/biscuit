@@ -40,7 +40,7 @@ export function ClipConsentDetails() {
 }
 
 /**
- * "Who Was at the Box": a carousel, one clip at a time, the eight frames as a loop (tap pauses), a scrubber, arrows and
+ * "Mailbox Status": a carousel, one clip at a time, the eight frames as a loop (tap pauses), a scrubber, arrows and
  * swipes between clips, a counter, and two groups: the clips that need Ana and the ones already classified, by her or by
  * Biscuit. Biscuit's guess is the dark button, so one tap confirms; the other taps correct. On a clip Biscuit classified
  * itself, Not Right hands it back. Everything with a number or an explanation in it renders only in the admin view.
@@ -112,7 +112,7 @@ export function ClipCarousel({ household: h, camera, onLabelled, admin = false }
   const tuned = tuningLine(camera?.tuning), learned = learningLine(camera?.tuning);
 
   return (
-    <section className="card grow carousel" tabIndex={0} onKeyDown={onKey} aria-label="Who Was at the Box">
+    <section className="card grow carousel" tabIndex={0} onKeyDown={onKey} aria-label="Mailbox Status">
       <div className="row between wrap"><h2 className="h2">{summary.title}</h2>{clip && <span className="label plain">{at + 1} of {list.length}</span>}</div>
       {summary.lines.map((l, i) => <p key={i} className={`lead small ${i ? "muted" : ""}`}>{l}</p>)}
       <div className="tabs">

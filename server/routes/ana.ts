@@ -102,6 +102,17 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
       const { sent } = await sendPush(db, h.id, ["rosa"], LOOK_PAYLOAD(sender, rows[0].id), { send: o.send }).catch(() => ({ sent: 0 }));
       return c.json({ ok: true, sent });
     })
+    // Ana passes a letter to a Kindred product (Waive for a hospital bill, Lull for a caregiver's break): the hand-off is recorded, and the page keeps it.
+    .post("/family/letter/:id/pass", auth, async (c) => {
+      const b = await c.req.json().catch(() => ({}));
+      const to = b?.to === "waive" ? "waive" : b?.to === "lull" ? "lull" : null;
+      if (!to) return c.json({ error: "bad_product" }, 400);
+      const h = c.var.household;
+      const rows = await getDb().select({ id: letter.id, sender: letter.sender }).from(letter).where(and(eq(letter.id, c.req.param("id")), eq(letter.householdId, h.id)));
+      if (!rows.length) return c.json({ error: "not_found" }, 404);
+      await events.record(h.id, null, "passed", { letterId: rows[0].id, to, sender: rows[0].sender });
+      return c.json({ ok: true });
+    })
     .patch("/family/mail-time", auth, async (c) => {
       // The hour the mail usually comes, Ana's guess, in minutes after midnight; null turns the chime off. Her zone only
       // fills a blank: once Rosa's phone has said where it is, that zone stays.
@@ -171,7 +182,7 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
       const now = new Date();
       const devices = await db.select().from(device).where(eq(device.householdId, h.id));
       const letters = await db.select().from(letter).where(and(eq(letter.householdId, h.id), ne(letter.status, "hidden"))).orderBy(desc(letter.readAt)).limit(50);
-      const events = await db.select().from(event).where(and(eq(event.householdId, h.id), inArray(event.kind, ["said", "mail_seen", "mail_due", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack", "consent", "look_requested", "cam_motion", "cam_frozen", "rosa_said"]))).orderBy(desc(event.at)).limit(60);
+      const events = await db.select().from(event).where(and(eq(event.householdId, h.id), inArray(event.kind, ["said", "mail_seen", "mail_due", "handoff", "help", "help_cancel", "help_ok", "help_test", "help_test_ack", "consent", "look_requested", "cam_motion", "cam_frozen", "rosa_said", "letter_edited", "passed"]))).orderBy(desc(event.at)).limit(60);
       // Movements the phone sent today, in the household's own day.
       const tz = validTz(h.tz) ?? DEFAULT_TZ;
       const today = localParts(now, tz).day;
@@ -194,9 +205,14 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
         // `admin`: the founder's household; Ana's page opens every Details disclosure for it and keeps them closed for everyone else.
         household: { id: h.id, seniorName: h.seniorName, called: h.called, relation: h.relation, living: h.living, language: h.language, shareLetters: h.shareLetters, consentedAt: h.consentedAt, mailMinutes: h.mailMinutes ?? null, tz: h.tz ?? null, keepClips: h.keepClips, keepClipsAt: h.keepClipsAt, shareClips: h.shareClips, shareClipsAt: h.shareClipsAt, admin: isCollectOwner(o.env ?? process.env, h.ownerEmail) },
         devices: devices.map((d) => ({ id: d.id, kind: d.kind, label: d.label, lastSeenAt: d.lastSeenAt, hasPush: Boolean(d.pushSubscription), battery: d.battery, charging: d.charging })),
-        letters,
+        // Each letter carries the fields Rosa corrected on her phone (her words are the row's values now) and where Ana passed it.
+        letters: letters.map((l) => ({
+          ...l,
+          edited: [...new Set(events.filter((e) => e.kind === "letter_edited" && (e.data as any)?.letterId === l.id).flatMap((e) => ((e.data as any)?.fields || []) as string[]))],
+          passed: events.filter((e) => e.kind === "passed" && (e.data as any)?.letterId === l.id).map((e) => ({ to: (e.data as any).to, at: e.at })),
+        })),
         said: events.filter((e) => e.kind === "said").map((e) => ({ at: e.at, text: (e.data as any)?.text ?? "" })),
-        events: events.filter((e) => e.kind !== "said").map((e) => ({ id: e.id, kind: e.kind, at: e.at, data: e.data })),
+        events: events.filter((e) => e.kind !== "said" && e.kind !== "letter_edited").map((e) => ({ id: e.id, kind: e.kind, at: e.at, data: e.data })),
         camera: { status: cameraStatus(camRow ?? null, camDevice?.lastSeenAt ?? null, now), movementsToday, frozenAt: camRow?.frozenAt ?? null, paused: camRow?.paused ?? false, battery: camDevice?.battery ?? null, charging: camDevice?.charging ?? null, lastMotionAt: camRow?.lastMotionAt ?? null, setAt: camRow?.setAt ?? null, regionSource: camRow?.regionSource ?? null, samCallsToday: camRow?.samDay === now.toISOString().slice(0, 10) ? camRow.samCallsToday : 0, floor: camRow?.floor ?? null, gate: camRow?.gate ?? null, tuning: camRow?.tuning ?? null, clips: { pending: Number(clipCount?.pending ?? 0), total: Number(clipCount?.total ?? 0), attention: Number(clipCount?.pending ?? 0), classified: Number(clipCount?.classified ?? 0) } },
         help: { lastTestAt: lastTest?.at ?? null, acked, openHelpAt: closed ? null : openHelp?.at ?? null },
         readers: lastRead ? { at: lastRead.at, readBy: readData.readBy ?? "single", list: [...(Array.isArray(readData.readers) ? readData.readers : []), ...shadowEntry] } : null,

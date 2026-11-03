@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { clipDetail, clipLine, clipsSummary, guessDetail, guessLine, labelPhrase, labelWords, learningLine, seenTitle, seenWords, TAPS, TAP_WORDS, tuningLine } from "../src/lib/clips.js";
 
-// The words on Ana's "Who Was at the Box" card. The daughter's side is Title Case and short: the three taps in her words,
+// The words on Ana's "Mailbox Status" card. The daughter's side is Title Case and short: the three taps in her words,
 // Biscuit's guess as one line, one or two lines that say how things stand. The numbers, floors and prompt names live in Details.
 test("the three taps in her words, and their stored labels", () => {
   expect(TAPS.map((t) => [t.label, t.words])).toEqual([["carrier", "The Mail Carrier"], ["nothing", "A Car or the Wind"], ["other", "Someone Else"]]);
@@ -38,10 +38,10 @@ test("what SAM saw, in words, for a sentence and for a Title Case line", () => {
 
 test("the summary a daughter reads: one or two short Title Case lines from the state of the box, no numbers but a count", () => {
   const taught = { taps: 10, prompts: { envelope: { fired: 6, agreed: 5 }, none: { fired: 4, agreed: 3 } }, auto: { classified: 0, corrected: 0 } };
-  expect(clipsSummary({ keepClips: false, movementsToday: 0, attention: 0, classified: 0, tuning: null })).toEqual({ title: "Who Was at the Box", lines: ["Clips Off"] });
-  expect(clipsSummary({ keepClips: true, movementsToday: 0, attention: 0, classified: 0, tuning: null })).toEqual({ title: "Who Was at the Box", lines: ["Nothing Has Moved Today"] });
-  expect(clipsSummary({ keepClips: true, movementsToday: 2, attention: 0, classified: 2, tuning: null })).toEqual({ title: "Who Was at the Box", lines: ["All Sorted"] });
-  expect(clipsSummary({ keepClips: true, movementsToday: 3, attention: 3, classified: 0, tuning: null })).toEqual({ title: "Who Was at the Box", lines: ["3 Clips to Check"] });
+  expect(clipsSummary({ keepClips: false, movementsToday: 0, attention: 0, classified: 0, tuning: null })).toEqual({ title: "Mailbox Status", lines: ["Clips Off"] });
+  expect(clipsSummary({ keepClips: true, movementsToday: 0, attention: 0, classified: 0, tuning: null })).toEqual({ title: "Mailbox Status", lines: ["Nothing Has Moved Today"] });
+  expect(clipsSummary({ keepClips: true, movementsToday: 2, attention: 0, classified: 2, tuning: null })).toEqual({ title: "Mailbox Status", lines: ["All Sorted"] });
+  expect(clipsSummary({ keepClips: true, movementsToday: 3, attention: 3, classified: 0, tuning: null })).toEqual({ title: "Mailbox Status", lines: ["3 Clips to Check"] });
   expect(clipsSummary({ keepClips: true, movementsToday: 1, attention: 1, classified: 0, tuning: null }).lines).toEqual(["1 Clip to Check"]);
   expect(clipsSummary({ keepClips: true, movementsToday: 4, attention: 2, classified: 8, tuning: taught }).lines).toEqual(["2 Clips to Check", "Good Job! Biscuit Is Getting Smarter"]);
   expect(clipsSummary({ keepClips: true, movementsToday: 4, attention: 0, classified: 8, tuning: taught }).lines).toEqual(["All Sorted", "Good Job! Biscuit Is Getting Smarter"]);
