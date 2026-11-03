@@ -20,8 +20,9 @@ export function sheetUrl(ccn: string): string {
   return `${WAIVE_BASE}/atlas/${encodeURIComponent(ccn)}`;
 }
 
+/** Waive has no start route; the hospital's own page is the way in, and a case starts from there. */
 export function startUrl(ccn: string): string {
-  return `${WAIVE_BASE}/start?ccn=${encodeURIComponent(ccn)}`;
+  return sheetUrl(ccn);
 }
 
 /** The slice of a Waive sheet Biscuit speaks: the free-care rule with its quote and source, the phone, two waits. */

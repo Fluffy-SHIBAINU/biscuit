@@ -38,7 +38,7 @@ describe.skipIf(!process.env.DATABASE_URL)("docket, letters, handoff, events", (
     const [row] = await getDb().select().from(letter).where(eq(letter.householdId, householdId));
     const res = await req("/api/biscuit/handoff", { method: "POST", body: JSON.stringify({ letterId: row.id, ccn: "220071" }) });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ waiveUrl: "https://waive.kindred-ai.dev/start?ccn=220071" });
+    expect(await res.json()).toEqual({ waiveUrl: "https://waive.kindred-ai.dev/atlas/220071" });
     const events = await getDb().select().from(event).where(eq(event.householdId, householdId));
     expect(events.map((e) => e.kind)).toContain("handoff");
     const docket = await (await req("/api/biscuit/docket")).json();

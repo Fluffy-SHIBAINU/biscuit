@@ -27,5 +27,5 @@ test("fetchSheet returns null on 404 and the summary on 200", async () => {
   expect(await fetchSheet("000000", async () => new Response("", { status: 404 }))).toBeNull();
   const s = await fetchSheet("220071", async () => new Response(JSON.stringify(fixture), { status: 200, headers: { "content-type": "application/json" } }));
   expect(s?.freeCare?.maxFpl).toBe("150");
-  expect(startUrl("220071")).toBe("https://waive.kindred-ai.dev/start?ccn=220071");
+  expect(startUrl("220071")).toBe("https://waive.kindred-ai.dev/atlas/220071");
 });

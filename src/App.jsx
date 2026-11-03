@@ -53,7 +53,7 @@ export default function App() {
   // Whether the server has a neural voice for Biscuit; without one the phone's own voice speaks.
   useEffect(() => { if (s.deviceToken && s.kind === "rosa") api("/speak/voice").then((r) => store.set({ neuralVoice: Boolean(r?.neural) })).catch(() => {}); }, [s.deviceToken, s.kind]);
   // Biscuit hears all day on Rosa's phone once she has agreed; the bar at the foot shows it and pauses it.
-  const rosaHome = Boolean(s.deviceToken && s.kind === "rosa") && !path.startsWith("/ana") && !path.startsWith("/cam") && !path.startsWith("/setup") && path !== "/link";
+  const rosaHome = Boolean(s.deviceToken && s.kind === "rosa") && !path.startsWith("/ana") && !path.startsWith("/cam") && !path.startsWith("/setup") && path !== "/link" && !/^\/[0-9a-f-]{36}$/i.test(path);
   useEffect(() => { if (!rosaHome) return; ear.setHandler(onUtterance); keepEarOpen(); earCheck(); }, [rosaHome, s.consentedAt, s.earAllowedAt, s.earPaused, path]);
   // The first time the ear opens on this visit, Biscuit says hello, and the dog tilts his head once.
   useEffect(() => subscribeEar(() => { if (!greeted && earStatus() === "on") { greeted = true; talkState.set({ helloAt: Date.now() }); speak(["Hello! Biscuit here."]); } }), []);
@@ -66,7 +66,7 @@ export default function App() {
 function route(path, s) {
   if (path === "/ana/new") return <WhoFor />;
   if (path === "/ana/link") return <LinkCode />;
-  if (path === "/ana" || path.startsWith("/ana/")) return <Family />;
+  if (path === "/ana" || path.startsWith("/ana/") || /^\/[0-9a-f-]{36}$/i.test(path)) return <Family />;
   if (path === "/link" || !s.deviceToken) return <EnterCode />;
   if (path === "/cam") return s.cam?.region ? <CamWatching /> : <CamSetup />;
   if (path === "/cam/setup") return <CamSetup />;

@@ -16,9 +16,13 @@ import SignIn from "./SignIn.jsx";
 
 const WAIVE = "https://waive.kindred-ai.dev";
 const LULL = "https://lull.kindred-ai.dev";
-/** Where a letter can go next: Waive for a hospital bill's financial-assistance application, Lull for a caregiver's break. */
+/**
+ * Where a letter can go next: Lull, which takes the letter's facts and leads on to Waive from there. Waive has no page that
+ * starts a case from a letter (its hospital page shows the rule only), so there is no direct Waive button; the hospital's
+ * rule in Waive is linked where a case is already under way.
+ */
 export function passUrl(to, l) {
-  if (to === "waive") return l.hospitalCcn ? `${WAIVE}/start?ccn=${encodeURIComponent(l.hospitalCcn)}` : `${WAIVE}/start`;
+  if (to === "waive") return `${WAIVE}/atlas/${encodeURIComponent(l.hospitalCcn)}`;
   const q = new URLSearchParams({ from: "biscuit", ...(l.sender ? { sender: l.sender } : {}), ...(Number.isInteger(l.amountCents) ? { amount: String(l.amountCents / 100) } : {}), ...(l.dueOn ? { due: String(l.dueOn).slice(0, 10) } : {}) });
   return `${LULL}/?${q}`;
 }
@@ -43,12 +47,13 @@ export default function Family() {
   const search = useSearch();
   const load = () => api("/family").then((f) => { setFam(f); setState("ok"); }).catch((e) => setState(e?.status === 401 ? "signin" : e?.status === 404 ? "new" : "error"));
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, []);
-  // Every family has its own address: /ana/<household id>. The bare /ana becomes it; another family's id is not this page.
-  const pathId = window.location.pathname.replace(/^\/ana\/?/, "").split("/")[0] || null;
-  useEffect(() => { if (state === "ok" && fam?.household?.id && pathId !== fam.household.id && !pathId) window.history.replaceState({}, "", `/ana/${fam.household.id}`); }, [state, fam?.household?.id, pathId]);
+  // Every family has its own address: /<household id>. The bare /ana becomes it; another family's id is not this page.
+  const seg = window.location.pathname.replace(/^\//, "").split("/")[0];
+  const pathId = /^[0-9a-f-]{36}$/i.test(seg) ? seg : null;
+  useEffect(() => { if (state === "ok" && fam?.household?.id && !pathId) window.history.replaceState({}, "", `/${fam.household.id}`); }, [state, fam?.household?.id, pathId]);
   if (state === "signin") return <SignIn />;
   if (state === "new") { navigate("/ana/new"); return null; }
-  if (state === "ok" && pathId && pathId !== fam.household.id) return <main className="screen ana"><span className="label">Biscuit · Family Page</span><h1 className="display small">Not Your Family's Page</h1><p className="lead small">This address belongs to another family. <a href={`/ana/${fam.household.id}`} className="link" onClick={(e) => { e.preventDefault(); navigate(`/ana/${fam.household.id}`); }}>Open Your Page</a></p></main>;
+  if (state === "ok" && pathId && pathId !== fam.household.id) return <main className="screen ana"><span className="label">Biscuit · Family Page</span><h1 className="display small">Not Your Family's Page</h1><p className="lead small">This address belongs to another family. <a href={`/${fam.household.id}`} className="link" onClick={(e) => { e.preventDefault(); navigate(`/${fam.household.id}`); }}>Open Your Page</a></p></main>;
   if (state !== "ok") return <main className="screen ana"><span className="label">Biscuit · Family Page</span><p className="lead small">{state === "error" ? "Couldn't load the page. Try again in a moment." : "One Moment"}</p></main>;
 
   const { household: h, letters, said, events, camera, help, devices } = fam;
@@ -87,7 +92,6 @@ export default function Family() {
                   {l.passed?.length > 0 && <span className="label plain">{l.passed.map((p) => `Passed to ${PRODUCT[p.to] || p.to} ${when(p.at)}`).join(" · ")}</span>}
                   {l.status !== "not_mine" && l.status !== "tossed" && (
                     <div className="row wrap">
-                      <button type="button" className="btn ana small" onClick={pass(l, "waive")}>Pass to Waive</button>
                       <button type="button" className="btn ana small" onClick={pass(l, "lull")}>Pass to Lull</button>
                       {l.needsReview && <button type="button" className="btn ana small" onClick={act(`/family/letter/${l.id}/again`, `${h.called}'s phone will ask her to show it again.`)}>Ask {h.called} for Another Look</button>}
                       {l.lookRequestedAt && <span className="label plain">Asked {when(l.lookRequestedAt)}</span>}
@@ -101,15 +105,15 @@ export default function Family() {
             <span className="label plain">When Biscuit reads a letter on {h.called}'s phone, its summary shows here: the sender, the amount, the dates and the quotes Biscuit spoke, never the picture or the full text. Letters she hid never appear. What {h.called} corrected on her phone is what shows here.</span>
           </Admin>
         </section>
-        {(h.keepClips || camera.clips?.total > 0) && <ClipCarousel household={h} camera={camera} onLabelled={load} admin={adminView} />}
         <div className="stack">
           <Calendar letters={letters} called={h.called} />
+          {(h.keepClips || camera.clips?.total > 0) && <ClipCarousel household={h} camera={camera} onLabelled={load} admin={adminView} />}
           <section className="card night">
             <span className="label night">Needs You</span>
             {needs.length ? needs.map((l) => (
               <div key={l.id} className="stack tight">
                 <p className="lead small">{l.status === "handoff" ? `${l.sender}: ${h.called} said yes to the application. Open it in Waive, check what Biscuit read, and approve the packet.` : `${l.sender || "A letter"}: flagged for you.`}</p>
-                {l.hospitalCcn && <a className="btn ana light" href={`${WAIVE}/start?ccn=${l.hospitalCcn}`} target="_blank" rel="noreferrer">Review in Waive</a>}
+                {l.hospitalCcn && <a className="btn ana light" href={passUrl("waive", l)} target="_blank" rel="noreferrer">The Hospital's Rule in Waive</a>}
               </div>
             )) : <p className="lead small">Nothing Waiting on You</p>}
           </section>
