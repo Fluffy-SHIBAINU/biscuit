@@ -98,6 +98,9 @@ const watchers = new Set();
 let lastStatus = "";
 const notify = () => { if (live.status !== lastStatus) { lastStatus = live.status; diag("ear", live.status + (live.error ? ` (${live.error})` : "")); } watchers.forEach((w) => w()); };
 export const core = new EarCore({ onChange: notify });
+// For scripted runs (the demo recorder, a test on a laptop with no microphone): words handed straight to the ear, through
+// the same router real speech takes. A page-local function; it does nothing a tap on the screen could not.
+if (typeof window !== "undefined") window.biscuitHear = (text) => { core.begin(); return core.end({ blob: { text: String(text) }, ms: 0 }); };
 if (typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition)) core.graceMs = RECOGNITION_GRACE_MS;
 export const earMuted = () => core.isMuted();
 export function subscribeEar(fn) { watchers.add(fn); return () => watchers.delete(fn); }
