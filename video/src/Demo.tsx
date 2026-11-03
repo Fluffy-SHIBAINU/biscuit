@@ -20,7 +20,7 @@ const Dog: React.FC<{ size?: number }> = ({ size = 76 }) => (
 
 const Callout: React.FC<{ text: string }> = ({ text }) => {
   const f = useCurrentFrame();
-  return <div style={{ position: "absolute", left: 72, top: 72, opacity: fadeIn(f), transform: `translateY(${rise(f)}px)`, background: INK, color: "#F4F7FA", font: `500 26px/1.2 ${UI}`, padding: "16px 24px", borderRadius: 999, display: "flex", gap: 14, alignItems: "center" }}><span style={{ width: 12, height: 12, borderRadius: 6, background: BRAND, display: "inline-block" }} />{text}</div>;
+  return <div style={{ position: "absolute", left: 72, top: 150, opacity: fadeIn(f), transform: `translateY(${rise(f)}px)`, background: INK, color: "#F4F7FA", font: `500 26px/1.2 ${UI}`, padding: "16px 24px", borderRadius: 999, display: "flex", gap: 14, alignItems: "center" }}><span style={{ width: 12, height: 12, borderRadius: 6, background: BRAND, display: "inline-block" }} />{text}</div>;
 };
 const Caption: React.FC<{ text: string; who?: string; left?: number; width?: number; bottom?: number }> = ({ text, who, left = 72, width = 760, bottom = 96 }) => {
   const f = useCurrentFrame();

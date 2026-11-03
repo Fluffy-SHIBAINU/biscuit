@@ -48,7 +48,9 @@ segs.push({ kind: "card", dur: 10.5, title: "Biscuit", subtitle: "by Kindred AI"
   segs.push({ kind: "laptop", video: media(videosOf(sc)[0]), from, to, audio: [{ at: 0.3, file: audioFile(narr["narr-setup"].file), ms: narr["narr-setup"].ms }], captions: [{ at: 0.2, dur: 7.5, text: "Ana, on her laptop: who Biscuit helps, then a code for Rosa's phone.", who: "title" }], callouts: [] }); }
 // 4 Rosa's setup
 { const sc = "rosa-setup", from = mark(sc, "code-screen") - 0.3, to = mark(sc, "home") + 0.5;
-  const caps = [["code-screen", "Rosa types the code."], ["voice", "Say hello."], ["consent", "Her yes, read aloud."], ["help-setup", "Help, set up."], ["done", "Ready."]].map(([m, text]) => ({ at: mark(sc, m) - from, dur: 3, text, who: "title" }));
+  // each caption holds until the next step's screen, so two never overlap
+  const steps = [["code-screen", "Rosa types the code."], ["voice", "Say hello."], ["consent", "Her yes, read aloud."], ["help-setup", "Help, set up."], ["done", "Ready."]];
+  const caps = steps.map(([m, text], i) => { const at = mark(sc, m) - from; const next = steps[i + 1] ? mark(sc, steps[i + 1][0]) - from : to - from; return { at, dur: Math.max(1, Math.min(3, next - at - 0.15)), text, who: "title" }; });
   segs.push({ kind: "phone", video: media(videosOf(sc)[0]), from, to, audio: [], captions: caps, callouts: [{ at: 0.5, dur: 6, text: "Four steps on her phone" }] }); }
 // 5 the loop
 { const sc = "rosa-loop", from = ev[sc].events.find((e) => e.type === "rosa").t / 1000 - 0.3, to = mark(sc, "sent") + 2.4;
