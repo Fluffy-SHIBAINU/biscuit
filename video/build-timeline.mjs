@@ -1,83 +1,99 @@
-// From events.json (what each scene did and when) to public/timeline.json (what the composition shows and plays), and
-// the media copied into public/. Times in seconds.
+// The second cut: one story, the founder's narration over the recordings. From events.json (what each scene did and
+// when), vo.json (the narrator's lines) and the recordings in raw/ to public/timeline.json and the media under public/.
+// Times in seconds. The narration is one track with absolute times; Biscuit's lines sit inside their segments.
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { basename, dirname, join } from "node:path";
 const V = "/Users/grey/Desktop/dev/biscuit/video";
 const ev = JSON.parse(readFileSync(`${V}/events.json`, "utf8"));
-const narr = JSON.parse(readFileSync(`${V}/narration.json`, "utf8"));
+const vo = JSON.parse(readFileSync(`${V}/vo.json`, "utf8"));
 mkdirSync(`${V}/public/media`, { recursive: true }); mkdirSync(`${V}/public/audio`, { recursive: true });
+if (!existsSync(`${V}/public/media/bill.png`)) copyFileSync(`${V}/assets/bill.png`, `${V}/public/media/bill.png`);
 // the scene's own page first, then the pages it opened (Waive, Lull), in the order they were opened
 const videosOf = (scene) => { const main = ev[scene].video; const d = dirname(main); const others = readdirSync(d).filter((f) => f.endsWith(".webm")).map((f) => join(d, f)).filter((f) => f !== main).sort((a, b) => statSync(a).mtimeMs - statSync(b).mtimeMs); return [main, ...others]; };
-const media = (path) => { const name = basename(path); if (!existsSync(`${V}/public/media/${name}`)) copyFileSync(path, `${V}/public/media/${name}`); return `media/${name}`; };
+// Playwright's recordings have a variable frame rate and Remotion drops blank frames on them: each becomes a constant
+// 30 fps H.264 file once
+const media = (path) => { const name = basename(path, ".webm") + ".mp4"; const out = `${V}/public/media/${name}`; if (!existsSync(out)) { console.log("transcoding", basename(path)); execSync(`ffmpeg -loglevel error -y -i "${path}" -vf fps=30 -c:v libx264 -preset fast -crf 18 -pix_fmt yuv420p -an "${out}"`); } return `media/${name}`; };
 const audioFile = (file) => { const name = basename(file); const src = file.startsWith("/") ? file : `${V}/${file}`; if (!existsSync(`${V}/public/audio/${name}`)) copyFileSync(src, `${V}/public/audio/${name}`); return `audio/${name}`; };
 const s = (ms) => ms / 1000;
-const mark = (scene, name) => { const m = ev[scene].events.find((e) => e.type === "mark" && e.name === name); return m ? s(m.t) : null; };
+const mark = (scene, name) => { const m = ev[scene].events.find((e) => e.type === "mark" && e.name === name); if (!m) throw new Error(`no mark ${scene}/${name}`); return s(m.t); };
+/** One of Biscuit's lines from a scene, as the clip fetched when he said it. */
+const clip = (scene, re) => { const a = ev[scene].audio.find((c) => re.test(c.text)); if (!a) throw new Error(`no clip ${scene} ${re}`); return { file: audioFile(a.file), ms: a.ms, text: a.text }; };
+const GAP = 0.2;
 
-/** Biscuit's lines in a scene between two times, each at the moment its clip began playing, with the clip file. */
-function linesIn(scene, from, to, { skip = [] } = {}) {
-  const E = ev[scene].events; const A = ev[scene].audio;
-  const plays = E.filter((e) => e.type === "play" && (e.duration ?? 1) > 0.2).map((e) => ({ t: s(e.t), used: false }));
-  const out = []; const lines = E.filter((x) => x.type === "line");
-  for (const e of lines) {
-    const clip = A.find((a) => a.text === e.text); if (!clip) continue;
-    const play = plays.find((p) => !p.used && p.t >= s(e.t) - 0.05 && p.t <= s(e.t) + 8);
-    // only the latest line sounds: a line asked for well before this one's clip started took its place, so this one never played
-    if (play && lines.some((l) => s(l.t) > s(e.t) && s(l.t) < play.t - 0.5)) continue;
-    if (play) play.used = true;
-    const at = play ? play.t : s(e.t) + 1.2;
-    if (skip.some((r) => r.test(e.text))) continue;
-    if (at < from || at > to) continue;
-    out.push({ at: at - from, file: audioFile(clip.file), ms: clip.ms, text: e.text });
-  }
-  return out;
+const segs = []; const track = []; let T = 0;
+/** Adds a segment; `audio` items are placed in order, each after the previous one ends (never overlapping), from their own `at` at the earliest. */
+function seg(g) {
+  const start = T; let end = 0;
+  for (const a of g.audio || []) { a.at = Math.max(a.at ?? 0, end); end = a.at + a.ms / 1000 + GAP; }
+  g.dur = g.dur ?? (g.to != null ? g.to - g.from : end + 0.3);
+  if (g.from != null && g.to == null) g.to = g.from + g.dur;
+  segs.push(g); T += g.dur; return start;
 }
-const rosaIn = (scene, from, to) => ev[scene].events.filter((e) => e.type === "rosa" && s(e.t) >= from && s(e.t) <= to).map((e) => ({ at: s(e.t) - from, dur: 3.5, text: e.text, who: "rosa" }));
-const HELLO = /^Hello! Biscuit here/;
-const segs = [];
+/** The narrator, at an absolute time; returns when the line ends. */
+function narrate(key, at) { const n = vo[key]; track.push({ at, file: audioFile(n.file), ms: n.ms, text: n.text }); return at + n.ms / 1000; }
+const title = (at, dur, text) => ({ at, dur, text, who: "title" });
+const rosa = (at, text) => ({ at, dur: 3.2, text, who: "rosa" });
 
-// 1 cold open: the chime and his question
-{ const sc = "rosa-loop", to = ev[sc].events.find((e) => e.type === "rosa").t / 1000 + 0.6;
-  // the chime screen two seconds before his first word, however long the voice took to arrive
-  const woof = ev[sc].events.find((e) => e.type === "line" && /^Woof/.test(e.text)); const wplay = ev[sc].events.find((e) => e.type === "play" && e.t >= woof.t);
-  const from = Math.max(mark(sc, "mail") - 0.2, s(wplay.t) - 2.2);
-  segs.push({ kind: "phone", video: media(videosOf(sc)[0]), from, to, audio: linesIn(sc, from, to, { skip: [HELLO] }), captions: [{ at: 0.4, dur: 4, text: "The mail came.", who: "title" }], callouts: [] }); }
-// 2 why
-segs.push({ kind: "card", dur: 10.5, title: "Biscuit", subtitle: "by Kindred AI", lines: ["Rosa is 78 and lives alone.", "She gets mail she can't read, and bills she may not owe.", "Ana lives across town."], audio: [{ at: 0.6, file: audioFile(narr["narr-why"].file), ms: narr["narr-why"].ms }] });
-// 3 Ana's setup
-{ const sc = "ana-setup", from = 0.6, to = 8.2;
-  segs.push({ kind: "laptop", video: media(videosOf(sc)[0]), from, to, audio: [{ at: 0.3, file: audioFile(narr["narr-setup"].file), ms: narr["narr-setup"].ms }], captions: [{ at: 0.2, dur: 7.5, text: "Ana, on her laptop: who Biscuit helps, then a code for Rosa's phone.", who: "title" }], callouts: [] }); }
-// 4 Rosa's setup
-{ const sc = "rosa-setup", from = mark(sc, "code-screen") - 0.3, to = mark(sc, "home") + 0.5;
-  // each caption holds until the next step's screen, so two never overlap
-  const steps = [["code-screen", "Rosa types the code."], ["voice", "Say hello."], ["consent", "Her yes, read aloud."], ["help-setup", "Help, set up."], ["done", "Ready."]];
-  const caps = steps.map(([m, text], i) => { const at = mark(sc, m) - from; const next = steps[i + 1] ? mark(sc, steps[i + 1][0]) - from : to - from; return { at, dur: Math.max(1, Math.min(3, next - at - 0.15)), text, who: "title" }; });
-  segs.push({ kind: "phone", video: media(videosOf(sc)[0]), from, to, audio: [], captions: caps, callouts: [{ at: 0.5, dur: 6, text: "Four steps on her phone" }] }); }
-// 5 the loop
-{ const sc = "rosa-loop", from = ev[sc].events.find((e) => e.type === "rosa").t / 1000 - 0.3, to = mark(sc, "sent") + 2.4;
-  const at = (m) => mark(sc, m) - from;
-  const done = ev[sc].events.find((e) => e.type === "line" && /^Done!/.test(e.text));
-  const tap = done ? [{ at: s(done.t) - from - 0.4, dur: 3.5, text: "She taps: Yes, Start It with Ana.", who: "title" }] : [];
-  segs.push({ kind: "phone", video: media(videosOf(sc)[0]), from, to, audio: linesIn(sc, from, to, { skip: [HELLO] }), captions: [...rosaIn(sc, from, to), ...tap],
-    callouts: [{ at: at("camera") + 0.2, dur: 5, text: "SAM 3.1 checks the frame" }, { at: at("reading") - 7, dur: 6.5, text: "Muse Spark 1.3 reads the page" }, { at: at("reading") + 1, dur: 6, text: "Every number inside a quote from the page" }, { at: at("questions") + 1, dur: 7, text: "Muse Voice Transcribe turns her words into text" }, { at: at("offer") - 3, dur: 8, text: "The hospital's own rule, from Waive" }, { at: at("sent") + 0.3, dur: 5, text: "Handed to Ana" }] }); }
-// 6 Ana's page, Waive, Lull
-{ const sc = "ana-page"; const vids = videosOf(sc);
-  // the family page stays on the main recording while the Waive page is open in its own, so this shot runs a little past the click
-  const fam0 = mark(sc, "family") - 2.0, wv = mark(sc, "waive") + 3.5, end = mark(sc, "recent") + 2, famDur = wv - fam0;
-  segs.push({ kind: "laptop", video: media(vids[0]), from: fam0, to: wv, audio: [{ at: 0.4, file: audioFile(narr["narr-ana"].file), ms: narr["narr-ana"].ms }], captions: [{ at: 0.3, dur: 3.2, text: "Welcome, Ana, with Rosa.", who: "title" }, { at: 3.6, dur: famDur - 3.8, text: "The bill, under Today, in Rosa's words. A dot on the day it is due.", who: "title" }], callouts: [] });
-  // the Waive page as it opened; the Lull page once it had loaded (its first seconds say "Opening Lull")
-  if (vids[1]) segs.push({ kind: "laptop", video: media(vids[1]), from: 0.4, to: 6.8, audio: [{ at: 0.4, file: audioFile(narr["narr-waive"].file), ms: narr["narr-waive"].ms }], captions: [{ at: 0.3, dur: 6, text: "The hospital's own rule, in Waive. The application starts here.", who: "title" }], callouts: [{ at: 0.3, dur: 6, text: "Waive · waive.kindred-ai.dev" }] });
-  if (vids[2]) segs.push({ kind: "laptop", video: media(vids[2]), from: 5.0, to: 9.4, audio: [{ at: 0.3, file: audioFile(narr["narr-lull"].file), ms: narr["narr-lull"].ms }], captions: [{ at: 0.3, dur: 4, text: "Lull: the Medicare programs that cover a caregiver's break, quoting the rule.", who: "title" }], callouts: [{ at: 0.3, dur: 4, text: "Lull · lull.kindred-ai.dev" }] });
-  segs.push({ kind: "laptop", video: media(vids[0]), from: end - 5.4, to: end, audio: [{ at: 0.2, file: audioFile(narr["narr-mailbox"].file), ms: narr["narr-mailbox"].ms }], captions: [{ at: 0.2, dur: 5.2, text: "The mailbox phone and the day, on the same page.", who: "title" }], callouts: [{ at: 0.2, dur: 5.2, text: "SAM 3.1 watches the box" }] }); }
-// 7 companion and Help
-{ const sc = "rosa-companion", from = mark(sc, "home") - 0.4, to = mark(sc, "help") + 5.2;
-  const at = (m) => mark(sc, m) - from;
-  segs.push({ kind: "phone", video: media(videosOf(sc)[0]), from, to, audio: linesIn(sc, from, to, { skip: [HELLO] }), captions: rosaIn(sc, from, to),
-    callouts: [{ at: 0.3, dur: 4, text: "Just talk to him" }, { at: at("settings") + 0.3, dur: 2.5, text: "The reminder, kept" }, { at: at("pause") + 0.2, dur: 3, text: "Pause: the ear closes" }, { at: at("hold") - 0.3, dur: 3, text: "Help: hold two seconds" }, { at: at("help") + 0.4, dur: 4.5, text: "Ana's phone buzzed" }] }); }
-// 8 close
-segs.push({ kind: "end", dur: 8, audio: [{ at: 0.5, file: audioFile(narr["narr-end"].file), ms: narr["narr-end"].ms }] });
+// 1 the hook: the bill, the numbers, the stakes
+{ const t = seg({ kind: "hook", dur: vo["vo-hook"].ms / 1000 + 0.6, image: "media/bill.png", kinetic: [{ at: 0.9, dur: 4.2, text: "$1,234.50", sub: "Massachusetts General Hospital" }, { at: 5.3, dur: 5.2, text: "Rosa, 78.", sub: "Lives alone. Can't read it." }, { at: 10.7, dur: 5.5, text: "She may owe nothing.", sub: "Nobody told her." }] });
+  narrate("vo-hook", t + 0.4); }
+// 2 the title
+{ const t = seg({ kind: "card", dur: 2.1, title: "Biscuit", subtitle: "by Kindred AI", lines: [] }); narrate("vo-title", t + 0.15); }
+// 3 who: Ana's setup, then Rosa's four steps, under the founder's introduction
+{ const sc = "ana-setup"; const t = seg({ kind: "laptop", video: media(videosOf(sc)[0]), from: 0.6, dur: 6.8, captions: [title(0.3, 6.3, "Ana, Rosa's daughter, sets Biscuit up from her laptop.")] });
+  const endWho = narrate("vo-who", t + 0.2);
+  const sr = "rosa-setup", from = mark(sr, "code-screen") - 0.3;
+  const steps = [["code-screen", "Rosa types the code."], ["voice", "Says hello."], ["consent", "Her yes, read aloud."], ["help-setup", "Help, set up."], ["done", "Ready."]];
+  const dur = endWho + 0.3 - T;
+  const caps = steps.map(([m, text], i) => { const at = mark(sr, m) - from; const next = steps[i + 1] ? mark(sr, steps[i + 1][0]) - from : dur; return title(at, Math.max(1, Math.min(3, next - at - 0.15)), text); });
+  seg({ kind: "phone", video: media(videosOf(sr)[0]), from, dur, captions: caps, callouts: [{ at: 0.4, dur: 5, text: "Four steps, once" }] }); }
+// 4 the mail: the chime
+{ const sc = "rosa-loop"; const from = mark(sc, "mail") - 0.3; const t = seg({ kind: "phone", video: media(videosOf(sc)[0]), from, to: mark(sc, "camera"), audio: [{ at: vo["vo-mail-a"].ms / 1000 + 0.45, ...clip(sc, /^Woof/) }], captions: [] });
+  narrate("vo-mail-a", t + 0.2);
+  const g = segs[segs.length - 1]; g.captions.push(rosa(g.audio[0].at + g.audio[0].ms / 1000 + 0.3, "yes")); }
+// 5 the picture
+{ const sc = "rosa-loop"; const from = mark(sc, "camera") - 0.1; const t = seg({ kind: "phone", video: media(videosOf(sc)[0]), from, dur: vo["vo-mail-b"].ms / 1000 + 0.9, push: [{ at: 0.8, dur: 4.2, x: 195, y: 300, scale: 1.3 }], callouts: [{ at: 0.5, dur: 4.5, text: "A whole letter in the frame" }] });
+  narrate("vo-mail-b", t + 0.3); }
+// 6 the reading: his verdict, then the fields, pushed in on a second pass while the narrator speaks
+{ const sc = "rosa-loop"; const r = mark(sc, "reading"); const bill = clip(sc, /^This is a bill/);
+  const t = seg({ kind: "phone", video: media(videosOf(sc)[0]), from: r - 0.6, dur: 6.5, audio: [{ at: 0.75, ...bill }], callouts: [{ at: 3.6, dur: 4.2, text: "Every number comes from the page" }] });
+  const endRead = narrate("vo-read", t + 0.75 + bill.ms / 1000 + GAP);
+  seg({ kind: "phone", video: media(videosOf(sc)[0]), from: r + 1.6, dur: endRead + 0.35 - T, push: [{ at: 0.3, dur: 3.8, x: 195, y: 430, scale: 1.35 }], callouts: [{ at: 0.4, dur: 3.6, text: "She can change any line" }] }); }
+// 7 the questions, in two shots so the waits are cut
+{ const sc = "rosa-loop"; const q = mark(sc, "questions");
+  const t = seg({ kind: "phone", video: media(videosOf(sc)[0]), from: q - 0.2, dur: 11.0, audio: [{ at: vo["vo-q-a"].ms / 1000 + 0.45, ...clip(sc, /^Is this the first bill/) }], callouts: [{ at: 0.4, dur: 4, text: "By voice, on the phone" }] });
+  narrate("vo-q-a", t + 0.2);
+  const g1 = segs[segs.length - 1]; g1.captions = [rosa(g1.audio[0].at + g1.audio[0].ms / 1000 + 0.4, "not sure")]; g1.dur = g1.captions[0].at + 2.6; g1.to = g1.from + g1.dur;
+  const r2 = ev[sc].events.filter((e) => e.type === "rosa")[2]; // her "yes" to the second question
+  const t2 = seg({ kind: "phone", video: media(videosOf(sc)[0]), from: s(r2.t) - 9.9, dur: 8.6, audio: [{ at: 1.3, ...clip(sc, /^Did you already pay/) }], captions: [] });
+  const g2 = segs[segs.length - 1]; const yesAt = g2.audio[0].at + g2.audio[0].ms / 1000 + 0.5; g2.captions.push(rosa(yesAt, "yes"));
+  narrate("vo-q-b", t2 + yesAt + 0.5); }
+// 8 the hand-off: the narrator, then Biscuit's offer, her tap, Sent
+{ const sc = "rosa-loop"; const from = mark(sc, "offer") - 0.6; const sent = mark(sc, "sent");
+  const t = seg({ kind: "phone", video: media(videosOf(sc)[0]), from, to: sent + 0.9, audio: [{ at: vo["vo-rule"].ms / 1000 + 0.45, ...clip(sc, /^Massachusetts General/) }, { ...clip(sc, /^I can start the application/) }, { ...clip(sc, /^Done! Ana/) }], captions: [], push: [{ at: 8.0, dur: 5.5, x: 195, y: 250, scale: 1.3 }, { at: sent - from + 0.2, dur: 1.6, x: 300, y: 330, scale: 1.3 }], callouts: [{ at: 1.0, dur: 5.5, text: "The hospital's own rule" }] });
+  narrate("vo-rule", t + 0.2);
+  const g = segs[segs.length - 1]; const done = g.audio[2]; done.at = Math.max(done.at, g.audio[1].at + g.audio[1].ms / 1000 + 1.0); g.captions.push(title(done.at - 0.9, 3.4, "She taps: Yes, Start It with Ana.")); }
+// 9 Ana: her page, the day, the application, the family's break
+{ const sc = "ana-page"; const vids = videosOf(sc); const fam = mark(sc, "family");
+  const t = seg({ kind: "laptop", video: media(vids[0]), from: fam - 1.5, dur: 6.5, captions: [title(0.3, 6, "Welcome, Ana, with Rosa.")] });
+  const endAna = narrate("vo-ana", t + 0.2);
+  seg({ kind: "laptop", video: media(vids[0]), from: fam + 5.0, dur: 4.0, push: [{ at: 0.2, dur: 3.6, x: 1300, y: 660, scale: 1.5 }], captions: [title(0.3, 3.6, "Needs You: one button starts the application.")] });
+  seg({ kind: "laptop", video: media(vids[1]), from: 0.4, dur: 3.6, captions: [title(0.2, 3.3, "Kindred · the application, under the hospital's own rule")] });
+  seg({ kind: "laptop", video: media(vids[2]), from: 5.0, dur: Math.max(3.6, endAna + 0.3 - T), captions: [title(0.2, 3.6, "Kindred · the family's break")] }); }
+// 10 the rest of the day, in three shots
+{ const sc = "rosa-companion"; const v = media(videosOf(sc)[0]); const home = mark(sc, "home");
+  seg({ kind: "phone", video: v, from: home - 0.4, dur: 3.0, captions: [rosa(0.8, "Biscuit, remind me about my pills at eight.")], callouts: [{ at: 0.3, dur: 2.7, text: "Just talk to him" }] });
+  const chime = clip(sc, /^I will chime/); const t = seg({ kind: "phone", video: v, from: home + 6.0, dur: 10.6, audio: [{ at: 0.6, ...chime }], callouts: [{ at: mark(sc, "settings") - home - 6.0 + 0.3, dur: 2.5, text: "The reminder, kept" }, { at: mark(sc, "pause") - home - 6.0 + 0.2, dur: 2.2, text: "Pause: he stops listening" }] });
+  narrate("vo-day", t + 0.6 + chime.ms / 1000 + GAP);
+  const hold = mark(sc, "hold"); seg({ kind: "phone", video: v, from: hold - 0.6, dur: 7.2, audio: [{ at: mark(sc, "help") - hold + 2.6, ...clip(sc, /^Ana knows/) }], callouts: [{ at: 0.3, dur: 2.6, text: "Help: hold two seconds" }, { at: mark(sc, "help") - hold + 1.0, dur: 3.5, text: "Ana's phone buzzed" }] }); }
+// 11 behind the scenes
+{ const t = seg({ kind: "meta", dur: vo["vo-meta"].ms / 1000 + 0.4, rows: [["SAM 3.1", "watches the mailbox and checks the frame"], ["Muse Spark 1.3", "reads the bill and talks with Rosa"], ["Muse Voice Transcribe", "hears her"]] }); narrate("vo-meta", t + 0.3); }
+// 12 the payoff
+{ const t = seg({ kind: "payoff", dur: vo["vo-payoff"].ms / 1000 + 3.6, image: "media/bill.png" }); narrate("vo-payoff", t + 0.3); }
 
-for (const g of segs) g.dur = g.dur ?? g.to - g.from;
 const total = segs.reduce((n, g) => n + g.dur, 0);
-writeFileSync(`${V}/public/timeline.json`, JSON.stringify({ fps: 30, segments: segs }, null, 1));
-console.log(segs.map((g, i) => `${i + 1}. ${g.kind} ${g.dur.toFixed(1)}s audio=${g.audio?.length || 0}`).join("\n"));
+writeFileSync(`${V}/public/timeline.json`, JSON.stringify({ fps: 30, vo: track, segments: segs }, null, 1));
+let acc = 0; for (const [i, g] of segs.entries()) { console.log(`${String(i + 1).padStart(2)}. ${g.kind.padEnd(7)} at ${acc.toFixed(1).padStart(6)}  ${g.dur.toFixed(1)}s  audio=${g.audio?.length || 0}`); acc += g.dur; }
 console.log(`total ${total.toFixed(1)} s`);
+for (const n of track) console.log(`vo ${n.at.toFixed(1)}-${(n.at + n.ms / 1000).toFixed(1)} ${n.text.slice(0, 40)}`);
