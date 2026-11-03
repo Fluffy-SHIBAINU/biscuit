@@ -1,0 +1,14 @@
+node_modules/
+raw/
+out/
+frames/
+audio/
+public/media/
+public/audio/
+public/timeline.json
+state.json
+events.json
+narration.json
+remotion.log
+assets/bill.y4m
+assets/silence.wav
