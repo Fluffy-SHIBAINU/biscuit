@@ -2,8 +2,14 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { eq } from "drizzle-orm";
 import { createApp } from "../server/app.js";
 import { getDb } from "../server/db.js";
-import { cameraStatus } from "../server/routes/ana.js";
+import { cameraStatus, caretakerName } from "../server/routes/ana.js";
 import { cam, device, event, household, letter } from "../server/schema.js";
+
+test("caretakerName: the account's first name, else the email's first word", () => {
+  expect(caretakerName({ name: "Ana Alvarez", email: "x@y.z" })).toBe("Ana");
+  expect(caretakerName({ email: "ana.alvarez@gmail.com" })).toBe("Ana");
+  expect(caretakerName({ email: "" })).toBe("there");
+});
 
 test("cameraStatus", () => {
   const now = new Date("2026-10-27T12:00:00Z");

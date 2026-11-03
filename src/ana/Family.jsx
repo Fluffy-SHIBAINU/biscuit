@@ -56,7 +56,7 @@ export default function Family() {
   if (state === "ok" && pathId && pathId !== fam.household.id) return <main className="screen ana"><span className="label">Biscuit · Family Page</span><h1 className="display small">Not Your Family's Page</h1><p className="lead small">This address belongs to another family. <a href={`/${fam.household.id}`} className="link" onClick={(e) => { e.preventDefault(); navigate(`/${fam.household.id}`); }}>Open Your Page</a></p></main>;
   if (state !== "ok") return <main className="screen ana"><span className="label">Biscuit · Family Page</span><p className="lead small">{state === "error" ? "Couldn't load the page. Try again in a moment." : "One Moment"}</p></main>;
 
-  const { household: h, letters, said, events, camera, help, devices } = fam;
+  const { household: h, letters, said, events, camera, help, devices, caretaker } = fam;
   // The admin view: the founder's household and ?admin=1, never anyone else; nothing of it is rendered otherwise.
   const adminView = isAdminView(search, h.admin);
   const Admin = ({ children }) => (adminView ? <Details open>{children}</Details> : null);
@@ -72,7 +72,7 @@ export default function Family() {
   return (
     <main className="screen ana wide">
       <header className="row between wrap">
-        <div><span className="label">Biscuit · Family Page</span><h1 className="display small">{h.called}</h1></div>
+        <div><span className="label">Biscuit · Family Page</span><h1 className="display small">Welcome, {caretaker || "there"}, with {h.called}</h1></div>
         <span className="label plain right">Signed in with Kindred ID</span>
       </header>
       {note && <p className="lead small signal">{note}</p>}

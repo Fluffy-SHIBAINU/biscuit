@@ -16,7 +16,7 @@ export default function WhoFor() {
   }
   return (
     <main className="screen ana">
-      <span className="label">Set Up · 1 of 3</span>
+      <span className="label">Step 1 of 3 · Who Biscuit Helps</span>
       <h1 className="display small">Who Does Biscuit Help?</h1>
       <label className="field"><span>Their Name</span><input value={f.seniorName} onChange={set("seniorName")} placeholder="Rosa Alvarez" /></label>
       <label className="field"><span>What Biscuit Calls Them</span><input value={f.called} onChange={set("called")} placeholder="Rosa" /></label>

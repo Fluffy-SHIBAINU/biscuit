@@ -30,12 +30,12 @@ export default function LinkCode() {
   const phone = kind === "cam" ? "the Spare Phone" : "Rosa's Phone";
   return (
     <main className="screen ana">
-      <span className="label">Set Up · {kind === "cam" ? "3 of 3 · Mailbox Phone" : "2 of 3 · Rosa's Phone"}</span>
+      <span className="label">{kind === "cam" ? "Step 3 of 3 · Mailbox Phone" : "Step 2 of 3 · Rosa's Phone"}</span>
       <h1 className="display small">{kind === "cam" ? "Make a Spare Phone the Mailbox Camera" : "Link Rosa's Phone"}</h1>
       <section className="card">
         <span className="label">On {phone}</span>
         <Qr text={code ? linkUrl(code, kind, window.location.origin) : ""} alt={`Link code for ${phone}`} />
-        <p className="lead small center">Scan With {phone} · Or Type the Code</p>
+        <p className="lead small center">Scan this with {phone}, or type the code.</p>
         {kind === "rosa" ? (
           <ol className="steps"><li>Open <strong>biscuit.kindred-ai.dev</strong> in Safari or Chrome.</li><li>Share, then <strong>Add to Home Screen</strong>, then open Biscuit from there.</li><li>Type this code.</li></ol>
         ) : (

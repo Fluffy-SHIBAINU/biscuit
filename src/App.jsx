@@ -80,7 +80,7 @@ function route(path, s) {
   if (path === "/help/after") return <AfterHelp />;
   if (path === "/setup/voice") return <VoiceCheck />;
   if (path === "/setup/consent") return <Consent />;
-  if (path === "/setup/help") return <SetupHelp onDone={() => navigate("/setup/siri")} />;
+  if (path === "/setup/help") return <SetupHelp onDone={() => navigate("/setup/done")} />;
   if (path === "/setup/siri") return <Siri />;
   if (path === "/setup/done") return <Done />;
   if (path === "/settings") return <Settings />;

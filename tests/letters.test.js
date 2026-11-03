@@ -78,3 +78,13 @@ test("addressedTo and editFor", () => {
   expect(editFor("due_date", "soon")).toBeNull();
   expect(editFor("hospital_name", "x")).toBeNull();
 });
+
+import { withAddressee } from "../src/lib/letters.js";
+// A letter Rosa claims as hers carries her name as the addressee from then on, in the value and in the line Ana sees.
+test("withAddressee puts Rosa's name on the letter, replacing or adding the addressee fact", () => {
+  const facts = [{ field: "addressee", value: "Sangphil Yoon", quote: "Sangphil Yoon", verified: true }, { field: "amount_due", value: "$10", quote: "$10", verified: true }];
+  const out = withAddressee(facts, "Rosa");
+  expect(out[0]).toMatchObject({ field: "addressee", value: "Rosa", quote: "Rosa", verified: true, edited: true });
+  expect(out[1].value).toBe("$10");
+  expect(withAddressee([], "Rosa")[0]).toMatchObject({ field: "addressee", value: "Rosa" });
+});

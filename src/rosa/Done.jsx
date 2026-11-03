@@ -10,21 +10,18 @@ export default function Done() {
   const s = useStore();
   const name = s.household?.called || "Rosa";
   useEffect(() => () => stopSpeaking(), []);
-  const rows = [
-    [`${name}'s phone linked to Ana`, "done"],
-    [s.buttonsMode ? "Voice: using buttons for now" : `Voice: heard ${name}`, s.buttonsMode ? "later" : "done"],
-    [`${name} said yes`, s.consentedAt ? `${clock(s.consentedAt)} · kept as the record of consent` : "not yet"],
-    ["Help calls 911 and tells Ana", s.helpTested ? "test reached Ana's page" : "test not run yet"],
-    ["Mail chime", s.pushSubscribed ? "on" : "turn it on from Home"],
-  ];
   return (
     <main className="screen">
-      <div className="row between"><span className="label">Set up for {name} · done</span><span className="label plain">{name}'s phone</span></div>
+      <div className="row between"><span className="label">Set Up · Done</span><span className="label plain">{name}'s phone</span></div>
       <div className="row"><Dog size={64} /><h1 className="display small">Biscuit Is Ready</h1></div>
-      <section className="card facts">{rows.map(([t, d]) => <div key={t} className="fact"><strong>{t}</strong><span className="label plain">{d}</span></div>)}</section>
-      <section className="card"><span className="label">Ana's Page</span><p className="lead small">biscuit.kindred-ai.dev/ana · letters read, what Biscuit said, the mailbox phone, the Help status. Nothing goes to a hospital from there.</p></section>
+      <section className="card facts">
+        <div className="fact"><strong>Mail</strong><span className="lead small">He chimes when it comes and reads a letter when you show him.</span></div>
+        <div className="fact"><strong>Talk</strong><span className="lead small">Just talk to him. Say stop and he stops.</span></div>
+        <div className="fact"><strong>Help</strong><span className="lead small">Hold Help two seconds, or say Biscuit, help.</span></div>
+        <div className="fact"><strong>Ana</strong><span className="lead small">Her page shows the letters he read and what he said.</span></div>
+      </section>
       <div className="spacer" />
-      <button type="button" className="btn big" onClick={async () => { await speak([`Hello, ${name}. I'm Biscuit. I speak up when the mail comes and when you ask. Say stop and I stop.`]); navigate("/"); }}>Let Biscuit Say Hello</button>
+      <button type="button" className="btn big" onClick={async () => { await speak([`Hello, ${name}. I'm Biscuit. I read the mail, and you can just talk to me.`]); navigate("/"); }}>Let Biscuit Say Hello</button>
       <button type="button" className="btn secondary" onClick={() => navigate("/")}>Home</button>
     </main>
   );

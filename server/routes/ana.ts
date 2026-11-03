@@ -12,6 +12,13 @@ import { DEFAULT_TZ, localParts, validTz } from "../chime.js";
 import { isCollectOwner } from "../cam.js";
 
 const LIVING = ["alone", "with_family", "with_care"];
+/** Ana's own name for the greeting: the Kindred account's name when it has one, else the first part of her email, capitalised. */
+export function caretakerName(u: { name?: string | null; email: string }): string {
+  const n = (u.name || "").trim();
+  if (n) return n.split(/\s+/)[0];
+  const local = (u.email || "").split("@")[0].split(/[._-]/)[0];
+  return local ? local[0].toUpperCase() + local.slice(1) : "there";
+}
 const CLEAN = (v: unknown, max = 80) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
 /** How many clips each group of the carousel carries at once, newest first. */
@@ -203,6 +210,7 @@ export function anaRoutes(o: { env?: Record<string, string | undefined>; events?
       const closed = openHelp ? events.some((e) => (e.kind === "help_ok" || e.kind === "help_cancel") && e.at > openHelp.at) : true;
       return c.json({
         // `admin`: the founder's household; Ana's page opens every Details disclosure for it and keeps them closed for everyone else.
+        caretaker: caretakerName(c.var.kindredUser as any),
         household: { id: h.id, seniorName: h.seniorName, called: h.called, relation: h.relation, living: h.living, language: h.language, shareLetters: h.shareLetters, consentedAt: h.consentedAt, mailMinutes: h.mailMinutes ?? null, tz: h.tz ?? null, keepClips: h.keepClips, keepClipsAt: h.keepClipsAt, shareClips: h.shareClips, shareClipsAt: h.shareClipsAt, admin: isCollectOwner(o.env ?? process.env, h.ownerEmail) },
         devices: devices.map((d) => ({ id: d.id, kind: d.kind, label: d.label, lastSeenAt: d.lastSeenAt, hasPush: Boolean(d.pushSubscription), battery: d.battery, charging: d.charging })),
         // Each letter carries the fields Rosa corrected on her phone (her words are the row's values now) and where Ana passed it.

@@ -37,7 +37,7 @@ export default function EnterCode() {
   if (waitForInstall) {
     return (
       <main className="screen">
-        <span className="label">Set Up · Link This Phone</span>
+        <span className="label">Step 1 of 4 · Link This Phone</span>
         <h1 className="display">Add Biscuit to the Home Screen First</h1>
         <ol className="steps"><li>Tap Share, then <strong>Add to Home Screen</strong>.</li><li>Open Biscuit from the icon.</li><li>Type this code there.</li></ol>
         <div className="codebox">{scanned.code.slice(0, 3)} {scanned.code.slice(3)}</div>
@@ -50,11 +50,11 @@ export default function EnterCode() {
 
   return (
     <main className="screen">
-      <span className="label">Set Up · Link This Phone</span>
-      <h1 className="display">{busy && scanned ? "Linking this phone." : "Type the code from Ana's phone."}</h1>
+      <span className="label">Step 1 of 4 · Link This Phone</span>
+      <h1 className="display">{busy && scanned ? "Linking This Phone" : "Type the Code From Ana's Phone"}</h1>
       <input className="code" inputMode="numeric" pattern="[0-9]*" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} aria-label="Six digit code" />
       {error && <p className="lead bad">{error}</p>}
-      {tries >= 3 && <p className="lead">Three misses. Ana taps New code on her phone, then try again.</p>}
+      {tries >= 3 && <p className="lead">Three misses. Ana taps New Code on her phone, then try again.</p>}
       <button type="button" className="btn big" disabled={code.length !== 6 || busy} onClick={() => submit()}>Link</button>
       <div className="spacer" />
       <p className="foot">Are you Ana? <a href="/ana" className="link" onClick={(e) => { e.preventDefault(); navigate("/ana"); }}>Open Your Page</a></p>

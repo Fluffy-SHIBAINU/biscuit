@@ -28,22 +28,19 @@ export default function SetupHelp({ onDone }) {
 
   return (
     <main className="screen">
-      <div className="row between"><span className="label">Step 4 of 6 · Help</span><span className="label plain">{name}'s phone</span></div>
-      <h1 className="display small">If {name} needs help.</h1>
-      <div className="btn danger" style={{ height: 64, pointerEvents: "none" }}>Help</div>
-      <span className="label plain center">On {name}'s home screen · hold 2 seconds, or say “Biscuit, help”</span>
-      <section className="card">
-        <span className="label">What Happens</span>
-        <div className="fact"><strong>1 · {name}'s phone calls 911</strong><span className="label plain">the phone's own emergency call · it asks “Call 911?” first, so a bump never dials · for this test, tap Cancel there: nothing is called, and the test still reaches Ana</span></div>
-        <div className="fact"><strong>2 · Ana is told at once</strong><span className="label plain">her page shows the time · her phone buzzes</span></div>
-        <div className="fact"><strong>3 · Afterwards: Call Ana, or I'm OK</strong><label className="field"><span>Ana's number, kept on this phone only</span><input inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="617 555 0142" /></label></div>
+      <div className="row between"><span className="label">Step 4 of 4 · Help</span><span className="label plain">{name}'s phone</span></div>
+      <h1 className="display small">If {name} Needs Help</h1>
+      <div className="btn danger" style={{ height: 76, pointerEvents: "none" }}>Help</div>
+      <section className="card facts">
+        <div className="fact"><strong>Hold It Two Seconds</strong><span className="lead small">{name}'s phone calls 911. It asks first, so a bump never dials.</span></div>
+        <div className="fact"><strong>Ana Is Told at Once</strong><span className="lead small">Her phone buzzes and her page shows the time.</span></div>
+        <div className="fact"><strong>Afterwards</strong><span className="lead small">Call Ana, or I'm OK.</span><label className="field"><span>Ana's Number</span><input inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="617 555 0100" /></label></div>
       </section>
-      {state === "got" && <section className="card status"><span className="pill ok">Got it</span><p className="lead small">Ana's page got the test. On a real Help her phone buzzes the same way.</p></section>}
-      {state === "missed" && <section className="card status"><span className="pill warn">Not yet</span><p className="lead small">Ana's page didn't get it in 30 seconds. Ana: open biscuit.kindred-ai.dev/ana on your phone, tap Get notified, then try again. Help still calls 911 either way.</p></section>}
+      {state === "got" && <section className="card status"><span className="pill ok">Got It</span><p className="lead small">Ana's page got the test.</p></section>}
+      {state === "missed" && <section className="card status"><span className="pill warn">Not Yet</span><p className="lead small">Ana's page didn't answer in thirty seconds. Ana can tap Get Notified on This Device on her page, then try again.</p></section>}
       <div className="spacer" />
-      <button type="button" className="btn secondary" disabled={state === "sending"} onClick={test}>{state === "sending" ? "Sending…" : state === "missed" ? "Try again" : "Send a test to Ana's page"} <span className="hint">never dials</span></button>
-      <button type="button" className="btn" onClick={finish}>{state === "got" ? "Next" : "Skip for now"}</button>
-      <p className="foot">Biscuit opens the call; {name} taps Call. He never speaks on the line and never dials by himself.</p>
+      <button type="button" className="btn secondary" disabled={state === "sending"} onClick={test}>{state === "sending" ? "Sending…" : state === "missed" ? "Try Again" : "Send a Test to Ana's Page"}</button>
+      <button type="button" className="btn" onClick={finish}>{state === "got" ? "Next" : "Skip for Now"}</button>
     </main>
   );
 }

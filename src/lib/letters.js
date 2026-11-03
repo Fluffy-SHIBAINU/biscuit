@@ -71,3 +71,10 @@ export function statusLine(l) {
     default: return [money, due ? `due ${due}` : null].filter(Boolean).join(", ") || "Read.";
   }
 }
+
+/** The letter is hers: the addressee fact becomes her name, value and line alike, so her phone and Ana's page say so. */
+export function withAddressee(facts, name) {
+  const fact = { field: "addressee", value: name, quote: name, verified: true, spoken: true, edited: true };
+  const list = Array.isArray(facts) ? facts : [];
+  return list.some((f) => f.field === "addressee") ? list.map((f) => (f.field === "addressee" ? { ...f, ...fact } : f)) : [fact, ...list];
+}

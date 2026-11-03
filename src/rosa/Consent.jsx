@@ -43,10 +43,10 @@ export default function Consent() {
 
   return (
     <main className="screen">
-      <div className="row between"><span className="label">Step 3 of 6 · {name}'s yes</span><span className="label plain">{name}'s phone</span></div>
-      <div className="row"><Dog size={64} /><h1 className="display small">{paused ? "Nothing is turned on." : "Biscuit reads this aloud."}</h1></div>
+      <div className="row between"><span className="label">Step 3 of 4 · {name}'s Yes</span><span className="label plain">{name}'s phone</span></div>
+      <div className="row"><Dog size={64} /><h1 className="display small">{paused ? "Nothing Is Turned On" : "Biscuit Reads This Aloud"}</h1></div>
       <section className="card night"><p className="lead small">{CONSENT_TEXT(name)}</p></section>
-      <label className="row toggle"><input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} /><span className="lead small">Ana may see the letters I read</span></label>
+      <label className="row toggle"><input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} /><span className="lead">Ana may see the letters I read</span></label>
       <div className="spacer" />
       {!paused && <><button type="button" className="btn big" onClick={yes}>Yes, Go On</button><button type="button" className="btn secondary" onClick={no}>No</button></>}
       {paused && <button type="button" className="btn secondary" onClick={() => setPaused(false)}>Ask Me Again</button>}

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Dog from "../components/Dog.jsx";
 import { patchLetter, postLetter } from "../lib/api.js";
-import { cents, isoDate, summaryOf } from "../lib/letters.js";
+import { cents, isoDate, summaryOf, withAddressee } from "../lib/letters.js";
 import { navigate } from "../lib/navigate.js";
 import { speakAndKeep, stopSpeaking } from "../lib/speech.js";
 import { releaseEar } from "../lib/ear.js";
@@ -74,7 +74,7 @@ export default function Reading() {
   function claimAsMine() {
     if (!r?.mine) return;
     stopSpeaking();
-    const entry = { ...r, mismatch: false, status: "read", needsReview: false, lines: r.mine.lines, offerLines: r.mine.offerLines };
+    const entry = { ...r, mismatch: false, status: "read", needsReview: false, lines: r.mine.lines, offerLines: r.mine.offerLines, facts: withAddressee(r.facts, name) };
     store.set((st) => ({ docket: st.docket.map((l) => (l.id === r.id ? { ...l, ...entry } : l)), lastReading: entry }));
     if (store.get().household?.shareLetters !== false) postLetter(summaryOf(entry)).catch(() => {});
   }
@@ -82,7 +82,7 @@ export default function Reading() {
   /** A corrected field: this phone keeps her words as the value (spoken from now on), and the server row takes what it can. */
   function edit(field, value) {
     const have = (r.facts || []).some((f) => f.field === field);
-    const facts = have ? (r.facts || []).map((f) => (f.field === field ? { ...f, value, verified: true, spoken: true, edited: true } : f)) : [{ field, value, quote: "", verified: true, spoken: true, edited: true }, ...(r.facts || [])];
+    const facts = have ? (r.facts || []).map((f) => (f.field === field ? { ...f, value, quote: value, verified: true, spoken: true, edited: true } : f)) : [{ field, value, quote: value, verified: true, spoken: true, edited: true }, ...(r.facts || [])];
     let entry = { ...r, facts, sender: field === "sender" ? value : r.sender };
     // The name on it changed: is it hers? Hers makes the letter hers (read in full, shared with Ana); another's makes it someone else's.
     if (field === "addressee") {
@@ -99,6 +99,8 @@ export default function Reading() {
     }
     const edits = editFor(field, value);
     if (edits && !entry.mismatch) patchLetter(r.id, { edits }).catch(() => {});
+    // Ana's page shows her words: the summary goes again with the corrected line.
+    if (!entry.mismatch && store.get().household?.shareLetters !== false) postLetter(summaryOf(entry)).catch(() => {});
   }
 
   /** On "not to you": Rosa can say it's mine. */
