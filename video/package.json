@@ -6,7 +6,7 @@
     "record": "node record.mjs",
     "narrate": "node narrate.mjs",
     "timeline": "node build-timeline.mjs",
-    "render": "npx remotion render src/index.ts Demo out/biscuit.mp4 --concurrency=2"
+    "render": "npx remotion render src/index.ts Demo out/biscuit-story-raw.mp4 --concurrency=3 && node repair.mjs out/biscuit-story-raw.mp4 out/biscuit-story.mp4"
   },
   "license": "ISC",
   "type": "commonjs",

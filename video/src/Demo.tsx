@@ -162,8 +162,8 @@ const Payoff: React.FC<{ seg: any }> = ({ seg }) => {
       <div style={{ position: "absolute", left: 900, top: 150, width: 920 }}>
         <div style={{ font: `400 24px ${MONO}`, letterSpacing: ".14em", textTransform: "uppercase", color: "#97A3B6", opacity: fadeIn(f - 6) }}>Massachusetts General Hospital · its own rule</div>
         <div style={{ font: `italic 400 46px/1.3 ${DISPLAY}`, marginTop: 22, color: "#C9D2E0", opacity: fadeIn(f - 12) }}>“Family Income % FPG Discount 0 to 150% 100%”</div>
-        <div style={{ font: `400 76px/1.05 ${DISPLAY}`, marginTop: 40, opacity: fadeIn(f - Math.round(1.9 * fps), 14), transform: `translateY(${rise(f - Math.round(1.9 * fps))}px)` }}>Rosa may owe nothing.</div>
-        <div style={{ font: `400 76px/1.05 ${DISPLAY}`, marginTop: 8, opacity: fadeIn(f - Math.round(2.9 * fps), 14), transform: `translateY(${rise(f - Math.round(2.9 * fps))}px)` }}>Now someone told her.</div>
+        <div style={{ font: `400 66px/1.1 ${DISPLAY}`, marginTop: 40, opacity: fadeIn(f - Math.round(1.9 * fps), 14), transform: `translateY(${rise(f - Math.round(1.9 * fps))}px)`, textWrap: "balance" as any }}>Biscuit Helps Rosa and Ana Save on Healthcare Bills.</div>
+        <div style={{ font: `400 40px/1.2 ${DISPLAY}`, marginTop: 22, color: "#C9D2E0", opacity: fadeIn(f - Math.round(2.9 * fps), 14), transform: `translateY(${rise(f - Math.round(2.9 * fps))}px)` }}>Powered by Meta and Kindred AI.</div>
       </div>
       <div style={{ position: "absolute", left: 900, bottom: 80, opacity: end, transform: `translateY(${(1 - end) * 12}px)` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 22 }}><Dog size={84} /><div><div style={{ font: `400 72px/1 ${DISPLAY}` }}>Biscuit</div><div style={{ font: `400 30px ${DISPLAY}`, marginTop: 8, color: "#C9D2E0" }}>biscuit.kindred-ai.dev</div></div></div>
